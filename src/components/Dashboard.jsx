@@ -19,7 +19,7 @@ export default function Dashboard() {
         const res = await fetch(
           "https://ttipl-globalconnect.com:5600/whatsapp/conversations"
         );
-        const data = await res.json();
+        const data = await res.json(); 
 
         // 🔥 Flatten conversations into single array
         const allMessages = Object.values(data.conversations || {}).flat();
@@ -78,30 +78,30 @@ export default function Dashboard() {
       color: "text-blue-600",
       bgColor: "bg-blue-50",
     },
-    // {
-    //   title: "Total Tokens",
-    //   value: (totalInputTokens + totalOutputTokens).toLocaleString(),
-    //   description: `${totalInputTokens.toLocaleString()} input, ${totalOutputTokens.toLocaleString()} output`,
-    //   icon: TrendingUp,
-    //   color: "text-purple-600",
-    //   bgColor: "bg-purple-50",
-    // },
-    // {
-    //   title: "LLM Cost",
-    //   value: `₹${totalLLMCostINR.toFixed(2)}`,
-    //   description: `$${totalLLMCostUSD.toFixed(4)} USD`,
-    //   icon: DollarSign,
-    //   color: "text-green-600",
-    //   bgColor: "bg-green-50",
-    // },
-    // {
-    //   title: "WhatsApp Cost",
-    //   value: `₹${totalWhatsAppCost.toFixed(2)}`,
-    //   description: `Total: ₹${totalCostINR.toFixed(2)}`,
-    //   icon: Coins,
-    //   color: "text-orange-600",
-    //   bgColor: "bg-orange-50",
-    // },
+    {
+      title: "Total Tokens",
+      value: (totalInputTokens + totalOutputTokens).toLocaleString(),
+      description: `${totalInputTokens.toLocaleString()} input, ${totalOutputTokens.toLocaleString()} output`,
+      icon: TrendingUp,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+    },
+    {
+      title: "LLM Cost",
+      value: `₹${totalLLMCostINR.toFixed(2)}`,
+      description: `$${totalLLMCostUSD.toFixed(4)} USD`,
+      icon: DollarSign,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+    },
+    {
+      title: "WhatsApp Cost",
+      value: `₹${totalWhatsAppCost.toFixed(2)}`,
+      description: `Total: ₹${totalCostINR.toFixed(2)}`,
+      icon: Coins,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+    },
   ];
 
   return (
@@ -137,7 +137,7 @@ export default function Dashboard() {
       </div>
 
       {/* ================= COST BREAKDOWN ================= */}
-      {/* <Card>
+      <Card>
         <CardHeader>
           <CardTitle>Cost Breakdown</CardTitle>
           <CardDescription>Detailed cost analysis</CardDescription>
@@ -186,7 +186,7 @@ export default function Dashboard() {
             </div>
           </div>
         </CardContent>
-      </Card> */}
+      </Card>
     </div>
   );
 }

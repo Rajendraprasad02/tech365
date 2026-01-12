@@ -169,7 +169,7 @@ export default function WhatsAppChat() {
                       )}
                     </div>
 
-                    {/* {(msg.llm_cost_inr > 0 || msg.whatsapp_cost > 0) && (
+                    {(msg.llm_cost_inr > 0 || msg.whatsapp_cost > 0) && (
                       <div className="text-xs mt-2 pt-2 border-t opacity-80">
                         {msg.llm_cost_inr > 0 && (
                           <span className="mr-3">
@@ -180,7 +180,7 @@ export default function WhatsAppChat() {
                           <span>WA: ₹{msg.whatsapp_cost.toFixed(2)}</span>
                         )}
                       </div>
-                    )} */}
+                    )}
                   </div>
                 </div>
               ))}
