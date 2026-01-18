@@ -1,9 +1,11 @@
-import { LayoutDashboard, MessageSquare, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Database, LogOut, Users } from 'lucide-react';
 
 export default function Sidebar({ activePage, onNavigate }) {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'conversations', label: 'Conversations', icon: MessageSquare },
+        { id: 'knowledge-base', label: 'Knowledge Base', icon: Database },
+        { id: 'contacts', label: 'Contacts', icon: Users },
     ];
 
     const handleSignOut = () => {

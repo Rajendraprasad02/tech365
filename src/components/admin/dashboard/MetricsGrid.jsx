@@ -1,18 +1,9 @@
-import { MessageCircle, Users, DollarSign, CheckCircle, Bot, Clock } from 'lucide-react';
+import { Users, DollarSign, CheckCircle, Bot, Clock } from 'lucide-react';
 import MetricCard from './MetricCard';
 
 // Default metrics (used as fallback and for unmapped data)
+// Note: Total Conversations is shown in HeroCards, not here
 const defaultMetrics = [
-    {
-        label: 'Total Conversations',
-        value: '0',
-        comparison: '',
-        trend: '+0%',
-        trendUp: true,
-        icon: MessageCircle,
-        iconBg: 'purple',
-        sparkline: 'M0,30 L10,28 L20,25 L30,22 L40,24 L50,18 L60,15 L70,12 L80,8 L90,5 L100,2'
-    },
     {
         label: 'Active Users',
         value: '0',
@@ -66,18 +57,10 @@ const defaultMetrics = [
     },
 ];
 
-export default function MetricsGrid({ totalConversations, activeUsers, costPerConversation, avgResponseTime }) {
+export default function MetricsGrid({ activeUsers, costPerConversation, avgResponseTime }) {
     // Merge API data with default metrics
     const metrics = defaultMetrics.map(metric => {
         switch (metric.label) {
-            case 'Total Conversations':
-                return {
-                    ...metric,
-                    value: totalConversations?.value || metric.value,
-                    comparison: totalConversations?.comparison || metric.comparison,
-                    trend: totalConversations?.trend || metric.trend,
-                    trendUp: totalConversations?.trendUp ?? metric.trendUp,
-                };
             case 'Active Users':
                 return {
                     ...metric,
@@ -106,7 +89,7 @@ export default function MetricsGrid({ totalConversations, activeUsers, costPerCo
     });
 
     return (
-        <div className="grid grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
             {metrics.map((metric, index) => (
                 <MetricCard key={index} metric={metric} />
             ))}

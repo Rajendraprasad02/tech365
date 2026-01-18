@@ -43,8 +43,8 @@ export default function HeroCards({ walletBalance, activeConversations, whatsapp
                     <MessageCircle size={18} />
                     <span className="font-medium">WhatsApp Cost</span>
                 </div>
-                <div className="text-3xl font-bold mb-1">{whatsappCost?.total || 'Total: $0.00'}</div>
-                <div className="text-white/70 text-sm">{whatsappCost?.inr || '₹0.00'}</div>
+                <div className="text-3xl font-bold mb-1">{whatsappCost?.inr || '₹0.00'}</div>
+                <div className="text-white/70 text-sm">{whatsappCost?.total || '$0.0000 USD'}</div>
             </div>
         </div>
     );

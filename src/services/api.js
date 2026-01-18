@@ -81,6 +81,29 @@ export async function searchFaqs(keyword) {
     return fetchApi(`/faqs/search?keyword=${encodeURIComponent(keyword)}`);
 }
 
+// ============ Knowledge Base APIs ============
+
+// Get all knowledge base entries
+export async function getKnowledgeBase(skip = 0, limit = 100, category = null) {
+    let endpoint = `/knowledge/all?skip=${skip}&limit=${limit}`;
+    if (category) {
+        endpoint += `&category=${encodeURIComponent(category)}`;
+    }
+    return fetchApi(endpoint);
+}
+
+// Delete a knowledge base entry
+export async function deleteKnowledgeEntry(entryId) {
+    return fetchApi(`/knowledge/${entryId}`, { method: 'DELETE' });
+}
+
+// ============ Dashboard Stats APIs ============
+
+// Get WhatsApp dashboard stats (sent, delivered, read, failed)
+export async function getWhatsAppDashboardStats() {
+    return fetchApi('/whatsapp/dashboard/stats');
+}
+
 export default {
     getSessions,
     getSessionById,
@@ -90,4 +113,5 @@ export default {
     searchKnowledge,
     getFaqs,
     searchFaqs,
+    getWhatsAppDashboardStats,
 };

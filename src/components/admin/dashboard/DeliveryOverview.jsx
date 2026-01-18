@@ -1,5 +1,4 @@
 import { Send, CheckCheck, Eye, XCircle } from 'lucide-react';
-import { deliveryStats } from '../../../constants';
 
 const deliveryCards = [
     { key: 'sent', label: 'Sent', icon: Send, iconBg: 'bg-violet-100 text-violet-600', rateColor: 'text-violet-500' },
@@ -8,7 +7,15 @@ const deliveryCards = [
     { key: 'failed', label: 'Failed', icon: XCircle, iconBg: 'bg-red-100 text-red-500', rateColor: 'text-red-500' },
 ];
 
-export default function DeliveryOverview() {
+// Default fallback stats
+const defaultStats = {
+    sent: { value: '0', rate: '0%' },
+    delivered: { value: '0', rate: '0%' },
+    read: { value: '0', rate: '0%' },
+    failed: { value: '0', rate: '0%' },
+};
+
+export default function DeliveryOverview({ deliveryStats = defaultStats }) {
     return (
         <div className="mb-6 animate-fade-in">
             <div className="mb-3">
@@ -24,9 +31,9 @@ export default function DeliveryOverview() {
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${iconBg}`}>
                             <Icon size={16} />
                         </div>
-                        <div className="text-2xl font-bold text-gray-900 mb-0.5">{deliveryStats[key].value}</div>
+                        <div className="text-2xl font-bold text-gray-900 mb-0.5">{deliveryStats[key]?.value || '0'}</div>
                         <div className="text-xs text-gray-500 mb-1">{label}</div>
-                        <div className={`text-xs font-medium ${rateColor}`}>{deliveryStats[key].rate}</div>
+                        <div className={`text-xs font-medium ${rateColor}`}>{deliveryStats[key]?.rate || '0%'}</div>
                     </div>
                 ))}
             </div>

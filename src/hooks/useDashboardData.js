@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getSessions, getWhatsAppConversations, getWhatsAppCosts } from '../services/api';
+import { getSessions, getWhatsAppConversations, getWhatsAppDashboardStats } from '../services/api';
+import { calculateCostFromMessages, WHATSAPP_COSTS } from '../config/whatsappCosts';
 
 // Helper to group sessions by date for chart data
 function groupSessionsByDay(sessions) {
@@ -151,6 +152,12 @@ export function useDashboardData() {
         conversationVolumeData: [],
         hourlyActivityData: [],
         recentConversations: [],
+        deliveryStats: {
+            sent: { value: '0', rate: '0%' },
+            delivered: { value: '0', rate: '0%' },
+            read: { value: '0', rate: '0%' },
+            failed: { value: '0', rate: '0%' },
+        },
     });
 
     const fetchDashboardData = useCallback(async () => {
@@ -158,10 +165,10 @@ export function useDashboardData() {
         setError(null);
 
         try {
-            const [sessionsRes, conversationsRes, costsRes] = await Promise.allSettled([
+            const [sessionsRes, conversationsRes, dashboardStatsRes] = await Promise.allSettled([
                 getSessions(),
                 getWhatsAppConversations(),
-                getWhatsAppCosts(),
+                getWhatsAppDashboardStats(),
             ]);
 
             // Handle sessions - could be array directly or { sessions: [...] }
@@ -173,6 +180,7 @@ export function useDashboardData() {
 
             // Handle conversations - API returns { conversations: { phone: [...] }, total_users: n }
             let activeUserCount = 0;
+            let allMessages = [];
             if (conversationsRes.status === 'fulfilled') {
                 const convData = conversationsRes.value;
                 activeUserCount = convData?.total_users || 0;
@@ -181,18 +189,23 @@ export function useDashboardData() {
                 if (!activeUserCount && convData?.conversations) {
                     activeUserCount = Object.keys(convData.conversations).length;
                 }
+
+                // Flatten all messages from conversations for WhatsApp cost calculation
+                if (convData?.conversations) {
+                    allMessages = Object.values(convData.conversations).flat();
+                }
             }
 
-            // Handle costs
-            const costs = costsRes.status === 'fulfilled' ? costsRes.value : null;
-            const llmCostUsd = costs?.llm_cost_usd || costs?.total_llm_cost || 0;
-            const llmCostInr = costs?.llm_cost_inr || (llmCostUsd * 83);
-            const whatsappCostUsd = costs?.whatsapp_cost || costs?.total_cost_usd || 0;
-            const whatsappCostInr = costs?.whatsapp_cost_inr || costs?.total_cost_inr || (whatsappCostUsd * 83);
-            const totalCost = llmCostUsd + whatsappCostUsd;
+            // Calculate WhatsApp costs using category rate × exchange rate formula
+            const whatsAppCostData = calculateCostFromMessages(allMessages);
+            const whatsappCostUsd = parseFloat(whatsAppCostData.totalUSD);
+            const whatsappCostInr = parseFloat(whatsAppCostData.totalINR);
+
+            // Calculate LLM costs from messages
+            const llmCostUsd = allMessages.reduce((sum, m) => sum + (m.llm_cost_usd || 0), 0);
+            const llmCostInr = allMessages.reduce((sum, m) => sum + (m.llm_cost_inr || 0), 0);
 
             const totalConversations = sessions.length;
-            const costPerConv = totalConversations > 0 ? totalCost / totalConversations : 0;
 
             // Chart data
             const conversationVolumeData = groupSessionsByDay(sessions);
@@ -206,13 +219,63 @@ export function useDashboardData() {
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .slice(0, 4)
                 .map((session, index) => ({
-                    name: session.user_name || session.name || `User ${index + 1}`,
+                    name: session.whatsapp || session.name || session.email || `Unknown`,
                     status: session.status || 'active',
-                    message: session.last_message || session.messages?.[session.messages.length - 1]?.content || 'No messages',
+                    message: session.conversation?.[session.conversation.length - 1]?.text || 'No messages',
                     time: formatTimeAgo(session.created_at),
-                    count: `${session.message_count || session.messages?.length || 0} messages`,
+                    count: `${session.conversation?.length || 0} messages`,
                     color: ['#10b981', '#f59e0b', '#6366f1', '#ec4899'][index % 4],
                 }));
+
+            // Process delivery stats and costs from API
+            let deliveryStats = {
+                sent: { value: '0', rate: '0%' },
+                delivered: { value: '0', rate: '0%' },
+                read: { value: '0', rate: '0%' },
+                failed: { value: '0', rate: '0%' },
+            };
+
+            // Use API costs if available, otherwise use calculated costs
+            let apiWhatsappCostUsd = whatsappCostUsd;
+            let apiWhatsappCostInr = whatsappCostInr;
+
+            if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
+                const apiData = dashboardStatsRes.value;
+
+                // Parse delivery status from API response
+                if (apiData.delivery_status) {
+                    const counts = apiData.delivery_status.counts || {};
+                    const percentages = apiData.delivery_status.percentages || {};
+
+                    deliveryStats = {
+                        sent: {
+                            value: (counts.sent || 0).toLocaleString(),
+                            rate: `${percentages.sent?.toFixed(1) || '0'}%`
+                        },
+                        delivered: {
+                            value: (counts.delivered || 0).toLocaleString(),
+                            rate: `${percentages.delivered?.toFixed(1) || '0'}%`
+                        },
+                        read: {
+                            value: (counts.read || 0).toLocaleString(),
+                            rate: `${percentages.read?.toFixed(1) || '0'}%`
+                        },
+                        failed: {
+                            value: (counts.failed || 0).toLocaleString(),
+                            rate: `${percentages.failed?.toFixed(1) || '0'}%`
+                        },
+                    };
+                }
+
+                // Use costs from API if available
+                if (apiData.costs) {
+                    apiWhatsappCostUsd = apiData.costs.total_usd || 0;
+                    apiWhatsappCostInr = apiData.costs.total_inr || 0;
+                }
+            }
+
+            const totalCost = llmCostUsd + apiWhatsappCostUsd;
+            const costPerConv = totalConversations > 0 ? totalCost / totalConversations : 0;
 
             setData({
                 llmCost: {
@@ -220,8 +283,8 @@ export function useDashboardData() {
                     usd: `$${llmCostUsd.toFixed(4)} USD`,
                 },
                 whatsappCost: {
-                    inr: `₹${whatsappCostInr.toFixed(2)}`,
-                    total: `Total: $${totalCost.toFixed(4)}`,
+                    inr: `₹${apiWhatsappCostInr.toFixed(2)}`,
+                    total: `$${apiWhatsappCostUsd.toFixed(4)} USD`,
                 },
                 walletBalance: { inr: '₹2,450.00', messages: '~12,250 messages' },
                 totalConversations: {
@@ -249,6 +312,7 @@ export function useDashboardData() {
                 conversationVolumeData,
                 hourlyActivityData,
                 recentConversations,
+                deliveryStats,
             });
 
         } catch (err) {

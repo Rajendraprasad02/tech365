@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, Clock, Send, Bot, User } from 'lucide-react';
+import { Search, MessageSquare, Clock, Send, Bot, User, DollarSign } from 'lucide-react';
 import { getSessions } from '../../services/api';
 
 export default function ConversationsPage() {
@@ -18,19 +18,27 @@ export default function ConversationsPage() {
                 const sessionList = Array.isArray(sessions) ? sessions : [];
 
                 // Transform sessions to conversation format
-                const convos = sessionList.map((session, index) => ({
-                    id: session.id || index,
-                    title: session.name || session.whatsapp || session.email || `Conversation #${index + 1}`,
-                    preview: session.conversation?.[0]?.text?.substring(0, 50) || 'No messages',
-                    status: session.conversation?.length > 0 ? 'active' : 'resolved',
-                    time: formatTimeAgo(session.updated_at || session.created_at),
-                    unread: session.conversation?.length > 5,
-                    messages: session.conversation?.map(msg => ({
-                        text: msg.text,
-                        direction: msg.direction,
-                        time: formatTime(msg.timestamp),
-                    })) || [],
-                }));
+                const convos = sessionList.map((session, index) => {
+                    // Use total_conversation_cost_usd from backend, but show $0.00 if no messages
+                    const messageCount = session.conversation_count || session.conversation?.length || 0;
+                    const totalCost = messageCount > 0 ? (session.total_conversation_cost_usd || 0) : 0;
+
+                    return {
+                        id: session.id || index,
+                        title: session.name || session.whatsapp || session.email || `Conversation #${index + 1}`,
+                        preview: session.conversation?.[0]?.text?.substring(0, 50) || 'No messages',
+                        status: session.conversation?.length > 0 ? 'active' : 'resolved',
+                        time: formatTimeAgo(session.updated_at || session.created_at),
+                        unread: session.conversation?.length > 5,
+                        cost: totalCost.toFixed(4),
+                        messages: session.conversation?.map(msg => ({
+                            text: msg.text,
+                            direction: msg.direction,
+                            time: formatTime(msg.timestamp),
+                            cost: msg.whatsapp_cost || 0,
+                        })) || [],
+                    };
+                });
 
                 setConversations(convos);
                 if (convos.length > 0) {
@@ -108,8 +116,8 @@ export default function ConversationsPage() {
                                     key={conv.id}
                                     onClick={() => setSelectedConversation(conv)}
                                     className={`flex items-start gap-3 p-4 cursor-pointer border-b border-gray-50 transition-colors ${selectedConversation?.id === conv.id
-                                            ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                                            : 'hover:bg-gray-50'
+                                        ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                                        : 'hover:bg-gray-50'
                                         }`}
                                 >
                                     <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -152,7 +160,14 @@ export default function ConversationsPage() {
                         <>
                             {/* Chat Header */}
                             <div className="px-6 py-4 border-b border-gray-100">
-                                <h2 className="font-semibold text-gray-900">{selectedConversation.title}</h2>
+                                <div className="flex items-center justify-between">
+                                    <h2 className="font-semibold text-gray-900">{selectedConversation.title}</h2>
+                                    {/* Cost Badge */}
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
+                                        <DollarSign size={14} />
+                                        <span className="text-sm font-semibold">${selectedConversation.cost}</span>
+                                    </div>
+                                </div>
                                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${getStatusBadge(selectedConversation.status)}`}>
                                     {selectedConversation.status === 'active' ? 'Active conversation' : selectedConversation.status}
                                 </span>
@@ -176,8 +191,8 @@ export default function ConversationsPage() {
                                             {/* Message Bubble */}
                                             <div
                                                 className={`max-w-md px-4 py-3 rounded-2xl ${msg.direction === 'in'
-                                                        ? 'bg-blue-500 text-white rounded-br-sm'
-                                                        : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
+                                                    ? 'bg-blue-500 text-white rounded-br-sm'
+                                                    : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
                                                     }`}
                                             >
                                                 <p className="text-sm leading-relaxed">{msg.text}</p>

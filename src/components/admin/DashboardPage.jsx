@@ -72,7 +72,6 @@ export default function DashboardPage() {
                 {/* Metrics Grid */}
                 <div id="metrics-grid" className={`rounded-xl ${getHighlightClass('metrics-grid')}`}>
                     <MetricsGrid
-                        totalConversations={data.totalConversations}
                         activeUsers={data.activeUsers}
                         costPerConversation={data.costPerConversation}
                         avgResponseTime={data.avgResponseTime}
@@ -91,7 +90,7 @@ export default function DashboardPage() {
 
                 {/* Message Delivery Overview */}
                 <div id="delivery-overview" className={`rounded-xl ${getHighlightClass('delivery-overview')}`}>
-                    <DeliveryOverview />
+                    <DeliveryOverview deliveryStats={data.deliveryStats} />
                 </div>
 
                 {/* Bottom Section */}
