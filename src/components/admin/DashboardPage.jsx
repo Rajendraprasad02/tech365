@@ -42,7 +42,7 @@ export default function DashboardPage() {
             {/* Dashboard Content */}
             <div className="flex-1 p-8 overflow-y-auto">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
-                <p className="text-gray-500 mb-8">Monitor your WhatsApp Business performance</p>
+                <p className="text-gray-500 text-sm mb-8">Monitor your WhatsApp Business performance</p>
 
                 {/* Loading State */}
                 {loading && (

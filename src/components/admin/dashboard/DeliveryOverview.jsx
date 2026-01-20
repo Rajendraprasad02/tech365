@@ -19,7 +19,7 @@ export default function DeliveryOverview({ deliveryStats = defaultStats }) {
     return (
         <div className="mb-6 animate-fade-in">
             <div className="mb-3">
-                <div className="text-base font-semibold text-gray-900">Message Delivery Overview</div>
+                <div className="text-sm font-semibold text-gray-900">Message Delivery Overview</div>
                 <div className="text-xs text-gray-500">Track your message delivery performance</div>
             </div>
             <div className="mb-3 text-xs font-semibold text-gray-700">

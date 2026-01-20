@@ -88,8 +88,8 @@ export const hourlyActivityData = [
 
 // Resolution breakdown data for pie chart
 export const resolutionData = [
-    { name: 'AI Resolved', value: 68, color: '#8b5cf6' },
-    { name: 'Human Handled', value: 24, color: '#a78bfa' },
+    { name: 'AI Resolved', value: 68, color: '#0082FB' },
+    { name: 'Human Handled', value: 24, color: '#60a5fa' },
     { name: 'Escalated', value: 8, color: '#fbbf24' },
 ];
 

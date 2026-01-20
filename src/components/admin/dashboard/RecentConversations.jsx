@@ -13,7 +13,7 @@ export default function RecentConversations({ conversations }) {
                         <MessageCircle size={14} className="text-gray-500" />
                     </div>
                     <div>
-                        <div className="text-base font-semibold text-gray-900">Recent Conversations</div>
+                        <div className="text-sm font-semibold text-gray-900">Recent Conversations</div>
                         <div className="text-xs text-gray-500">Latest chat interactions</div>
                     </div>
                 </div>
@@ -31,10 +31,9 @@ export default function RecentConversations({ conversations }) {
                         {/* Avatar with bot badge */}
                         <div className="relative mr-3">
                             <div
-                                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                                style={{ background: conv.color }}
+                                className="w-10 h-10 rounded-full flex items-center justify-center bg-violet-500 text-white font-semibold text-sm"
                             >
-                                {conv.name.split(' ').map(n => n[0]).join('')}
+                                {conv.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </div>
                             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center border-2 border-white">
                                 <Bot size={8} className="text-white" />

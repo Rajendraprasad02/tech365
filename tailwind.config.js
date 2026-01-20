@@ -6,6 +6,37 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        violet: {
+          50: '#eff8ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#3b82f6', // Adjusted to standard blue-500 like shade for lighter steps
+          500: '#0064E0', // Brand Primary (User Requested)
+          600: '#0050b3', // Darker shade for hover
+          700: '#003d82',
+          800: '#002952',
+          900: '#001529',
+          950: '#000a14',
+        },
+        blue: {
+          50: '#eff8ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#3b82f6',
+          500: '#0064E0', // Brand Primary
+          600: '#0050b3',
+          700: '#003d82',
+          800: '#002952',
+          900: '#001529',
+          950: '#000a14',
+        },
+      },
+      fontFamily: {
+        inter: ['Inter', 'sans-serif'],
+      },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',
       },

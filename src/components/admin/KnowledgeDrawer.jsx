@@ -74,7 +74,7 @@ export default function KnowledgeDrawer({ entry, isOpen, onClose }) {
                     }`}
             >
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-800 to-slate-700">
+                <div className="px-6 py-5 border-b border-gray-100 bg-violet-500">
                     <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0 pr-4">
                             <div className="flex items-center gap-2 mb-2">

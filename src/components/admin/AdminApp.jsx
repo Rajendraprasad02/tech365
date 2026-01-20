@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import DashboardPage from './DashboardPage';
 import ConversationsPage from './ConversationsPage';
+import CampaignsPage from './CampaignsPage';
 import KnowledgeBasePage from './KnowledgeBasePage';
 import ContactsPage from './ContactsPage';
 
@@ -18,9 +19,11 @@ export default function AdminApp() {
             <main className="flex-1 flex flex-col overflow-hidden">
                 {activePage === 'dashboard' && <DashboardPage />}
                 {activePage === 'conversations' && <ConversationsPage />}
+                {activePage === 'campaigns' && <CampaignsPage />}
                 {activePage === 'knowledge-base' && <KnowledgeBasePage />}
                 {activePage === 'contacts' && <ContactsPage />}
             </main>
         </div>
     );
 }
+

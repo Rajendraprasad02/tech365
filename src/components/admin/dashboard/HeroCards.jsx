@@ -4,7 +4,7 @@ export default function HeroCards({ walletBalance, activeConversations, whatsapp
     return (
         <div className="grid grid-cols-3 gap-6 mb-8">
             {/* Wallet Balance */}
-            <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-purple-500/20">
+            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                 <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
@@ -21,7 +21,7 @@ export default function HeroCards({ walletBalance, activeConversations, whatsapp
             </div>
 
             {/* Active Conversations */}
-            <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-purple-500/20">
+            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                 <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
@@ -36,7 +36,7 @@ export default function HeroCards({ walletBalance, activeConversations, whatsapp
             </div>
 
             {/* WhatsApp Cost */}
-            <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-purple-500/20">
+            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                 <div className="flex items-center gap-2 text-white/80 text-sm mb-3">

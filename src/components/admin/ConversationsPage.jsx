@@ -83,7 +83,7 @@ export default function ConversationsPage() {
             {/* Page Header */}
             <div className="px-8 py-6 bg-white border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Conversations</h1>
-                <p className="text-gray-500">Manage and review all conversations</p>
+                <p className="text-gray-500 text-sm">Manage and review all conversations</p>
             </div>
 
             {/* Main Content */}
@@ -120,8 +120,13 @@ export default function ConversationsPage() {
                                         : 'hover:bg-gray-50'
                                         }`}
                                 >
-                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                        <MessageSquare size={18} className="text-blue-600" />
+                                    <div className="relative flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center text-white font-semibold text-sm">
+                                            {conv.title.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white flex items-center justify-center border border-gray-100 shadow-sm">
+                                            <Bot size={10} className="text-violet-500" />
+                                        </div>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">

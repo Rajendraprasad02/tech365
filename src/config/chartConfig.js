@@ -1,7 +1,7 @@
 // Chart configuration constants for recharts
 export const chartColors = {
-    primary: '#8b5cf6',
-    primaryLight: '#c4b5fd',
+    primary: '#0082FB',
+    primaryLight: '#60a5fa',
     success: '#10b981',
     warning: '#fbbf24',
     error: '#ef4444',
@@ -18,7 +18,7 @@ export const tooltipStyle = {
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     },
     labelStyle: { color: '#111827', fontWeight: 600 },
-    cursor: { fill: 'rgba(139, 92, 246, 0.1)' },
+    cursor: { fill: 'rgba(0, 130, 251, 0.1)' },
 };
 
 export const axisStyle = {
@@ -39,8 +39,8 @@ export const areaChartConfig = {
     animationDuration: 1500,
     animationEasing: 'ease-out',
     strokeWidth: 2,
-    dot: { r: 4, fill: '#8b5cf6', strokeWidth: 0 },
-    activeDot: { r: 6, fill: '#8b5cf6', stroke: 'white', strokeWidth: 2 },
+    dot: { r: 4, fill: '#0082FB', strokeWidth: 0 },
+    activeDot: { r: 6, fill: '#0082FB', stroke: 'white', strokeWidth: 2 },
 };
 
 export const pieChartConfig = {

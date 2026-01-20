@@ -24,7 +24,7 @@ export default function ContactsPage() {
             {/* Page Header */}
             <div className="px-8 py-6 bg-white border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Contacts</h1>
-                <p className="text-gray-500">Manage your contacts, upload files, and organize lists</p>
+                <p className="text-gray-500 text-sm">Manage your contacts, upload files, and organize lists</p>
             </div>
 
             {/* Tabs */}
@@ -70,11 +70,12 @@ function AllContactsTab() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('desc'); // 'desc' | 'asc' | 'name_asc' | 'name_desc'
     const [stats, setStats] = useState({ total: 0, valid: 0, invalid: 0, blocked: 0 });
     const [showAddModal, setShowAddModal] = useState(false);
     const [newContact, setNewContact] = useState({ phone_number: '', name: '' });
     const [page, setPage] = useState(0);
-    const limit = 50;
+    const limit = 20;
 
     const fetchContacts = useCallback(async () => {
         try {
@@ -84,6 +85,7 @@ function AllContactsTab() {
             params.append('limit', limit);
             if (searchQuery) params.append('search', searchQuery);
             if (statusFilter !== 'all') params.append('status', statusFilter);
+            params.append('sort_by', sortBy);
 
             const response = await fetch(`${API_BASE_URL}/contacts?${params}`);
             const data = await response.json();
@@ -106,7 +108,7 @@ function AllContactsTab() {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, statusFilter, page]);
+    }, [searchQuery, statusFilter, sortBy, page]);
 
     useEffect(() => {
         fetchContacts();
@@ -196,6 +198,13 @@ function AllContactsTab() {
                     <option value="invalid">Invalid</option>
                     <option value="blocked">Blocked</option>
                 </select>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                    className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-sm">
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                    <option value="name_asc">Name A-Z</option>
+                    <option value="name_desc">Name Z-A</option>
+                </select>
                 <button onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600">
                     <Plus size={16} /> Add Contact
@@ -217,67 +226,78 @@ function AllContactsTab() {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
                     </div>
                 ) : (
-                    <table className="w-full">
+                    <table className="w-full text-sm">
                         <thead className="bg-gray-50 sticky top-0">
                             <tr className="text-left text-xs font-medium text-gray-500 uppercase">
-                                <th className="px-6 py-3">Phone Number</th>
-                                <th className="px-6 py-3">Name</th>
-                                <th className="px-6 py-3">Country</th>
-                                <th className="px-6 py-3">Status</th>
-                                <th className="px-6 py-3">Source</th>
-                                <th className="px-6 py-3">Created</th>
-                                <th className="px-6 py-3">Actions</th>
+                                <th className="px-6 py-3 text-left">Phone Number</th>
+                                <th className="px-6 py-3 text-left">Name</th>
+                                <th className="px-6 py-3 text-center">Status</th>
+                                <th className="px-6 py-3 text-center">Source</th>
+                                <th className="px-6 py-3 text-center">Created</th>
+                                <th className="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {contacts.length > 0 ? contacts.map((contact) => (
-                                <tr key={contact.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <Phone size={14} className="text-gray-400" />
-                                            <span className="font-medium">{contact.phone_number}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-600">{contact.name || '-'}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-1.5 text-gray-500">
-                                            <Globe size={14} />
-                                            <span>{contact.country_code || '-'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <select
-                                            value={contact.status}
-                                            onChange={(e) => handleStatusChange(contact.id, e.target.value)}
-                                            className="text-xs px-2 py-1 rounded border border-gray-200 bg-white"
-                                        >
-                                            <option value="valid">Valid</option>
-                                            <option value="invalid">Invalid</option>
-                                            <option value="blocked">Blocked</option>
-                                        </select>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded capitalize">
-                                            {contact.source}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-500 text-sm">
-                                        <div className="flex items-center gap-1.5">
-                                            <Calendar size={14} />
-                                            {formatDate(contact.created_at)}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <button onClick={() => handleDelete(contact.id)}
-                                            className="p-1.5 text-gray-400 hover:text-red-500">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            )) : (
+                            {contacts.length > 0 ? contacts.map((contact) => {
+                                // Simple helper for flags (can be moved to constants)
+                                const getFlag = (code) => {
+                                    const flags = { '91': '🇮🇳', '1': '🇺🇸', '44': '🇬🇧', '971': '🇦🇪' };
+                                    return flags[code] || '🌐';
+                                };
+                                return (
+                                    <tr key={contact.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-3">
+                                            <div className="flex items-center gap-3">
+                                                {/* Simulated Shadcn Country Dropdown Trigger */}
+                                                <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-md shadow-sm text-xs font-medium text-gray-700 cursor-default">
+                                                    <span>{getFlag(contact.country_code)}</span>
+                                                    <span className="text-gray-400">▼</span>
+                                                </div>
+                                                <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
+                                        <td className="px-6 py-3 text-center">
+                                            <select
+                                                value={contact.status}
+                                                onChange={(e) => handleStatusChange(contact.id, e.target.value)}
+                                                className={`text-xs font-medium rounded-full px-2 py-1 border-0 outline-none cursor-pointer appearance-none ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                                    contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                        'bg-orange-100 text-orange-700'
+                                                    }`}
+                                            >
+                                                <option value="valid">Valid</option>
+                                                <option value="invalid">Invalid</option>
+                                                <option value="blocked">Blocked</option>
+                                            </select>
+                                        </td>
+                                        <td className="px-6 py-3 text-gray-500 capitalize text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <FileText size={13} />
+                                                {contact.source || 'Manual'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-gray-500 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <Calendar size={13} />
+                                                {formatDate(contact.created_at)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-center">
+                                            <button
+                                                onClick={() => handleDelete(contact.id)}
+                                                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                title="Delete Contact"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            }) : (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                                        No contacts found. Upload a file to get started.
+                                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                        No contacts found
                                     </td>
                                 </tr>
                             )}
@@ -679,12 +699,12 @@ function ImportHistoryTab() {
                 <table className="w-full">
                     <thead className="bg-gray-50">
                         <tr className="text-left text-xs font-medium text-gray-500 uppercase">
-                            <th className="px-6 py-3">File</th>
-                            <th className="px-6 py-3">Uploaded By</th>
-                            <th className="px-6 py-3">Status</th>
-                            <th className="px-6 py-3">Results</th>
-                            <th className="px-6 py-3">Date</th>
-                            <th className="px-6 py-3"></th>
+                            <th className="px-6 py-3 text-left">File</th>
+                            <th className="px-6 py-3 text-left">Uploaded By</th>
+                            <th className="px-6 py-3 text-center">Status</th>
+                            <th className="px-6 py-3 text-left">Results</th>
+                            <th className="px-6 py-3 text-center">Date</th>
+                            <th className="px-6 py-3 text-center">Download</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -696,9 +716,9 @@ function ImportHistoryTab() {
                                         <div><p className="font-medium">{r.filename}</p><p className="text-xs text-gray-500">{r.records_count} records</p></div>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-gray-600">{r.uploaded_by}</td>
-                                <td className="px-6 py-4">{getStatusBadge(r.status)}</td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 text-gray-600 text-left">{r.uploaded_by}</td>
+                                <td className="px-6 py-4 text-center">{getStatusBadge(r.status)}</td>
+                                <td className="px-6 py-4 text-left">
                                     {r.status === 'completed' ? (
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
@@ -716,10 +736,10 @@ function ImportHistoryTab() {
                                         </div>
                                     ) : <span className="text-gray-400">Processing...</span>}
                                 </td>
-                                <td className="px-6 py-4 text-gray-500 text-sm">
-                                    <div className="flex items-center gap-1.5"><Clock size={14} />{new Date(r.created_at).toLocaleDateString()}</div>
+                                <td className="px-6 py-4 text-gray-500 text-sm text-center">
+                                    <div className="flex items-center justify-center gap-1.5"><Clock size={14} />{new Date(r.created_at).toLocaleDateString()}</div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 text-center">
                                     <button onClick={() => handleDownload(r.id)} className="p-1.5 text-gray-400 hover:text-violet-600" title="Download Report">
                                         <Download size={16} />
                                     </button>
@@ -771,9 +791,9 @@ function InvalidFailedTab() {
                         <tr className="text-left text-xs font-medium text-gray-500 uppercase">
                             <th className="px-6 py-3">Phone Number</th>
                             <th className="px-6 py-3">Name</th>
-                            <th className="px-6 py-3">Status</th>
-                            <th className="px-6 py-3">Source</th>
-                            <th className="px-6 py-3">Created</th>
+                            <th className="px-6 py-3 text-center">Status</th>
+                            <th className="px-6 py-3 text-center">Source</th>
+                            <th className="px-6 py-3 text-center">Created</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -783,11 +803,11 @@ function InvalidFailedTab() {
                                     <div className="flex items-center gap-2"><XCircle size={14} className="text-red-400" /><span>{c.phone_number}</span></div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{c.name || '-'}</td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 text-center">
                                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${c.status === 'blocked' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>{c.status}</span>
                                 </td>
-                                <td className="px-6 py-4 text-gray-500 capitalize">{c.source}</td>
-                                <td className="px-6 py-4 text-gray-500 text-sm">{new Date(c.created_at).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 text-gray-500 capitalize text-center">{c.source}</td>
+                                <td className="px-6 py-4 text-gray-500 text-sm text-center">{new Date(c.created_at).toLocaleDateString()}</td>
                             </tr>
                         ))}
                     </tbody>

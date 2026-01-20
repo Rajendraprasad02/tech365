@@ -6,7 +6,7 @@ export default function ResolutionBreakdownChart() {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in h-full flex flex-col min-h-[280px]">
             <div className="mb-2">
-                <h3 className="text-base font-semibold text-gray-900 mb-0.5">Resolution Breakdown</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Resolution Breakdown</h3>
                 <p className="text-xs text-gray-500">How conversations are handled</p>
             </div>
             <div className="flex flex-col items-center justify-center flex-1">

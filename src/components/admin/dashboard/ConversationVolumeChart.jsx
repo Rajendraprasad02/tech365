@@ -8,7 +8,7 @@ export default function ConversationVolumeChart({ data }) {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in h-full min-h-[280px]">
             <div className="mb-4">
-                <h3 className="text-base font-semibold text-gray-900 mb-0.5">Conversation Volume</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Conversation Volume</h3>
                 <p className="text-xs text-gray-500">This week vs last week</p>
             </div>
 

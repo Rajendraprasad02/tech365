@@ -8,7 +8,7 @@ export default function HourlyActivityChart({ data }) {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in min-h-[240px]">
             <div className="mb-3">
-                <div className="text-base font-semibold text-gray-900">Hourly Activity</div>
+                <div className="text-sm font-semibold text-gray-900">Hourly Activity</div>
                 <div className="text-xs text-gray-500">Messages per hour today</div>
             </div>
 

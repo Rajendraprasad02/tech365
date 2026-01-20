@@ -1,9 +1,10 @@
-import { LayoutDashboard, MessageSquare, Database, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Database, LogOut, Users, Send } from 'lucide-react';
 
 export default function Sidebar({ activePage, onNavigate }) {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'conversations', label: 'Conversations', icon: MessageSquare },
+        { id: 'campaigns', label: 'Campaigns', icon: Send },
         { id: 'knowledge-base', label: 'Knowledge Base', icon: Database },
         { id: 'contacts', label: 'Contacts', icon: Users },
     ];
@@ -17,9 +18,9 @@ export default function Sidebar({ activePage, onNavigate }) {
         <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
             {/* Logo */}
             <div className="flex items-center gap-3 px-5 py-6 border-b border-gray-100">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">C</div>
+                <div className="w-10 h-10 rounded-xl bg-violet-500 flex items-center justify-center text-white font-bold text-lg">C</div>
                 <div>
-                    <div className="text-gray-900 font-semibold text-base">ChatFlow</div>
+                    <div className="text-gray-900 font-bold text-lg">ChatFlow</div>
                     <div className="text-gray-500 text-xs">AI Messaging Platform</div>
                 </div>
             </div>
