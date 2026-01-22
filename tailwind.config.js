@@ -12,9 +12,9 @@ export default {
           100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
-          400: '#3b82f6', // Adjusted to standard blue-500 like shade for lighter steps
-          500: '#0064E0', // Brand Primary (User Requested)
-          600: '#0050b3', // Darker shade for hover
+          400: '#3b82f6',
+          500: '#0064E0', // Brand Primary
+          600: '#0050b3',
           700: '#003d82',
           800: '#002952',
           900: '#001529',
@@ -26,12 +26,18 @@ export default {
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#3b82f6',
-          500: '#0064E0', // Brand Primary
+          500: '#0064E0',
           600: '#0050b3',
           700: '#003d82',
           800: '#002952',
           900: '#001529',
           950: '#000a14',
+        },
+        sidebar: {
+          DEFAULT: '#0c1324',
+          hover: '#1a2236',
+          active: '#242d44',
+          border: '#1e2538'
         },
       },
       fontFamily: {

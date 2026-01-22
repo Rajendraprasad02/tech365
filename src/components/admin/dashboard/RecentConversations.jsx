@@ -1,9 +1,34 @@
 import { MessageCircle, Bot, Clock, ExternalLink } from 'lucide-react';
-import { conversations as defaultConversations } from '../../../constants';
-import { statusColors } from '../../../config';
+const statusColors = {
+    active: 'bg-green-100 text-green-600',
+    pending: 'bg-amber-100 text-amber-600',
+    resolved: 'bg-gray-100 text-gray-500',
+};
 
 export default function RecentConversations({ conversations }) {
-    const data = conversations?.length > 0 ? conversations : defaultConversations;
+    const hasData = conversations && conversations.length > 0;
+
+    if (!hasData) {
+        return (
+            <div className="bg-white rounded-xl p-5 border border-gray-200 flex flex-col animate-fade-in h-[400px]">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+                            <MessageCircle size={14} className="text-gray-500" />
+                        </div>
+                        <div>
+                            <div className="text-sm font-semibold text-gray-900">Recent Conversations</div>
+                            <div className="text-xs text-gray-500">Latest chat interactions</div>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col items-center justify-center flex-1 text-gray-400">
+                    <div className="text-2xl font-bold text-gray-300">NRTD</div>
+                    <div className="text-xs">Not Real-Time Data</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 flex flex-col animate-fade-in">
@@ -23,7 +48,7 @@ export default function RecentConversations({ conversations }) {
                 </button>
             </div>
             <div className="flex flex-col gap-2 flex-1">
-                {data.map((conv, index) => (
+                {conversations.map((conv, index) => (
                     <div
                         key={index}
                         className="flex items-center p-3 bg-white rounded-lg border border-gray-100 cursor-pointer transition-all duration-300 hover:border-violet-500 hover:shadow-md hover:shadow-violet-50"

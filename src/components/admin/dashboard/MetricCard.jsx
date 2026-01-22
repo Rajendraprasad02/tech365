@@ -1,5 +1,14 @@
 import { TrendingUp } from 'lucide-react';
-import { iconBgColors } from '../../../config';
+const iconBgColors = {
+    purple: 'bg-purple-100 text-purple-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    orange: 'bg-orange-100 text-orange-600',
+    red: 'bg-red-100 text-red-600',
+    teal: 'bg-teal-100 text-teal-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
+    pink: 'bg-pink-100 text-pink-600',
+};
 
 export default function MetricCard({ metric }) {
     const Icon = metric.icon;

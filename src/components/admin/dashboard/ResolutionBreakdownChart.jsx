@@ -1,48 +1,77 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { resolutionData } from '../../../constants';
-import { tooltipStyle, pieChartConfig } from '../../../config';
+
+const data = [
+    { name: 'AI Resolved', value: 68, color: '#0064E0' }, // Brand Primary (violet-500)
+    { name: 'Human Handled', value: 24, color: '#3b82f6' }, // Brand Secondary (violet-400)
+    { name: 'Escalated', value: 8, color: '#93c5fd' },   // Brand Tertiary (violet-300)
+];
+
+const pieChartConfig = {
+    innerRadius: 60,
+    outerRadius: 80,
+    paddingAngle: 5,
+    cornerRadius: 4,
+};
 
 export default function ResolutionBreakdownChart() {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in h-full flex flex-col min-h-[280px]">
-            <div className="mb-2">
+            <div className="mb-4">
                 <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Resolution Breakdown</h3>
                 <p className="text-xs text-gray-500">How conversations are handled</p>
             </div>
-            <div className="flex flex-col items-center justify-center flex-1">
-                <div className="w-40 h-40">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={resolutionData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={45}
-                                outerRadius={65}
-                                paddingAngle={pieChartConfig.paddingAngle}
-                                dataKey="value"
-                                animationDuration={pieChartConfig.animationDuration}
-                                animationEasing={pieChartConfig.animationEasing}
-                            >
-                                {resolutionData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={tooltipStyle.contentStyle}
-                                formatter={(value) => [`${value}%`, '']}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+
+            <div className="flex-1 min-h-[180px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            innerRadius={pieChartConfig.innerRadius}
+                            outerRadius={pieChartConfig.outerRadius}
+                            paddingAngle={pieChartConfig.paddingAngle}
+                            dataKey="value"
+                            cornerRadius={pieChartConfig.cornerRadius}
+                            startAngle={90}
+                            endAngle={-270}
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            }}
+                            itemStyle={{ color: '#374151', fontSize: '12px', fontWeight: 500 }}
+                            formatter={(value) => [`${value}%`, '']}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+
+                {/* Center Label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                        {/* You could add a total or main stat here if needed, but the design is clean */}
+                    </div>
                 </div>
-                <div className="flex gap-4 mt-3 flex-wrap justify-center">
-                    {resolutionData.map((item, index) => (
-                        <div key={index} className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                            <span>{item.name} <span className="font-semibold text-gray-900">{item.value}%</span></span>
-                        </div>
-                    ))}
-                </div>
+            </div>
+
+            {/* Custom Legend */}
+            <div className="flex items-center justify-center gap-4 mt-4 pt-2 border-t border-gray-50">
+                {data.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1.5">
+                        <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-xs text-gray-500 font-medium">
+                            {item.name} <span className="text-gray-900 font-semibold">{item.value}%</span>
+                        </span>
+                    </div>
+                ))}
             </div>
         </div>
     );

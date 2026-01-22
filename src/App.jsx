@@ -1,8 +1,8 @@
 import "./App.css";
-import AdminApp from "@/components/admin/AdminApp";
+import Layout from "@/components/admin/layout/Layout";
 
 function App() {
-  return <AdminApp />;
+  return <Layout />;
 }
 
 export default App;

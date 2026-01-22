@@ -1,5 +1,7 @@
 // API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In development, use /api which is proxied by Vite to avoid CORS issues
+// In production, use the full URL from environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Generic fetch wrapper with error handling
 async function fetchApi(endpoint, options = {}) {
@@ -13,7 +15,18 @@ async function fetchApi(endpoint, options = {}) {
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    errorMessage = errorData.detail;
+                } else if (errorData.message) {
+                    errorMessage = errorData.message;
+                }
+            } catch (e) {
+                // Could not parse JSON, use default error message
+            }
+            throw new Error(errorMessage);
         }
 
         return await response.json();
@@ -60,6 +73,22 @@ export async function getWhatsAppCosts(startDate, endDate) {
     }
 
     return fetchApi(endpoint);
+}
+
+// Manually trigger AI for testing
+export async function triggerManualAI(waId, message) {
+    return fetchApi(`/whatsapp/ai/trigger/${waId}`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+    });
+}
+
+// Send direct message (human agent, bypass AI)
+export async function sendWhatsAppMessage(waId, message) {
+    return fetchApi('/whatsapp/send', {
+        method: 'POST',
+        body: JSON.stringify({ wa_id: waId, message }),
+    });
 }
 
 // ============ Knowledge Base APIs ============
@@ -194,6 +223,19 @@ export async function getWhatsAppTemplates() {
     return fetchApi('/whatsapp/templates');
 }
 
+// Send WhatsApp template message
+export async function sendWhatsAppTemplate(waId, templateName, variables = {}, category = "utility") {
+    return fetchApi('/whatsapp/send-template', {
+        method: 'POST',
+        body: JSON.stringify({
+            wa_id: waId,
+            template_name: templateName,
+            variables,
+            category
+        }),
+    });
+}
+
 // Get all contacts for recipient selection
 export async function getContacts() {
     return fetchApi('/contacts');
@@ -212,6 +254,7 @@ export default {
     getWhatsAppConversations,
     getWhatsAppConversation,
     getWhatsAppCosts,
+    triggerManualAI,
     searchKnowledge,
     getFaqs,
     searchFaqs,

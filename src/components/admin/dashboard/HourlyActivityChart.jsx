@@ -1,9 +1,30 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { hourlyActivityData as defaultData } from '../../../constants';
-import { areaChartConfig, chartColors } from '../../../config';
+// Removed static data import
+const chartColors = {
+    primary: '#0082FB',
+    lightGridLine: '#f3f4f6',
+};
+
+const areaChartConfig = {
+    animationDuration: 1500,
+    animationEasing: 'ease-out',
+    strokeWidth: 2,
+    dot: { r: 4, fill: '#0082FB', strokeWidth: 0 },
+    activeDot: { r: 6, fill: '#0082FB', stroke: 'white', strokeWidth: 2 },
+};
 
 export default function HourlyActivityChart({ data }) {
-    const chartData = data?.length > 0 ? data : defaultData;
+    const hasData = data && data.length > 0;
+
+    if (!hasData) {
+        return (
+            <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in min-h-[240px] flex flex-col items-center justify-center text-gray-400">
+                <div className="mb-2 font-semibold">Hourly Activity</div>
+                <div className="text-2xl font-bold text-gray-300">NRTD</div>
+                <div className="text-xs">Not Real-Time Data</div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in min-h-[240px]">
@@ -12,10 +33,10 @@ export default function HourlyActivityChart({ data }) {
                 <div className="text-xs text-gray-500">Messages per hour today</div>
             </div>
 
-            <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-44" style={{ minWidth: 0, minHeight: 176 }}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={170}>
                     <AreaChart
-                        data={chartData}
+                        data={data}
                         margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                     >
                         <defs>

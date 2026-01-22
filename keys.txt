@@ -1,0 +1,2 @@
+First message keys: ['bot', 'user', 'botTimestamp', 'userTimestamp']
+First message raw: {'bot': "Hello! I'm Mia from Tech365. We offer a comprehensive portfolio of IT hardware and software solutions for businesses, including computers, servers, networking equipment, and software licenses. How can I assist you today?", 'user': 'hello', 'botTimestamp': '2026-01-21T18:57:53.733086', 'userTimestamp': '2026-01-21T18:57:53.733086'}

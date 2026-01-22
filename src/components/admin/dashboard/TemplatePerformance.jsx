@@ -1,4 +1,4 @@
-import { templates } from '../../../constants';
+// Static data removed
 
 export default function TemplatePerformance() {
     return (
@@ -18,22 +18,9 @@ export default function TemplatePerformance() {
                     <div className="text-sm text-gray-500">Message template analytics</div>
                 </div>
             </div>
-            <div className="flex flex-col">
-                {templates.map((template, index) => (
-                    <div
-                        key={index}
-                        className={`flex justify-between items-center py-4 border-b border-gray-100 ${index === 0 ? 'border-t' : ''}`}
-                    >
-                        <div>
-                            <div className="font-semibold text-gray-900 text-[15px]">{template.name}</div>
-                            <div className="text-[13px] text-gray-500">{template.type}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="font-bold text-gray-900 text-lg">{template.sent.toLocaleString()}</div>
-                            <div className="text-[13px] text-gray-500">sent</div>
-                        </div>
-                    </div>
-                ))}
+            <div className="flex flex-col items-center justify-center flex-1 h-40 text-gray-400">
+                <div className="text-2xl font-bold text-gray-300">NRTD</div>
+                <div className="text-xs">Not Real-Time Data</div>
             </div>
         </div>
     );
