@@ -12,10 +12,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // NestJS backend for Auth/RBAC
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:3066',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        // Don't rewrite - NestJS uses /api prefix
       },
     },
   },

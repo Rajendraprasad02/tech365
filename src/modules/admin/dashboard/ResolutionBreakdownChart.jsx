@@ -1,9 +1,9 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const data = [
-    { name: 'AI Resolved', value: 68, color: '#0064E0' }, // Brand Primary (violet-500)
-    { name: 'Human Handled', value: 24, color: '#3b82f6' }, // Brand Secondary (violet-400)
-    { name: 'Escalated', value: 8, color: '#93c5fd' },   // Brand Tertiary (violet-300)
+    { name: 'New Deals', value: 45, color: '#0064E0' }, // Brand Primary (violet-500)
+    { name: 'In Progress Deals', value: 35, color: '#3b82f6' }, // Brand Secondary (violet-400)
+    { name: 'Closed Deals', value: 20, color: '#93c5fd' },   // Brand Tertiary (violet-300)
 ];
 
 const pieChartConfig = {
@@ -17,8 +17,8 @@ export default function ResolutionBreakdownChart() {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-200 animate-fade-in h-full flex flex-col min-h-[280px]">
             <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Resolution Breakdown</h3>
-                <p className="text-xs text-gray-500">How conversations are handled</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Deal Flow Overview</h3>
+                <p className="text-xs text-gray-500">Distribution of deals across pipeline stages</p>
             </div>
 
             <div className="flex-1 min-h-[180px] relative">

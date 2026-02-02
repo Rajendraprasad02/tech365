@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { getSessions, getWhatsAppConversations, getWhatsAppDashboardStats } from '../services/api';
 import { calculateCostFromMessages, WHATSAPP_COSTS } from '../config/whatsappCosts';
 
@@ -139,6 +140,9 @@ function calculateAvgResponseTime(sessions) {
 
 // Custom hook for dashboard data
 export function useDashboardData() {
+    const context = useOutletContext();
+    const allowedRoutes = context?.allowedRoutes || [];
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState({
@@ -147,6 +151,7 @@ export function useDashboardData() {
         walletBalance: { inr: '₹2,450.00', messages: '~12,250 messages' },
         totalConversations: { value: '0', comparison: '', trend: '+0%', trendUp: true },
         activeUsers: { value: '0', comparison: '', trend: '+0%', trendUp: true },
+        humanHandledConversations: { value: '0', trend: '+0%', trendUp: true },
         costPerConversation: { value: '$0.00', trend: '+0%', trendUp: false },
         avgResponseTime: { value: '0s', trend: '+0%', trendUp: true },
         conversationVolumeData: [],
@@ -157,6 +162,7 @@ export function useDashboardData() {
             delivered: { value: '0', rate: '0%' },
             read: { value: '0', rate: '0%' },
             failed: { value: '0', rate: '0%' },
+            response: { value: '0', rate: '0%' },
         },
     });
 
@@ -165,11 +171,57 @@ export function useDashboardData() {
         setError(null);
 
         try {
-            const [sessionsRes, conversationsRes, dashboardStatsRes] = await Promise.allSettled([
-                getSessions(),
-                getWhatsAppConversations(),
-                getWhatsAppDashboardStats(),
+            const promises = [];
+            const keys = [];
+
+
+            // Always fetch sessions data
+            promises.push(getSessions());
+            keys.push('sessions');
+
+            // Always fetch WhatsApp conversations and stats
+            promises.push(getWhatsAppConversations());
+            keys.push('conversations');
+
+            promises.push(getWhatsAppDashboardStats());
+            keys.push('stats');
+
+            // Timeout race to prevent eternal hanging
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Request timed out')), 15000)
+            );
+
+            const results = await Promise.race([
+                Promise.allSettled(promises),
+                timeoutPromise
             ]);
+
+
+            // Map results to variables expected by processing logic
+            let sessionsRes = { status: 'rejected', value: null };
+            let conversationsRes = { status: 'rejected', value: null };
+            let dashboardStatsRes = { status: 'rejected', value: null };
+
+            results.forEach((res, index) => {
+                const key = keys[index];
+
+                if (key === 'sessions') sessionsRes = res;
+                if (key === 'conversations') conversationsRes = res;
+                if (key === 'stats') dashboardStatsRes = res;
+            });
+
+            // Surface connection errors
+            if (sessionsRes.status === 'rejected') {
+                console.error('Failed to fetch sessions:', sessionsRes.reason);
+                setError(`Sessions API Error: ${sessionsRes.reason?.message || 'Unknown error'}`);
+            }
+            if (conversationsRes.status === 'rejected') {
+                console.error('Failed to fetch conversations:', conversationsRes.reason);
+                if (!error) setError(`Conversations API Error: ${conversationsRes.reason?.message || 'Unknown error'}`);
+            }
+            if (dashboardStatsRes.status === 'rejected') {
+                console.error('Failed to fetch stats:', dashboardStatsRes.reason);
+            }
 
             // Handle sessions - could be array directly or { sessions: [...] }
             let sessions = [];
@@ -238,6 +290,7 @@ export function useDashboardData() {
             // Use API costs if available, otherwise use calculated costs
             let apiWhatsappCostUsd = whatsappCostUsd;
             let apiWhatsappCostInr = whatsappCostInr;
+            let aiResRateVal = 0;
 
             if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
                 const apiData = dashboardStatsRes.value;
@@ -264,6 +317,10 @@ export function useDashboardData() {
                             value: (counts.failed || 0).toLocaleString(),
                             rate: `${percentages.failed?.toFixed(1) || '0'}%`
                         },
+                        response: {
+                            value: '0',
+                            rate: '0%'
+                        }
                     };
                 }
 
@@ -276,6 +333,9 @@ export function useDashboardData() {
 
             const totalCost = llmCostUsd + apiWhatsappCostUsd;
             const costPerConv = totalConversations > 0 ? totalCost / totalConversations : 0;
+
+            // Calculate human handled conversations
+            const humanHandledCount = sessions.filter(s => s.is_human_agent_active).length;
 
             setData({
                 llmCost: {
@@ -297,6 +357,11 @@ export function useDashboardData() {
                     value: activeUserCount.toString(),
                     comparison: '',
                     trend: '+14.8%',
+                    trendUp: true,
+                },
+                humanHandledConversations: {
+                    value: humanHandledCount.toString(),
+                    trend: '+5%', // Mock trend for now
                     trendUp: true,
                 },
                 costPerConversation: {

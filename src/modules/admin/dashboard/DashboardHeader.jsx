@@ -144,11 +144,9 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
             case 'profile':
             case 'team':
             case 'billing':
-                console.log(`Navigate to ${action} - NO API AVAILABLE`);
                 break;
             case 'signout':
                 localStorage.removeItem('currentUser');
-                console.log('Sign out - NO AUTH API AVAILABLE');
                 break;
             default:
                 break;

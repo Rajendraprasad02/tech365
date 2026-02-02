@@ -4,41 +4,57 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class', // Disable automatic OS dark mode
   theme: {
     extend: {
       colors: {
         violet: {
-          50: '#eff8ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#3b82f6',
-          500: '#0064E0', // Brand Primary
-          600: '#0050b3',
-          700: '#003d82',
-          800: '#002952',
-          900: '#001529',
-          950: '#000a14',
+          50: '#f0f0ff',
+          100: '#e0e0ff',
+          200: '#c2c2ff',
+          300: '#9494ff',
+          400: '#5a5aff',
+          500: '#14137F', // Brand Primary #14137F
+          600: '#0000d6', // Darker shade
+          700: '#0000ac',
+          800: '#00008b',
+          900: '#000070',
+          950: '#000045',
         },
         blue: {
-          50: '#eff8ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#3b82f6',
-          500: '#0064E0',
-          600: '#0050b3',
-          700: '#003d82',
-          800: '#002952',
-          900: '#001529',
-          950: '#000a14',
+          50: '#f0f0ff',
+          100: '#e0e0ff',
+          200: '#c2c2ff',
+          300: '#9494ff',
+          400: '#5a5aff',
+          500: '#14137F', // Brand Primary #14137F
+          600: '#14137F', // Enforcing Brand Primary on 600 as well for components using it
+          700: '#0e0e5e',
+          800: '#00008b',
+          900: '#000070',
+          950: '#000045',
         },
         sidebar: {
-          DEFAULT: '#0c1324',
-          hover: '#1a2236',
-          active: '#242d44',
-          border: '#1e2538'
+          DEFAULT: '#FFFFFF', // White background
+          hover: '#F3F4F6',   // Light gray hover (gray-100)
+          active: '#14137F',  // Brand Primary for active background
+          border: '#E5E7EB',  // Light border (gray-200)
+          text: '#111827',    // Dark text (gray-900)
         },
+        primary: {
+          DEFAULT: '#14137F',
+          50: '#f0f0ff',
+          100: '#e0e0ff',
+          200: '#c2c2ff',
+          300: '#9494ff',
+          400: '#5a5aff',
+          500: '#14137F',
+          600: '#0000d6',
+          700: '#0000ac',
+          800: '#00008b',
+          900: '#000070',
+          950: '#000045',
+        }
       },
       fontFamily: {
         inter: ['Inter', 'sans-serif'],

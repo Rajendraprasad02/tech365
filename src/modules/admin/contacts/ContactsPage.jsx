@@ -4,8 +4,9 @@ import {
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
     FileText, CheckCircle, XCircle, Download, Edit3, X
 } from 'lucide-react';
+import api from '@/services/api';
 
-// API base URL
+// API base URL - still kept just in case of fallback, but api.js handles it
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function ContactsPage() {
@@ -64,7 +65,7 @@ export default function ContactsPage() {
 
 
 // ============ All Contacts Tab ============
-// Uses: GET /contacts, POST /contacts, DELETE /contacts/{id}, PATCH /contacts/{id}/status
+// Uses: api.getContacts, api.createContact, api.deleteContact, api.updateContactStatus
 function AllContactsTab() {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -80,27 +81,24 @@ function AllContactsTab() {
     const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
-            const params = new URLSearchParams();
-            params.append('skip', page * limit);
-            params.append('limit', limit);
-            if (searchQuery) params.append('search', searchQuery);
-            if (statusFilter !== 'all') params.append('status', statusFilter);
-            params.append('sort_by', sortBy);
-
-            const response = await fetch(`${API_BASE_URL}/contacts?${params}`);
-            const data = await response.json();
+            const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
 
-            // Calculate stats from contacts list
+            // Calculate stats from contacts list (or use data.stats if backend provides it)
+            // Ideally backend should provide stats, but for now filtering frontend list
+            // Note: This only stats the *fetched* page if backend paginates. 
+            // For true totals, we rely on data.total for total count.
+            // Status counts would need a separate API or backend update to be accurate global stats.
             const validCount = contactsList.filter(c => c.status === 'valid').length;
             const invalidCount = contactsList.filter(c => c.status === 'invalid').length;
             const blockedCount = contactsList.filter(c => c.status === 'blocked').length;
+
             setStats({
                 total: data.total || contactsList.length,
-                valid: validCount,
-                invalid: invalidCount,
-                blocked: blockedCount
+                valid: validCount, // Approximate (page only)
+                invalid: invalidCount, // Approximate (page only)
+                blocked: blockedCount // Approximate (page only)
             });
         } catch (error) {
             console.error('Error fetching contacts:', error);
@@ -117,7 +115,7 @@ function AllContactsTab() {
     const handleDelete = async (id) => {
         if (!confirm('Delete this contact?')) return;
         try {
-            await fetch(`${API_BASE_URL}/contacts/${id}`, { method: 'DELETE' });
+            await api.deleteContact(id);
             fetchContacts();
         } catch (error) {
             console.error('Error deleting contact:', error);
@@ -126,12 +124,7 @@ function AllContactsTab() {
 
     const handleStatusChange = async (id, newStatus) => {
         try {
-            const formData = new FormData();
-            formData.append('status', newStatus);
-            await fetch(`${API_BASE_URL}/contacts/${id}/status`, {
-                method: 'PATCH',
-                body: formData
-            });
+            await api.updateContactStatus(id, newStatus);
             fetchContacts();
         } catch (error) {
             console.error('Error updating status:', error);
@@ -145,10 +138,7 @@ function AllContactsTab() {
             formData.append('phone_number', newContact.phone_number);
             if (newContact.name) formData.append('name', newContact.name);
 
-            await fetch(`${API_BASE_URL}/contacts`, {
-                method: 'POST',
-                body: formData
-            });
+            await api.createContact(formData);
             setNewContact({ phone_number: '', name: '' });
             setShowAddModal(false);
             fetchContacts();
@@ -393,9 +383,8 @@ function UploadTab() {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('uploaded_by', 'admin@system');
-            const response = await fetch(`${API_BASE_URL}/contacts/bulk-import`, { method: 'POST', body: formData });
-            const result = await response.json();
+            // formData.append('uploaded_by', 'admin@system'); // API can infer from token or use default
+            const result = await api.bulkImportContacts(formData);
             setUploadResult(result);
             setCurrentStep(4);
         } catch (error) {
@@ -552,8 +541,7 @@ function ListsGroupsTab() {
     const fetchLists = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE_URL}/contacts/lists`);
-            const data = await response.json();
+            const data = await api.getContactLists();
             setLists(data.lists || []);
         } catch (error) {
             console.error('Error fetching lists:', error);
@@ -567,9 +555,7 @@ function ListsGroupsTab() {
     const handleCreateList = async () => {
         if (!newListName.trim()) return;
         try {
-            const formData = new FormData();
-            formData.append('name', newListName);
-            await fetch(`${API_BASE_URL}/contacts/lists`, { method: 'POST', body: formData });
+            await api.createContactList(newListName);
             setNewListName('');
             setShowCreateModal(false);
             fetchLists();
@@ -581,7 +567,7 @@ function ListsGroupsTab() {
     const handleDeleteList = async (id) => {
         if (!confirm('Delete this list?')) return;
         try {
-            await fetch(`${API_BASE_URL}/contacts/lists/${id}`, { method: 'DELETE' });
+            await api.deleteContactList(id);
             fetchLists();
         } catch (error) {
             console.error('Error deleting list:', error);
@@ -645,7 +631,7 @@ function ListsGroupsTab() {
 
 
 // ============ Import History Tab ============
-// Uses: GET /contacts/import-history, GET /contacts/import-history/{id}/download
+// Uses: api.getImportHistory
 function ImportHistoryTab() {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -654,8 +640,7 @@ function ImportHistoryTab() {
         const fetchHistory = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${API_BASE_URL}/contacts/import-history`);
-                const data = await response.json();
+                const data = await api.getImportHistory();
                 setHistory(data.history || []);
             } catch (error) {
                 console.error('Error fetching history:', error);
@@ -668,7 +653,13 @@ function ImportHistoryTab() {
 
     const handleDownload = async (id) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/contacts/import-history/${id}/download`);
+            // Should probably add specific download API to api.js, but streaming binary 
+            // is often easier with direct fetch or window.open if auth allows.
+            // For now, if we need auth, we must use fetch with token.
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/contacts/import-history/${id}/download`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -757,7 +748,7 @@ function ImportHistoryTab() {
 
 
 // ============ Invalid/Failed Tab ============
-// Uses: GET /contacts/invalid
+// Uses: api.getInvalidContacts
 function InvalidFailedTab() {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -766,8 +757,7 @@ function InvalidFailedTab() {
         const fetchInvalid = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${API_BASE_URL}/contacts/invalid`);
-                const data = await response.json();
+                const data = await api.getInvalidContacts();
                 setContacts(data.contacts || []);
             } catch (error) {
                 console.error('Error fetching invalid contacts:', error);
