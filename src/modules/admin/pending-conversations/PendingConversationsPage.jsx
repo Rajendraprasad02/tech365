@@ -350,7 +350,7 @@ export default function PendingConversationsPage() {
             {/* View Modal */}
             {selectedConversation && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-200">
                         {/* Modal Header */}
                         <div className="px-6 py-4 flex items-start justify-between">
                             <div className="flex items-center gap-4">

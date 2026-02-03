@@ -83,6 +83,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
+            console.log("Fetching contacts with params:", { page, limit, searchQuery, statusFilter, sortBy, sourceFilterProp });
             const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy, sourceFilterProp);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
