@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     Users, Upload, FolderOpen, Clock, AlertCircle, Search,
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
-    FileText, CheckCircle, XCircle, Download, Edit3, X
+    FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck
 } from 'lucide-react';
 import api from '@/services/api';
 
@@ -14,6 +14,7 @@ export default function ContactsPage() {
 
     const tabs = [
         { id: 'all-contacts', label: 'All Contacts', icon: Users },
+        { id: 'leads', label: 'Leads', icon: UserCheck },
         { id: 'upload', label: 'Upload', icon: Upload },
         { id: 'lists-groups', label: 'Lists / Groups', icon: FolderOpen },
         { id: 'import-history', label: 'Import History', icon: Clock },
@@ -53,7 +54,8 @@ export default function ContactsPage() {
 
             {/* Tab Content */}
             <div className="flex-1 overflow-hidden p-6">
-                {activeTab === 'all-contacts' && <AllContactsTab />}
+                {activeTab === 'all-contacts' && <AllContactsTab key="all-contacts" />}
+                {activeTab === 'leads' && <AllContactsTab key="leads" sourceFilterProp="lead" />}
                 {activeTab === 'upload' && <UploadTab />}
                 {activeTab === 'lists-groups' && <ListsGroupsTab />}
                 {activeTab === 'import-history' && <ImportHistoryTab />}
@@ -66,7 +68,7 @@ export default function ContactsPage() {
 
 // ============ All Contacts Tab ============
 // Uses: api.getContacts, api.createContact, api.deleteContact, api.updateContactStatus
-function AllContactsTab() {
+function AllContactsTab({ sourceFilterProp = 'all' }) {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +83,7 @@ function AllContactsTab() {
     const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy);
+            const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy, sourceFilterProp);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
 
@@ -106,7 +108,7 @@ function AllContactsTab() {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, statusFilter, sortBy, page]);
+    }, [searchQuery, statusFilter, sortBy, page, sourceFilterProp]);
 
     useEffect(() => {
         fetchContacts();
@@ -261,9 +263,13 @@ function AllContactsTab() {
                                                 <option value="blocked">Blocked</option>
                                             </select>
                                         </td>
-                                        <td className="px-6 py-3 text-gray-500 capitalize text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <FileText size={13} />
+                                        <td className="px-6 py-3 text-center">
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
+                                                (contact.source && contact.source.toLowerCase().includes('lead')) 
+                                                ? 'bg-blue-100 text-blue-700' 
+                                                : 'text-gray-500 bg-gray-50'
+                                            }`}>
+                                                <FileText size={12} />
                                                 {contact.source || 'Manual'}
                                             </div>
                                         </td>

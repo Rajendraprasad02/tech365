@@ -28,7 +28,7 @@ export default function SmartRedirect() {
             <h1 className="text-xl font-bold text-gray-800">Access Denied</h1>
             <p className="text-gray-500">You do not have permission to view any screens.</p>
             <button
-                onClick={() => window.location.href = '/login'}
+                onClick={() => window.location.href = '/#/login'}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
                 Back to Login

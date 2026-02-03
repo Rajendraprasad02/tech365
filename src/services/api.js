@@ -344,10 +344,11 @@ export async function sendWhatsAppTemplate(waId, templateName, variables = {}, c
 // ============ Contact Management APIs ============
 
 // Get all contacts with pagination and filters
-export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc') {
+export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc', source = 'all') {
     const params = new URLSearchParams({ skip, limit, sort_by: sortBy });
     if (search) params.append('search', search);
     if (status !== 'all') params.append('status', status);
+    if (source !== 'all') params.append('source', source);
     return fetchDataApi(`/contacts?${params}`);
 }
 

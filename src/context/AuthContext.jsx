@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('roleId');
         localStorage.removeItem('user'); // Clear user
         dispatch(logoutAction());
-        window.location.href = '/login';
+        window.location.href = '/#/login';
     };
 
     const refreshMenu = () => {

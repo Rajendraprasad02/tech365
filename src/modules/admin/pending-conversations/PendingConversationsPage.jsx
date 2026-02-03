@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Check, Clock, MessageSquare, X, User, FileText } from 'lucide-react';
+import { Search, Filter, Check, Clock, MessageSquare, X, User, FileText, Bot } from 'lucide-react';
 import { getPendingSessions, assignSessionToAgent, getLeads, getLeadByPhone } from '../../../services/api';
 import LeadDetailsModal from '../conversations/LeadDetailsModal';
 import { useSelector } from 'react-redux';
@@ -103,7 +103,44 @@ export default function PendingConversationsPage() {
                     contactId: waId ? `+${waId}` : `#${session.id}`,
                     // Mocking 'online' status based on recency (e.g. < 5 mins)
                     isOnline: isRecentlyActive(session.updated_at || session.created_at),
-                    productInterest: lead?.product_interest // Store for filtering
+                    productInterest: lead?.product_interest, // Store for filtering
+                    messages: (session.conversation || []).flatMap(msg => {
+                        // Handle standard message structure
+                        if (msg.text && msg.direction) {
+                            return [{
+                                text: msg.text,
+                                direction: msg.direction,
+                                time: formatTime(msg.timestamp),
+                            }];
+                        }
+
+                        // Handle role-based structure (AI/User single messages)
+                        if (msg.role && msg.text) {
+                            return [{
+                                text: msg.text,
+                                direction: msg.role === 'user' ? 'in' : 'out',
+                                time: formatTime(msg.timestamp),
+                            }];
+                        }
+
+                        // Handle turn-based structure (user/bot pair)
+                        const turns = [];
+                        if (msg.user) {
+                            turns.push({
+                                text: msg.user,
+                                direction: 'in',
+                                time: formatTime(msg.userTimestamp || msg.timestamp),
+                            });
+                        }
+                        if (msg.bot) {
+                            turns.push({
+                                text: msg.bot,
+                                direction: 'out',
+                                time: formatTime(msg.botTimestamp || msg.timestamp),
+                            });
+                        }
+                        return turns;
+                    })
                 };
             });
 
@@ -355,33 +392,47 @@ export default function PendingConversationsPage() {
                         )}
 
                         {/* Modal Content */}
-                        <div className="px-6 py-2 space-y-4">
-                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                                    <MessageSquare size={12} /> Last Message
-                                </div>
-                                <p className="text-gray-900 text-sm leading-relaxed">
-                                    {selectedConversation.fullMessage}
-                                </p>
-                            </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 max-h-[60vh]">
+                            {selectedConversation.messages && selectedConversation.messages.length > 0 ? (
+                                selectedConversation.messages.map((msg, index) => (
+                                    <div
+                                        key={index}
+                                        className={`flex items-end gap-2 ${msg.direction === 'in' ? 'justify-start' : 'justify-end'}`}
+                                    >
+                                        {/* User Avatar (Left for 'in') */}
+                                        {msg.direction === 'in' && (
+                                            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                                                <User size={16} className="text-white" />
+                                            </div>
+                                        )}
 
-                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                                    <Clock size={12} /> Time
-                                </div>
-                                <p className="text-gray-900 text-sm font-medium">
-                                    {selectedConversation.time}
-                                </p>
-                            </div>
+                                        {/* Message Bubble */}
+                                        <div
+                                            className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${msg.direction === 'in'
+                                                ? 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
+                                                : 'bg-[#1E1B4B] text-white rounded-br-sm'
+                                                }`}
+                                        >
+                                            <div className="leading-relaxed">{renderMessageContent(msg.text)}</div>
+                                            <p className={`text-[10px] mt-1 ${msg.direction === 'in' ? 'text-gray-400' : 'text-blue-200'}`}>
+                                                {msg.time}
+                                            </p>
+                                        </div>
 
-                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                                    <User size={12} /> Contact ID
+                                        {/* Bot Avatar (Right for 'out') */}
+                                        {msg.direction === 'out' && (
+                                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                <Bot size={16} className="text-gray-600" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                                    <MessageSquare size={32} className="mb-2 opacity-50" />
+                                    <p className="text-sm">No messages found</p>
                                 </div>
-                                <p className="text-gray-900 text-sm font-mono font-medium">
-                                    {selectedConversation.contactId}
-                                </p>
-                            </div>
+                            )}
                         </div>
 
                         {/* Modal Footer */}
@@ -432,6 +483,12 @@ export default function PendingConversationsPage() {
     );
 }
 
+function formatTime(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 function formatTimeAgo(dateString) {
     if (!dateString) return 'Unknown';
     const date = new Date(dateString);
@@ -448,4 +505,46 @@ function formatTimeAgo(dateString) {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays === 1) return 'Yesterday';
     return `${diffDays} days ago`;
+}
+
+// Helper to safely parse and format JSON-like strings
+function renderMessageContent(text) {
+    if (!text) return '';
+    
+    // Check if it's a lead capture message
+    if (typeof text === 'string' && text.startsWith('[LEAD_CAPTURE]')) {
+        try {
+            // Extract the JSON-like part
+            const jsonPart = text.replace('[LEAD_CAPTURE]', '').trim();
+            
+            // Attempt to make it valid JSON (replace single quotes with double quotes)
+            // Note: This is a simple heuristic and might fail on complex strings containing escaped quotes
+            const validJson = jsonPart.replace(/'/g, '"');
+            const data = JSON.parse(validJson);
+            
+            return (
+                <div className="mt-1 space-y-1">
+                    <div className="text-xs font-semibold opacity-75 mb-2 border-b border-white/20 pb-1">Lead Captured</div>
+                    {Object.entries(data).map(([key, value]) => {
+                        if (key === 'flow_token') return null;
+                        // Clean keys: screen_0_First_0 -> First
+                        const label = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
+                        return (
+                            <div key={key} className="flex flex-col">
+                                <span className="text-[10px] opacity-70 uppercase tracking-wide">{label}</span>
+                                <span className="text-sm font-medium">{value}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        } catch (e) {
+            console.warn('Failed to parse LEAD_CAPTURE message:', e);
+            // Fallback to raw text if parsing fails
+            return text;
+        }
+    }
+    
+    // Regular text
+    return text;
 }

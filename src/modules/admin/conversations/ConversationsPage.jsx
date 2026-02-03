@@ -259,11 +259,13 @@ export default function ConversationsPage() {
                 const lead = leadsMap[waId];
                 const displayName = lead?.name || session.name || session.whatsapp || session.email || `Conversation #${index + 1}`;
 
+                const lastMsg = session.conversation?.[session.conversation.length - 1];
+
                 return {
                     id: session.id || index,
                     wa_id: session.whatsapp, // Add this for API calls
                     title: displayName,
-                    preview: session.conversation?.[0]?.text?.substring(0, 50) || session.conversation?.[0]?.user?.substring(0, 50) || 'No messages',
+                    preview: lastMsg?.text?.substring(0, 50) || lastMsg?.user?.substring(0, 50) || 'No messages',
                     status: session.conversation?.length > 0 ? 'active' : 'resolved',
                     time: formatTimeAgo(session.updated_at || session.created_at),
                     unread: false, // Legacy Support
@@ -315,13 +317,18 @@ export default function ConversationsPage() {
                             });
                         }
                         return turns;
-                    }).filter((msg, index, arr) => {
-                        // Deduplicate adjacent messages with same text and direction
-                        if (index === 0) return true;
-                        const prev = arr[index - 1];
                         return !(msg.text === prev.text && msg.direction === prev.direction);
                     }) || [],
                 };
+            });
+
+            // Sort conversations by updated_at (newest first)
+            convos.sort((a, b) => {
+                const sessionA = filteredSessions.find(s => (s.id || s.index) === a.id);
+                const sessionB = filteredSessions.find(s => (s.id || s.index) === b.id);
+                const dateA = new Date(sessionA?.updated_at || sessionA?.created_at || 0);
+                const dateB = new Date(sessionB?.updated_at || sessionB?.created_at || 0);
+                return dateB - dateA;
             });
 
             setConversations(convos);
