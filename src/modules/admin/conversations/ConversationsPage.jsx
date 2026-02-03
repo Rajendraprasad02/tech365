@@ -39,6 +39,7 @@ export default function ConversationsPage() {
     const [showLeadModal, setShowLeadModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [assignedAgent, setAssignedAgent] = useState(null);
+    const [showAgentModal, setShowAgentModal] = useState(false);
 
     // ✅ WebSocket: Real-Time Updates
     useEffect(() => {
@@ -668,6 +669,17 @@ export default function ConversationsPage() {
                                         >
                                             <FileText size={16} />
                                         </button>
+                                        
+                                        {/* Assigned Agent Button (Admin Only) */}
+                                        {!isAgentEffective && selectedConversation.assigned_agent_id && (
+                                            <button
+                                                onClick={() => setShowAgentModal(true)}
+                                                className="text-gray-400 hover:text-violet-600 transition-colors p-1.5 rounded-lg bg-gray-50 hover:bg-violet-50"
+                                                title="View Assigned Agent"
+                                            >
+                                                <User size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                     
                                      {/* Assigned Agent Details - REMOVED */}
@@ -834,6 +846,59 @@ export default function ConversationsPage() {
                     onClose={() => setShowLeadModal(false)} 
                 />
             )}
+
+            {/* Agent Details Modal */}
+            {showAgentModal && assignedAgent && (
+                <div className="absolute inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-semibold text-gray-900">Assigned Agent</h3>
+                            <button 
+                                onClick={() => setShowAgentModal(false)} 
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="flex flex-col items-center mb-6">
+                                <div className="w-20 h-20 bg-violet-100 rounded-full flex items-center justify-center text-violet-600 mb-3">
+                                    <User size={32} />
+                                </div>
+                                <h4 className="text-xl font-bold text-gray-900 text-center">
+                                    {assignedAgent.full_name || assignedAgent.username || assignedAgent.email || 'Agent'}
+                                </h4>
+                                <span className="text-sm text-gray-500 uppercase tracking-wide font-medium mt-1">
+                                    {assignedAgent.role?.name || assignedAgent.role || 'Agent'}
+                                </span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                {/* <div className="p-3 bg-gray-50 rounded-lg">
+                                    <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">ID</span>
+                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.id}</p>
+                                </div> */}
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">Email</span>
+                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.email || 'N/A'}</p>
+                                </div>
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">Phone</span>
+                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.phone_number || assignedAgent.phone || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setShowAgentModal(false)}
+                                className="w-full mt-6 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
