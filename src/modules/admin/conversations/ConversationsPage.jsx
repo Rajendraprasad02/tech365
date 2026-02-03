@@ -51,6 +51,9 @@ export default function ConversationsPage() {
         
         // Use environment variable for WebSocket URL
         const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
+        console.log("🔍 [DEBUG] Env VITE_DATA_API_URL:", import.meta.env.VITE_DATA_API_URL);
+        console.log("🔍 [DEBUG] Resolved WebSocket API URL:", apiUrl);
+
         const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
         const wsHost = apiUrl.replace(/^https?:\/\//, '');
         const wsUrl = `${wsProtocol}://${wsHost}/ws/${clientId}`;
@@ -268,7 +271,9 @@ export default function ConversationsPage() {
                     // Use backend assigned_agent_id for approval status
                     assigned_agent_id: session.assigned_agent_id,
                     assigned_at: session.assigned_at,
-                    approvalStatus: session.assigned_agent_id ? 'approved' : 'pending',
+                    approvalStatus: (!session.assigned_agent_id) 
+                        ? (lead?.status === 'transfer_to_agent' ? 'pending' : 'capturing') 
+                        : 'approved',
                     messages: session.conversation?.flatMap(msg => {
                         // Handle standard message structure
                         if (msg.text && msg.direction) {
@@ -309,6 +314,11 @@ export default function ConversationsPage() {
                             });
                         }
                         return turns;
+                    }).filter((msg, index, arr) => {
+                        // Deduplicate adjacent messages with same text and direction
+                        if (index === 0) return true;
+                        const prev = arr[index - 1];
+                        return !(msg.text === prev.text && msg.direction === prev.direction);
                     }) || [],
                 };
             });
@@ -571,18 +581,21 @@ export default function ConversationsPage() {
                                         }`}
                                 >
                                     <div className="relative flex-shrink-0">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${conv.approvalStatus === 'approved' ? 'bg-green-500' : 'bg-violet-500'
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
+                                            conv.approvalStatus === 'approved' ? 'bg-green-500' : 
+                                            conv.approvalStatus === 'capturing' ? 'bg-blue-500' : 'bg-amber-500'
                                             }`}>
                                             {conv.title.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                         </div>
                                         {/* Approval Status Icon */}
-                                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border shadow-sm ${conv.approvalStatus === 'approved'
-                                            ? 'bg-green-100 border-green-200'
-                                            : 'bg-amber-100 border-amber-200'
+                                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border shadow-sm ${
+                                            conv.approvalStatus === 'approved' ? 'bg-green-100 border-green-200' :
+                                            conv.approvalStatus === 'capturing' ? 'bg-blue-100 border-blue-200' :
+                                            'bg-amber-100 border-amber-200'
                                             }`}>
-                                            {conv.approvalStatus === 'approved'
-                                                ? <CheckCircle size={10} className="text-green-600" />
-                                                : <AlertCircle size={10} className="text-amber-600" />
+                                            {conv.approvalStatus === 'approved' ? <CheckCircle size={10} className="text-green-600" /> :
+                                             conv.approvalStatus === 'capturing' ? <Info size={10} className="text-blue-600" /> :
+                                             <AlertCircle size={10} className="text-amber-600" />
                                             }
                                         </div>
                                     </div>
@@ -610,11 +623,13 @@ export default function ConversationsPage() {
                                         <div className="flex items-center gap-2 mt-2">
                                             {/* Approval Status Badge - Show for Admin */}
                                             {!isAgent && (
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${conv.approvalStatus === 'approved'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-amber-100 text-amber-700'
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                                                    conv.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                                                    conv.approvalStatus === 'capturing' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-amber-100 text-amber-700'
                                                     }`}>
-                                                    {conv.approvalStatus === 'approved' ? 'Approved' : 'Pending'}
+                                                    {conv.approvalStatus === 'approved' ? 'Approved' : 
+                                                     conv.approvalStatus === 'capturing' ? 'Capturing' : 'Pending'}
                                                 </span>
                                             )}
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${getStatusBadge(conv.status)}`}>
