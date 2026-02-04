@@ -261,6 +261,15 @@ export default function ConversationsPage() {
 
                 const lastMsg = session.conversation?.[session.conversation.length - 1];
 
+                // Determine effective agent ID (check both session and lead data)
+                const effectiveAgentId = session.assigned_agent_id || lead?.assigned_agent_id;
+
+                if (index === 0) {
+                     console.log('DEBUG SESSION:', session);
+                     console.log('DEBUG LEAD:', lead);
+                     console.log('Effective Agent ID:', effectiveAgentId);
+                }
+
                 return {
                     id: session.id || index,
                     wa_id: session.whatsapp, // Add this for API calls
@@ -272,11 +281,11 @@ export default function ConversationsPage() {
                     unreadCount: 0, // New Counter
                     cost: totalCost.toFixed(4),
                     // Use backend assigned_agent_id for approval status
-                    assigned_agent_id: session.assigned_agent_id,
+                    assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
-                    approvalStatus: (!session.assigned_agent_id) 
-                        ? (lead?.status === 'transfer_to_agent' ? 'pending' : 'capturing') 
-                        : 'approved',
+                    approvalStatus: effectiveAgentId 
+                        ? 'assigned' 
+                        : (lead?.status === 'transfer_to_agent' ? 'pending' : 'active'),
                     messages: session.conversation?.flatMap(msg => {
                         // Handle standard message structure
                         if (msg.text && msg.direction) {
@@ -284,6 +293,7 @@ export default function ConversationsPage() {
                                 text: msg.text,
                                 direction: msg.direction,
                                 time: formatTime(msg.timestamp),
+                                timestamp: msg.timestamp, // Added for grouping
                                 cost: msg.whatsapp_cost || 0,
                             }];
                         }
@@ -294,6 +304,7 @@ export default function ConversationsPage() {
                                 text: msg.text,
                                 direction: msg.role === 'user' ? 'in' : 'out',
                                 time: formatTime(msg.timestamp),
+                                timestamp: msg.timestamp, // Added for grouping
                                 cost: msg.cost || 0
                             }];
                         }
@@ -305,6 +316,7 @@ export default function ConversationsPage() {
                                 text: msg.user,
                                 direction: 'in',
                                 time: formatTime(msg.userTimestamp || msg.timestamp),
+                                timestamp: msg.userTimestamp || msg.timestamp, // Added for grouping
                                 cost: 0
                             });
                         }
@@ -313,11 +325,11 @@ export default function ConversationsPage() {
                                 text: msg.bot,
                                 direction: 'out',
                                 time: formatTime(msg.botTimestamp || msg.timestamp),
+                                timestamp: msg.botTimestamp || msg.timestamp, // Added for grouping
                                 cost: msg.cost || 0
                             });
                         }
                         return turns;
-                        return !(msg.text === prev.text && msg.direction === prev.direction);
                     }) || [],
                 };
             });
@@ -398,8 +410,10 @@ export default function ConversationsPage() {
         // Admins see all, with optional status filter
         if (statusFilter === 'pending') {
             displayedConversations = conversations.filter(conv => conv.approvalStatus === 'pending');
-        } else if (statusFilter === 'approved') {
-            displayedConversations = conversations.filter(conv => conv.approvalStatus === 'approved');
+        } else if (statusFilter === 'assigned') {
+            displayedConversations = conversations.filter(conv => conv.approvalStatus === 'assigned');
+        } else if (statusFilter === 'active') {
+            displayedConversations = conversations.filter(conv => conv.approvalStatus === 'active');
         } else {
             displayedConversations = conversations;
         }
@@ -413,7 +427,8 @@ export default function ConversationsPage() {
 
     // Stats for Admin view
     const pendingCount = conversations.filter(c => c.approvalStatus === 'pending').length;
-    const approvedCount = conversations.filter(c => c.approvalStatus === 'approved').length;
+    const assignedCount = conversations.filter(c => c.approvalStatus === 'assigned').length;
+    const activeCount = conversations.filter(c => c.approvalStatus === 'active').length;
 
     // Get status badge styling
     const getStatusBadge = (status) => {
@@ -491,23 +506,16 @@ export default function ConversationsPage() {
                         <h1 className="text-2xl font-bold text-gray-900 mb-1">Conversations</h1>
                         <p className="text-gray-500 text-sm">
                             {isAgentEffective
-                                ? 'Manage your approved conversations'
-                                : `${filteredConversations.length} conversations • ${pendingCount} pending, ${approvedCount} approved`
+                                ? 'Manage your assigned conversations'
+                                : `${filteredConversations.length} conversations • ${activeCount} active, ${pendingCount} pending`
                             }
                         </p>
                     </div>
-                    <button
-                        className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors font-medium border border-red-100"
-                        onClick={() => alert("Agent Takeover Initiated")}
-                    >
-                        <Headset size={18} />
-                        Agent Takeover
-                    </button>
                 </div>
 
                 {/* Status Filter Tabs - Only for Admin/Super Admin */}
                 {!isAgentEffective && (
-                    <div className="flex items-center gap-3 mt-4 overflow-x-auto  scrollbar-hide whitespace-nowrap">
+                    <div className="flex items-center gap-3 mt-4 overflow-x-auto scrollbar-hide whitespace-nowrap">
                         <button
                             onClick={() => setStatusFilter('all')}
                             className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${statusFilter === 'all'
@@ -516,6 +524,16 @@ export default function ConversationsPage() {
                                 }`}
                         >
                             All ({conversations.length})
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('active')}
+                            className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'active'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-blue-600 hover:bg-blue-50'
+                                }`}
+                        >
+                            <Info size={15} />
+                            Active ({activeCount})
                         </button>
                         <button
                             onClick={() => setStatusFilter('pending')}
@@ -528,14 +546,14 @@ export default function ConversationsPage() {
                             Pending ({pendingCount})
                         </button>
                         <button
-                            onClick={() => setStatusFilter('approved')}
-                            className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'approved'
+                            onClick={() => setStatusFilter('assigned')}
+                            className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'assigned'
                                 ? 'bg-green-600 text-white'
                                 : 'bg-white text-green-600 hover:bg-green-50'
                                 }`}
                         >
                             <CheckCircle size={15} />
-                            Approved ({approvedCount})
+                            Assigned ({assignedCount})
                         </button>
                     </div>
                 )}
@@ -557,13 +575,6 @@ export default function ConversationsPage() {
                                 className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400 w-full min-w-0"
                             />
                         </div>
-                        {/* <button
-                            onClick={() => setShowNewConvModal(true)}
-                            className="w-10 h-10 bg-violet-500 hover:bg-violet-600 text-white rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
-                            title="Start New Conversation"
-                        >
-                            <Plus size={20} />
-                        </button> */}
                     </div>
 
                     {/* Conversation List */}
@@ -590,19 +601,19 @@ export default function ConversationsPage() {
                                 >
                                     <div className="relative flex-shrink-0">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                                            conv.approvalStatus === 'approved' ? 'bg-green-500' : 
-                                            conv.approvalStatus === 'capturing' ? 'bg-blue-500' : 'bg-amber-500'
+                                            conv.approvalStatus === 'assigned' ? 'bg-green-500' : 
+                                            conv.approvalStatus === 'active' ? 'bg-blue-500' : 'bg-amber-500'
                                             }`}>
                                             {conv.title.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                         </div>
                                         {/* Approval Status Icon */}
                                         <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border shadow-sm ${
-                                            conv.approvalStatus === 'approved' ? 'bg-green-100 border-green-200' :
-                                            conv.approvalStatus === 'capturing' ? 'bg-blue-100 border-blue-200' :
+                                            conv.approvalStatus === 'assigned' ? 'bg-green-100 border-green-200' :
+                                            conv.approvalStatus === 'active' ? 'bg-blue-100 border-blue-200' :
                                             'bg-amber-100 border-amber-200'
                                             }`}>
-                                            {conv.approvalStatus === 'approved' ? <CheckCircle size={10} className="text-green-600" /> :
-                                             conv.approvalStatus === 'capturing' ? <Info size={10} className="text-blue-600" /> :
+                                            {conv.approvalStatus === 'assigned' ? <CheckCircle size={10} className="text-green-600" /> :
+                                             conv.approvalStatus === 'active' ? <Info size={10} className="text-blue-600" /> :
                                              <AlertCircle size={10} className="text-amber-600" />
                                             }
                                         </div>
@@ -632,17 +643,15 @@ export default function ConversationsPage() {
                                             {/* Approval Status Badge - Show for Admin */}
                                             {!isAgent && (
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                                                    conv.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                                                    conv.approvalStatus === 'capturing' ? 'bg-blue-100 text-blue-700' :
+                                                    conv.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
+                                                    conv.approvalStatus === 'active' ? 'bg-blue-100 text-blue-700' :
                                                     'bg-amber-100 text-amber-700'
                                                     }`}>
-                                                    {conv.approvalStatus === 'approved' ? 'Approved' : 
-                                                     conv.approvalStatus === 'capturing' ? 'Capturing' : 'Pending'}
+                                                    {conv.approvalStatus === 'assigned' ? 'Assigned' : 
+                                                     conv.approvalStatus === 'active' ? 'Active' : 'Pending'}
                                                 </span>
                                             )}
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${getStatusBadge(conv.status)}`}>
-                                                {conv.status}
-                                            </span>
+
                                             <span className="flex items-center gap-1 text-[11px] text-gray-400">
                                                 <Clock size={10} />
                                                 {conv.time}
@@ -678,13 +687,19 @@ export default function ConversationsPage() {
                                         </button>
                                         
                                         {/* Assigned Agent Button (Admin Only) */}
+                                        {/* Assigned Agent Button (Admin Only) */}
                                         {!isAgentEffective && selectedConversation.assigned_agent_id && (
                                             <button
                                                 onClick={() => setShowAgentModal(true)}
-                                                className="text-gray-400 hover:text-violet-600 transition-colors p-1.5 rounded-lg bg-gray-50 hover:bg-violet-50"
+                                                className="flex items-center gap-2 pl-1 pr-3 py-1 bg-violet-50 hover:bg-violet-100 border border-violet-100 rounded-full transition-all group"
                                                 title="View Assigned Agent"
                                             >
-                                                <User size={16} />
+                                                <div className="w-6 h-6 rounded-full bg-violet-200 text-violet-700 flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                                                    {assignedAgent?.full_name?.[0]?.toUpperCase() || assignedAgent?.username?.[0]?.toUpperCase() || 'A'}
+                                                </div>
+                                                <span className="text-xs font-medium text-violet-700 group-hover:text-violet-800">
+                                                    {assignedAgent?.full_name || assignedAgent?.username || 'Assigned Agent'}
+                                                </span>
                                             </button>
                                         )}
                                     </div>
@@ -692,55 +707,89 @@ export default function ConversationsPage() {
                                      {/* Assigned Agent Details - REMOVED */}
 
 
-                                    {/* Cost Badge */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
-                                        <DollarSign size={14} />
-                                        <span className="text-sm font-semibold">${selectedConversation.cost}</span>
+                                    <div className="flex items-center gap-3">
+                                        {/* End Chat Button (Agent Only) */}
+                                        {isAgentEffective && (
+                                            <button 
+                                                className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
+                                                title="End this conversation"
+                                            >
+                                                End Chat
+                                            </button>
+                                        )}
+
+                                        {/* Cost Badge */}
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
+                                            <DollarSign size={14} />
+                                            <span className="text-sm font-semibold">${selectedConversation.cost}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${getStatusBadge(selectedConversation.status)}`}>
-                                    {selectedConversation.status === 'active' ? 'Active conversation' : selectedConversation.status}
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${
+                                    selectedConversation.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
+                                    selectedConversation.approvalStatus === 'active' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-amber-100 text-amber-700'
+                                }`}>
+                                    {selectedConversation.approvalStatus === 'assigned' ? 'Assigned' : 
+                                     selectedConversation.approvalStatus === 'active' ? 'Active' : 'Pending'}
                                 </span>
                             </div>
 
                             {/* Messages */}
     <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 scroll-smooth">
                                 {selectedConversation.messages.length > 0 ? (
-                                    selectedConversation.messages.map((msg, index) => (
-                                        <div
-                                            key={index}
-                                            className={`flex items-end gap-2 ${msg.direction === 'in' ? 'justify-start' : 'justify-end'}`}
-                                        >
-                                            {/* User Avatar (Now on Left for 'in') */}
-                                            {msg.direction === 'in' && (
-                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                                                    <User size={16} className="text-white" />
-                                                </div>
-                                            )}
+                                    selectedConversation.messages.map((msg, index) => {
+                                        // Date Grouping Logic
+                                        const prevMsg = selectedConversation.messages[index - 1];
+                                        const currentDate = new Date(msg.timestamp).toDateString();
+                                        const prevDate = prevMsg ? new Date(prevMsg.timestamp).toDateString() : null;
+                                        const showDateHeader = currentDate !== prevDate;
+                                        const dateHeaderLabel = formatDateHeader(msg.timestamp);
 
-                                            {/* Message Bubble */}
-                                            <div
-                                                className={`max-w-md px-4 py-3 rounded-2xl ${msg.direction === 'in'
-                                                     // User (Left): White/Gray style
-                                                    ? 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
-                                                     // Agent (Right): Blue style
-                                                    : 'bg-blue-500 text-white rounded-br-sm'
-                                                    }`}
-                                            >
-                                                <div className="text-sm leading-relaxed">{renderMessageContent(msg.text)}</div>
-                                                <p className={`text-[10px] mt-1.5 ${msg.direction === 'in' ? 'text-gray-400' : 'text-blue-100'}`}>
-                                                    {msg.time}
-                                                </p>
+                                        return (
+                                            <div key={index} className="flex flex-col gap-2">
+                                                {/* Date Header */}
+                                                {showDateHeader && (
+                                                    <div className="flex justify-center my-4">
+                                                        <span className="bg-gray-100/90 backdrop-blur-sm text-gray-600 text-[11px] font-semibold px-3 py-1 rounded-full shadow-sm border border-gray-200">
+                                                            {dateHeaderLabel}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div className={`flex items-end gap-2 ${msg.direction === 'in' ? 'justify-start' : 'justify-end'}`}>
+                                                    {/* User Avatar (Now on Left for 'in') */}
+                                                    {msg.direction === 'in' && (
+                                                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                                                            <User size={16} className="text-white" />
+                                                        </div>
+                                                    )}
+
+                                                    {/* Message Bubble */}
+                                                    <div
+                                                        className={`max-w-md px-4 py-3 rounded-2xl ${msg.direction === 'in'
+                                                             // User (Left): White/Gray style
+                                                            ? 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
+                                                             // Agent (Right): Blue style
+                                                            : 'bg-blue-500 text-white rounded-br-sm'
+                                                            }`}
+                                                    >
+                                                        <div className="text-sm leading-relaxed">{renderMessageContent(msg.text)}</div>
+                                                        <p className={`text-[10px] mt-1.5 ${msg.direction === 'in' ? 'text-gray-400' : 'text-blue-100'}`}>
+                                                            {msg.time}
+                                                        </p>
+                                                    </div>
+                                                    
+                                                     {/* Bot Avatar (Now on Right for 'out') */}
+                                                     {msg.direction === 'out' && (
+                                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                            <Bot size={16} className="text-gray-600" />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-
-                                            {/* Bot Avatar (Now on Right for 'out') */}
-                                            {msg.direction === 'out' && (
-                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                    <Bot size={16} className="text-gray-600" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-gray-400">
                                         <p className="text-sm">No messages in this conversation</p>
@@ -974,4 +1023,21 @@ function formatTime(timestamp) {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function formatDateHeader(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    // Check if it was yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) return 'Today';
+    if (isYesterday) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
