@@ -1,4 +1,5 @@
 import { MessageCircle, Bot, Clock, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 const statusColors = {
     active: 'bg-green-100 text-green-600',
     pending: 'bg-amber-100 text-amber-600',
@@ -6,6 +7,7 @@ const statusColors = {
 };
 
 export default function RecentConversations({ conversations }) {
+    const navigate = useNavigate();
     const hasData = conversations && conversations.length > 0;
 
     if (!hasData) {
@@ -42,7 +44,10 @@ export default function RecentConversations({ conversations }) {
                         <div className="text-xs text-gray-500">Latest chat interactions</div>
                     </div>
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-all duration-200">
+                <button 
+                    onClick={() => navigate('/conversations')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-all duration-200"
+                >
                     View All
                     <ExternalLink size={12} />
                 </button>

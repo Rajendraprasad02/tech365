@@ -148,6 +148,14 @@ export async function sendSessionMessage(sessionId, message) {
     });
 }
 
+// End a session
+export async function endSession(sessionId, userId) {
+    return fetchDataApi(`/session/${sessionId}/end`, {
+        method: 'POST',
+        body: JSON.stringify({ closed_by: userId })
+    });
+}
+
 // ============ WhatsApp APIs ============
 
 // Get all WhatsApp conversations grouped by user
@@ -565,6 +573,7 @@ export default {
     getPendingSessions, // Added
     assignSessionToAgent, // Added
     sendSessionMessage, // Added
+    endSession, // Added
     getAgentSessions, // Added
     getSessionById,
     getWhatsAppConversations,

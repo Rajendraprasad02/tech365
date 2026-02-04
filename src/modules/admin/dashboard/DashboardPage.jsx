@@ -58,12 +58,13 @@ export default function DashboardPage() {
                             </div>
                         )}
 
-                        {/* Hero Cards */}
+                            {/* Hero Cards */}
                         <div id="hero-cards" className={`rounded-xl ${getHighlightClass('hero-cards')}`}>
                             <HeroCards
                                 walletBalance={data.walletBalance}
                                 activeConversations={data.totalConversations}
                                 whatsappCost={data.whatsappCost}
+                                agentPerformance={data.agentPerformance}
                             />
                         </div>
 

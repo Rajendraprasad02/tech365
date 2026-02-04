@@ -15,7 +15,8 @@ export default function MetricCard({ metric }) {
 
     return (
         <div
-            className={`relative overflow-hidden bg-white rounded-2xl p-5 border border-gray-100 hover:border-violet-300 hover:shadow-lg transition-all duration-300 animate-fade-in ${metric.highlight ? 'border-violet-200 bg-violet-50/30' : ''}`}
+            onClick={metric.onClick}
+            className={`relative overflow-hidden bg-white rounded-2xl p-5 border border-gray-100 hover:border-violet-300 hover:shadow-lg transition-all duration-300 animate-fade-in ${metric.highlight ? 'border-violet-200 bg-violet-50/30' : ''} ${metric.clickable ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
         >
             {/* Green dot indicator */}
             <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-emerald-500" />

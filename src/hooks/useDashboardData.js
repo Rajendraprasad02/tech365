@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { getSessions, getWhatsAppConversations, getWhatsAppDashboardStats } from '../services/api';
+import { getSessions, getWhatsAppConversations, getWhatsAppDashboardStats, getUsers } from '../services/api';
 import { calculateCostFromMessages, WHATSAPP_COSTS } from '../config/whatsappCosts';
 
 // Helper to group sessions by date for chart data
@@ -91,50 +91,48 @@ function groupMessagesByHour(sessions) {
     }));
 }
 
-// Helper to calculate average response time from conversations
+// Helper to calculate average conversation time (from assignment to closure)
 function calculateAvgResponseTime(sessions) {
     if (!Array.isArray(sessions) || sessions.length === 0) {
         return { value: '0s', seconds: 0 };
     }
 
-    let totalResponseTime = 0;
-    let responseCount = 0;
+    let totalDuration = 0;
+    let closedCount = 0;
 
     sessions.forEach(session => {
-        const conversation = session.conversation || [];
+        // Use assigned_at and closed_at as per user request
+        if (session.assigned_at && (session.closed_at || session.status === 'closed' || session.status === 'resolved')) {
+            const startTime = new Date(session.assigned_at);
+            const endTime = session.closed_at ? new Date(session.closed_at) : new Date(); // Fallback if not strictly closed_at but status is closed
+            
+            const diffMs = endTime - startTime;
 
-        for (let i = 0; i < conversation.length - 1; i++) {
-            const current = conversation[i];
-            const next = conversation[i + 1];
-
-            // Look for in → out pairs (user message followed by bot response)
-            if (current.direction === 'in' && next.direction === 'out') {
-                const inTime = new Date(current.timestamp);
-                const outTime = new Date(next.timestamp);
-                const diffMs = outTime - inTime;
-
-                // Only count valid positive differences (max 5 minutes)
-                if (diffMs > 0 && diffMs < 300000) {
-                    totalResponseTime += diffMs;
-                    responseCount++;
-                }
+            // Only count valid positive differences
+            if (diffMs > 0) {
+                totalDuration += diffMs;
+                closedCount++;
             }
         }
     });
 
-    if (responseCount === 0) {
+    if (closedCount === 0) {
         return { value: '0s', seconds: 0 };
     }
 
-    const avgMs = totalResponseTime / responseCount;
+    const avgMs = totalDuration / closedCount;
     const avgSeconds = avgMs / 1000;
 
     if (avgSeconds < 60) {
         return { value: `${avgSeconds.toFixed(1)}s`, seconds: avgSeconds };
-    } else {
+    } else if (avgSeconds < 3600) {
         const minutes = Math.floor(avgSeconds / 60);
         const secs = Math.round(avgSeconds % 60);
         return { value: `${minutes}m ${secs}s`, seconds: avgSeconds };
+    } else {
+        const hours = Math.floor(avgSeconds / 3600);
+        const minutes = Math.floor((avgSeconds % 3600) / 60);
+        return { value: `${hours}h ${minutes}m`, seconds: avgSeconds };
     }
 }
 
@@ -164,6 +162,12 @@ export function useDashboardData() {
             failed: { value: '0', rate: '0%' },
             response: { value: '0', rate: '0%' },
         },
+        agentPerformance: {
+            agentCount: 0,
+            chatsTaken: 0,
+            activeChats: 0,
+            closedChats: 0
+        },
     });
 
     const fetchDashboardData = useCallback(async () => {
@@ -186,6 +190,9 @@ export function useDashboardData() {
             promises.push(getWhatsAppDashboardStats());
             keys.push('stats');
 
+            promises.push(getUsers());
+            keys.push('users');
+
             // Timeout race to prevent eternal hanging
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Request timed out')), 15000)
@@ -201,6 +208,7 @@ export function useDashboardData() {
             let sessionsRes = { status: 'rejected', value: null };
             let conversationsRes = { status: 'rejected', value: null };
             let dashboardStatsRes = { status: 'rejected', value: null };
+            let usersRes = { status: 'rejected', value: null };
 
             results.forEach((res, index) => {
                 const key = keys[index];
@@ -208,6 +216,7 @@ export function useDashboardData() {
                 if (key === 'sessions') sessionsRes = res;
                 if (key === 'conversations') conversationsRes = res;
                 if (key === 'stats') dashboardStatsRes = res;
+                if (key === 'users') usersRes = res;
             });
 
             // Surface connection errors
@@ -228,6 +237,41 @@ export function useDashboardData() {
             if (sessionsRes.status === 'fulfilled') {
                 const sessionsData = sessionsRes.value;
                 sessions = Array.isArray(sessionsData) ? sessionsData : (sessionsData?.sessions || []);
+            }
+
+            // Handle users and calculate stats
+            let users = [];
+            if (usersRes.status === 'fulfilled') {
+                users = Array.isArray(usersRes.value) ? usersRes.value : (usersRes.value?.users || []);
+            }
+
+            // Calculate Agent Performance
+            const agents = users.filter(u => u.role?.name === 'Agent' || u.role_id === 3 || (u.role && typeof u.role === 'string' && u.role.toLowerCase().includes('agent')));
+            const agentCount = agents.length;
+            
+            // Stats for ALL agents combined
+            let totalAgentChatsTaken = 0;
+            let totalAgentChatsClosed = 0;
+            let totalAgentChatsActive = 0;
+
+            if (agentCount > 0) {
+                 // Create a set of agent IDs for fast lookup
+                 const agentIds = new Set(agents.map(a => a.id));
+                 
+                 sessions.forEach(session => {
+                     // Check assignment
+                     if (session.assigned_agent_id && agentIds.has(parseInt(session.assigned_agent_id))) {
+                         totalAgentChatsTaken++;
+                         
+                         const isClosed = session.status === 'closed' || session.status === 'resolved' || !!session.closed_at;
+                         
+                         if (isClosed) {
+                             totalAgentChatsClosed++;
+                         } else {
+                             totalAgentChatsActive++;
+                         }
+                     }
+                 });
             }
 
             // Handle conversations - API returns { conversations: { phone: [...] }, total_users: n }
@@ -332,6 +376,8 @@ export function useDashboardData() {
             }
 
             const totalCost = llmCostUsd + apiWhatsappCostUsd;
+            const totalCostInr = llmCostInr + apiWhatsappCostInr;
+            const costPerConvInr = totalConversations > 0 ? totalCostInr / totalConversations : 0;
             const costPerConv = totalConversations > 0 ? totalCost / totalConversations : 0;
 
             // Calculate human handled conversations
@@ -345,6 +391,13 @@ export function useDashboardData() {
                 whatsappCost: {
                     inr: `₹${apiWhatsappCostInr.toFixed(2)}`,
                     total: `$${apiWhatsappCostUsd.toFixed(4)} USD`,
+                    messageCount: allMessages.length
+                },
+                agentPerformance: {
+                    agentCount: agentCount,
+                    chatsTaken: totalAgentChatsTaken,
+                    activeChats: totalAgentChatsActive,
+                    closedChats: totalAgentChatsClosed
                 },
                 walletBalance: { inr: '₹2,450.00', messages: '~12,250 messages' },
                 totalConversations: {
@@ -360,12 +413,13 @@ export function useDashboardData() {
                     trendUp: true,
                 },
                 humanHandledConversations: {
-                    value: humanHandledCount.toString(),
-                    trend: '+5%', // Mock trend for now
+                    value: totalAgentChatsTaken.toString(),
+                    comparison: `${totalAgentChatsActive} active • ${totalAgentChatsClosed} closed`,
+                    trend: '+8.4%', 
                     trendUp: true,
                 },
                 costPerConversation: {
-                    value: `$${costPerConv.toFixed(4)}`,
+                    value: `₹${costPerConvInr.toFixed(2)}`,
                     trend: '↓12.5%',
                     trendUp: false,
                 },

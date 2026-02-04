@@ -1,9 +1,12 @@
 import { Users, DollarSign, CheckCircle, Bot, Clock, Headphones } from 'lucide-react';
 import MetricCard from './MetricCard';
+import { useNavigate } from 'react-router-dom';
 
 const DollarSymbol = () => <span className="text-xl font-bold font-sans">$</span>;
 
 export default function MetricsGrid({ activeUsers, costPerConversation, avgResponseTime, deliveryStats, humanHandledConversations }) {
+    const navigate = useNavigate();
+
     // Define structure but initialize with NRTD or API data
     const metrics = [
         {
@@ -14,15 +17,17 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
             trendUp: activeUsers?.trendUp ?? true,
             icon: Users,
             iconBg: 'purple',
-            sparkline: activeUsers?.value ? 'M0,28 L10,26 L30,20 L50,18 L70,10 L100,5' : null
+            sparkline: activeUsers?.value ? 'M0,28 L10,26 L30,20 L50,18 L70,10 L100,5' : null,
+            onClick: () => navigate('/conversations'),
+            clickable: true
         },
         {
-            label: 'Cost per Conversation',
-            value: costPerConversation?.value || '$0.00',
+            label: 'Avg Cost per Conversation',
+            value: costPerConversation?.value || '₹0.00',
             comparison: '',
             trend: costPerConversation?.trend || '+0%',
             trendUp: costPerConversation?.trendUp ?? false,
-            icon: DollarSymbol,
+            icon: DollarSign,
             iconBg: 'green',
             sparkline: null
         },
