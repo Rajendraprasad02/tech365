@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, MessageSquare, Clock, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown } from 'lucide-react';
-import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, getUsers } from '../../../services/api';
+import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, getUsers, notifyAgentTyping } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
 import { useSelector } from 'react-redux';
 import { selectAuth, selectIsAgent } from '../../../store/slices/authSlice';
@@ -35,6 +35,21 @@ export default function ConversationsPage() {
     const [newConvPhone, setNewConvPhone] = useState('');
     const [newConvMessage, setNewConvMessage] = useState('');
     const [startingConv, setStartingConv] = useState(false);
+
+    // Typing Indicator Logic
+    const lastTypingTime = useRef(0);
+    const handleTyping = () => {
+        if (!selectedConversation?.wa_id) return;
+        
+        const now = Date.now();
+        // Throttle: Send every 8 seconds while typing
+        if (now - lastTypingTime.current > 8000) {
+            lastTypingTime.current = now;
+            notifyAgentTyping(selectedConversation.wa_id).catch(err => {
+                console.warn("[Typing] Indicator failed:", err.message);
+            });
+        }
+    };
 
     // Template Message State
     // const [isTemplateMode, setIsTemplateMode] = useState(false);
@@ -1034,7 +1049,10 @@ export default function ConversationsPage() {
                                             type="text"
                                             placeholder="Type your message..."
                                             value={messageInput}
-                                            onChange={(e) => setMessageInput(e.target.value)}
+                                            onChange={(e) => {
+                                                setMessageInput(e.target.value);
+                                                handleTyping();
+                                            }}
                                             onKeyDown={handleKeyPress}
                                             className="flex-1 px-4 py-3 bg-gray-50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                                         />

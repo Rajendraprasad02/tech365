@@ -198,9 +198,20 @@ export async function triggerManualAI(waId, message) {
 
 // Send direct message (human agent, bypass AI)
 export async function sendWhatsAppMessage(waId, message) {
-    return fetchDataApi('/whatsapp/send', {
+    return fetchDataApi('/whatsapp/direct-message', {
         method: 'POST',
-        body: JSON.stringify({ wa_id: waId, message }),
+        body: JSON.stringify({
+            wa_id: waId,
+            message: message
+        }),
+    });
+}
+
+// Notify WhatsApp that agent is typing
+export async function notifyAgentTyping(waId) {
+    return fetchDataApi('/whatsapp/agent-typing', {
+        method: 'POST',
+        body: JSON.stringify({ wa_id: waId })
     });
 }
 
