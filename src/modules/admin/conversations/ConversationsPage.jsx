@@ -385,9 +385,10 @@ export default function ConversationsPage() {
 
             // Transform sessions to conversation format
             const convos = filteredSessions.map((session, index) => {
-                // Use total_conversation_cost_usd from backend, but show $0.00 if no messages
                 const messageCount = session.conversation_count || session.conversation?.length || 0;
-                const totalCost = messageCount > 0 ? (session.total_conversation_cost_usd || 0) : 0;
+                // Use total_conversation_cost_inr if available, otherwise fallback to converted USD or 0
+                // Assuming 1 USD = 83 INR approx if conversion needed on frontend, but better to use backend value
+                const totalCost = messageCount > 0 ? (session.total_conversation_cost_inr || (session.total_conversation_cost_usd || 0) * 85) : 0;
                 
                 // Resolve display name: Lead Name > Session Name > WhatsApp > Email
                 const waId = session.whatsapp ? session.whatsapp.replace(/\D/g, '') : '';
@@ -428,7 +429,7 @@ export default function ConversationsPage() {
                     time: formatTimeAgo(session.updated_at || session.created_at),
                     unread: false, // Legacy Support
                     unreadCount: 0, // New Counter
-                    cost: totalCost.toFixed(4),
+                    cost: totalCost.toFixed(2),
                     // Reported Props
                     isReported,
                     reportReason,
@@ -1173,8 +1174,8 @@ export default function ConversationsPage() {
 
                                         {/* Cost Badge */}
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
-                                            <DollarSign size={14} />
-                                            <span className="text-sm font-semibold">${selectedConversation.cost}</span>
+                                            {/* <DollarSign size={14} /> */}
+                                            <span className="text-sm font-semibold">₹{" "}{selectedConversation.cost}</span>
                                         </div>
 
                                         {/* Show Notes Button (New) */}
@@ -1551,7 +1552,8 @@ function renderMessageContent(text) {
 // Helper functions
 function formatTimeAgo(dateString) {
     if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
+    // Treat as UTC if missing timezone info (User confirms backend is UTC)
+    const date = new Date(dateString.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(dateString) ? dateString : dateString + 'Z');
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -1568,13 +1570,15 @@ function formatTimeAgo(dateString) {
 
 function formatTime(timestamp) {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
+    // Treat as UTC if missing timezone info
+    const date = new Date(timestamp.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(timestamp) ? timestamp : timestamp + 'Z');
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function formatDateHeader(timestamp) {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
+    // Treat as UTC if missing timezone info
+    const date = new Date(timestamp.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(timestamp) ? timestamp : timestamp + 'Z');
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     

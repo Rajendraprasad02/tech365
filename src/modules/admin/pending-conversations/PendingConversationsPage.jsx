@@ -104,7 +104,36 @@ export default function PendingConversationsPage() {
                     // Mocking 'online' status based on recency (e.g. < 5 mins)
                     isOnline: isRecentlyActive(session.updated_at || session.created_at),
                     productInterest: lead?.product_interest, // Store for filtering
-                    messages: (session.conversation || []).flatMap(msg => {
+                    messages: (session.conversation || []).flatMap((msg, idx, arr) => {
+                        // Handle Turn-based structures (user prompt + bot response)
+                        if (msg.bot || msg.user) {
+                            const turns = [];
+                            
+                            // Check if this 'user' prompt is a duplicate of a previously handled message
+                            const prevMsg = idx > 0 ? arr[idx - 1] : null;
+                            const isDuplicateUser = msg.user && prevMsg && (
+                                (prevMsg.text === msg.user) || 
+                                (prevMsg.role === 'user' && prevMsg.text === msg.user)
+                            );
+
+                            if (msg.user && !isDuplicateUser) {
+                                turns.push({
+                                    text: msg.user,
+                                    direction: 'in',
+                                    time: formatTime(msg.userTimestamp || msg.timestamp),
+                                });
+                            }
+                            
+                            if (msg.bot) {
+                                turns.push({
+                                    text: msg.bot,
+                                    direction: 'out',
+                                    time: formatTime(msg.botTimestamp || msg.timestamp),
+                                });
+                            }
+                            return turns;
+                        }
+
                         // Handle standard message structure
                         if (msg.text && msg.direction) {
                             return [{
@@ -123,23 +152,7 @@ export default function PendingConversationsPage() {
                             }];
                         }
 
-                        // Handle turn-based structure (user/bot pair)
-                        const turns = [];
-                        if (msg.user) {
-                            turns.push({
-                                text: msg.user,
-                                direction: 'in',
-                                time: formatTime(msg.userTimestamp || msg.timestamp),
-                            });
-                        }
-                        if (msg.bot) {
-                            turns.push({
-                                text: msg.bot,
-                                direction: 'out',
-                                time: formatTime(msg.botTimestamp || msg.timestamp),
-                            });
-                        }
-                        return turns;
+                        return [];
                     })
                 };
             });
@@ -298,11 +311,11 @@ export default function PendingConversationsPage() {
                                     <button
                                         onClick={() => handleApproveClick(conv)}
                                         disabled={approvingId === conv.id || (!user && !localStorage.getItem('user'))}
-                                        title={!user ? "Loading user data..." : "Approve"}
+                                        title={!user ? "Loading user data..." : "Accept"}
                                         className="flex-1 flex items-center justify-center gap-2 bg-[#1E1B4B] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors"
                                     >
                                         <Check size={16} />
-                                        {approvingId === conv.id ? '...' : 'Approve'}
+                                        {approvingId === conv.id ? '...' : 'Accept'}
                                     </button>
                                     <button
                                         onClick={() => setSelectedConversation(conv)}
@@ -440,11 +453,11 @@ export default function PendingConversationsPage() {
                             <button
                                 onClick={() => handleApproveClick(selectedConversation)}
                                 disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
-                                title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Approve"}
+                                title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Accept"}
                                 className="flex-1 bg-[#1E1B4B] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors flex items-center justify-center gap-2"
                             >
                                 <Check size={18} />
-                                {approvingId === selectedConversation.id ? 'Approving...' : 'Approve'}
+                                {approvingId === selectedConversation.id ? 'Approving...' : 'Accept'}
                             </button>
                             <button
                                 onClick={() => setSelectedConversation(null)}
@@ -465,9 +478,9 @@ export default function PendingConversationsPage() {
                     setConversationToApprove(null);
                 }}
                 onConfirm={handleConfirmApprove}
-                title="Approve Conversation"
+                title="Accept Conversation"
                 message={`Are you sure you want to approve the conversation with ${conversationToApprove?.name}? This will assign the session to you.`}
-                confirmText="Approve"
+                confirmText="Accept"
                 type="info"
                 loading={approvingId === conversationToApprove?.id}
             />
@@ -485,13 +498,16 @@ export default function PendingConversationsPage() {
 
 function formatTime(timestamp) {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
+    if (!timestamp) return '';
+    // Treat as UTC if missing timezone info
+    const date = new Date(timestamp.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(timestamp) ? timestamp : timestamp + 'Z');
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatTimeAgo(dateString) {
     if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
+    // Treat as UTC if missing timezone info
+    const date = new Date(dateString.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(dateString) ? dateString : dateString + 'Z');
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
