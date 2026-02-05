@@ -79,15 +79,17 @@ const ConfirmationModal = ({
 
                 {/* Footer */}
                 <div className="px-6 py-4 bg-gray-50 flex gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="flex-1 rounded-xl h-11"
-                    >
-                        {cancelText}
-                    </Button>
+                    {cancelText && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 rounded-xl h-11"
+                        >
+                            {cancelText}
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         onClick={onConfirm}

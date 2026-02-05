@@ -34,17 +34,26 @@ const handleResponse = async (response, isNestJS = false) => {
         }
 
         let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+        let errorData = null;
+        
         try {
-            const errorData = await response.json();
-            if (errorData.detail) {
+            errorData = await response.json();
+            if (errorData && errorData.detail) {
                 errorMessage = errorData.detail;
-            } else if (errorData.message) {
+            } else if (errorData && errorData.message) {
                 errorMessage = errorData.message;
             }
         } catch (e) {
             // Could not parse JSON, use default error message
         }
-        throw new Error(errorMessage);
+        
+        const error = new Error(errorMessage);
+        error.response = {
+            status: response.status,
+            statusText: response.statusText,
+            data: errorData
+        };
+        throw error;
     }
 
     const resData = await response.json();
@@ -148,11 +157,19 @@ export async function sendSessionMessage(sessionId, message) {
     });
 }
 
-// End a session
+// End a session (Old)
 export async function endSession(sessionId, userId) {
     return fetchDataApi(`/session/${sessionId}/end`, {
         method: 'POST',
         body: JSON.stringify({ closed_by: userId })
+    });
+}
+
+// Close a conversation with feedback (New)
+export async function closeConversation(sessionId, data) {
+    return fetchDataApi(`/conversations/${sessionId}/close`, {
+        method: 'POST',
+        body: JSON.stringify(data)
     });
 }
 
@@ -569,9 +586,17 @@ export async function seedDatabase() {
     return fetchApi('/roles/seed', { method: 'POST' });
 }
 
-// Get Lead by Phone
+// Get Lead by Phone (Public)
 export async function getLeadByPhone(phone) {
-    return fetchDataApi(`/leads/phone/${phone}`);
+    // Explicitly public call (no default headers with token)
+    const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
+    const response = await fetch(`${baseUrl}/leads/phone/${phone}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    });
+    return handleResponse(response, false);
 }
 
 // Get all leads

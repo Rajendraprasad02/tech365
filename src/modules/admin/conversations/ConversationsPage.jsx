@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, MessageSquare, Clock, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown } from 'lucide-react';
-import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, getUsers, notifyAgentTyping } from '../../../services/api';
+import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, getUsers, notifyAgentTyping } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
+import ConfirmationModal from '../../../components/ui/ConfirmationModal';
+import CloseChatModal from './CloseChatModal';
+import NotesHistoryModal from './NotesHistoryModal';
 import { useSelector } from 'react-redux';
 import { selectAuth, selectIsAgent } from '../../../store/slices/authSlice';
 
@@ -22,6 +25,7 @@ export default function ConversationsPage() {
     
     // Agent Filter State for Admins
     const [agents, setAgents] = useState([]);
+    const [allUsers, setAllUsers] = useState([]); // Store all users for name resolution
     const [selectedAgentFilter, setSelectedAgentFilter] = useState('all');
     const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
     const agentMenuRef = useRef(null);
@@ -63,34 +67,47 @@ export default function ConversationsPage() {
     const [assignedAgent, setAssignedAgent] = useState(null);
     const [showAgentModal, setShowAgentModal] = useState(false);
     const [showEndChatConfirm, setShowEndChatConfirm] = useState(false);
+    
+    // Error Handling Modal
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
-    // Fetch Agents for Admin Filter
+    const [showCloseChatModal, setShowCloseChatModal] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
+    const [showNotesModal, setShowNotesModal] = useState(false);
+    const [activeReportTooltipId, setActiveReportTooltipId] = useState(null);
+    // Notes are stored in selectedConversation.contact_info.agent_notes
+
+    // Fetch Users (Agents + Admins) for Resolution & Filtering
     useEffect(() => {
-        if (!isAgentEffective) {
-            const fetchAgents = async () => {
-                try {
-                    const response = await getUsers();
-                    let usersList = [];
-                    if (Array.isArray(response)) {
-                        usersList = response;
-                    } else if (response && response.users && Array.isArray(response.users)) {
-                        usersList = response.users;
-                    }
-                    
-                    // Filter only agents
+        const fetchUsersData = async () => {
+            try {
+                const response = await getUsers();
+                let usersList = [];
+                if (Array.isArray(response)) {
+                    usersList = response;
+                } else if (response && response.users && Array.isArray(response.users)) {
+                    usersList = response.users;
+                }
+                
+                // Store ALL users for name resolution (reported by, notes, etc.)
+                setAllUsers(usersList);
+
+                // If Admin, populate the specific agent filter list
+                if (!isAgentEffective) {
                     const agentList = usersList.filter(u => 
                         u.role?.name === 'Agent' || 
                         u.role_id === 3 || 
                         (u.role && typeof u.role === 'string' && u.role.toLowerCase().includes('agent'))
                     );
                     setAgents(agentList);
-                } catch (err) {
-                    console.error("Failed to fetch agents for filter:", err);
-                    // Minimal error handling, non-critical feature
                 }
-            };
-            fetchAgents();
-        }
+            } catch (err) {
+                console.error("Failed to fetch users data:", err);
+            }
+        };
+
+        fetchUsersData();
     }, [isAgentEffective]);
 
     // Close custom agent menu on click outside
@@ -99,6 +116,10 @@ export default function ConversationsPage() {
             if (agentMenuRef.current && !agentMenuRef.current.contains(event.target)) {
                 setIsAgentMenuOpen(false);
             }
+             // Also close tooltip if clicking outside
+             if (!event.target.closest('.relative')) {
+                 setActiveReportTooltipId(null);
+             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -147,6 +168,8 @@ export default function ConversationsPage() {
                          time: formatTime(incomingMsg.timestamp),
                          cost: 0, // Simplified for realtime
                          // Role attribution if present
+                         isAgent: !!incomingMsg.agent_id,
+                         isBot: !incomingMsg.agent_id && incomingMsg.direction === 'out',
                          ...(incomingMsg.direction === 'in' ? { role: 'user' } : { role: 'assistant' })
                     };
 
@@ -197,20 +220,69 @@ export default function ConversationsPage() {
                          return prev;
                     });
                 }
-            } catch (error) {
-                console.error("❌ [WS] Error parsing message:", error);
+            } catch (err) {
+                console.error("❌ [WS] Error processing message:", err);
             }
         };
 
-        ws.onclose = () => {
-             console.log("⚠️ [WS] WebSocket Disconnected. Reconnecting in 3s...");
-             // Simple reconnect logic could go here
+        ws.onclose = () => console.log("⚠️ [WS] Disconnected");
+        ws.onerror = (error) => console.log("❌ [WS] Error:", error);
+
+        return () => ws.close();
+    }, [user, selectedConversation]); // Re-run if selected conversation changes
+
+    // ✅ Fetch Missing User Details (By ID)
+    // Ensures accurate names even if "getUsers" didn't return everyone (e.g. admins)
+    useEffect(() => {
+        const fetchMissingUsers = async () => {
+            const neededIds = new Set();
+            
+            // 1. Check reported agents in conversation list
+            conversations.forEach(c => {
+                if (c.reportedAgentId) neededIds.add(c.reportedAgentId);
+            });
+            
+            // 2. Check notes in selected conversation
+            if (selectedConversation?.contact_info?.agent_notes) {
+                selectedConversation.contact_info.agent_notes.forEach(n => {
+                    if (n.agent_id) neededIds.add(n.agent_id);
+                });
+            }
+
+            // 3. Filter out IDs we already have in allUsers
+            const existingIds = new Set(allUsers.map(u => u.id));
+            const idsToFetch = [...neededIds].filter(id => !existingIds.has(id) && !existingIds.has(parseInt(id)));
+
+            if (idsToFetch.length === 0) return;
+
+            console.log("🔍 [Users] Fetching details for missing IDs:", idsToFetch);
+
+            // 4. Fetch details for missing IDs
+            const newUsers = await Promise.all(idsToFetch.map(async (id) => {
+                try {
+                    const userDetails = await getUserDetails(id);
+                    return userDetails;
+                } catch (e) {
+                    console.warn(`Failed to fetch details for user ${id}`, e);
+                    return null;
+                }
+            }));
+            
+            const validNewUsers = newUsers.filter(u => u && u.id);
+            if (validNewUsers.length > 0) {
+                setAllUsers(prev => {
+                    // Double check to prevent duplicates
+                    const currentIds = new Set(prev.map(u => u.id));
+                    const uniqueNewUsers = validNewUsers.filter(u => !currentIds.has(u.id));
+                    return [...prev, ...uniqueNewUsers];
+                });
+            }
         };
 
-        return () => {
-            ws.close();
-        };
-    }, [user?.id, selectedConversation?.id]); // Re-subscribe if user changes
+        if (conversations.length > 0) {
+            fetchMissingUsers();
+        }
+    }, [conversations, selectedConversation, allUsers.length]);
 
 
 
@@ -329,6 +401,18 @@ export default function ConversationsPage() {
 
                 const isClosed = session.status === 'closed' || session.status === 'resolved' || !!session.closed_at;
 
+                // Reported Logic
+                const isReported = lead?.is_reported || false;
+                const reportReason = lead?.report_reason;
+                const agentNotes = lead?.agent_notes || [];
+                const lastNote = agentNotes.length > 0 ? agentNotes[agentNotes.length - 1] : null;
+                
+                // Store raw ID and Name for render-time resolution vs agents list
+                const reportedAgentId = isReported ? lastNote?.agent_id : null;
+                const reportedAgentName = isReported ? lastNote?.agent_name : null;
+                
+                const reportFeedback = isReported ? (lastNote?.note || 'No additional details.') : null;
+
                 if (index === 0) {
                      console.log('DEBUG SESSION:', session);
                      console.log('DEBUG LEAD:', lead);
@@ -345,10 +429,17 @@ export default function ConversationsPage() {
                     unread: false, // Legacy Support
                     unreadCount: 0, // New Counter
                     cost: totalCost.toFixed(4),
+                    // Reported Props
+                    isReported,
+                    reportReason,
+                    reportedAgentId,     // Store ID
+                    reportedAgentName,   // Store raw name fallback
+                    reportFeedback,
                     // Use backend assigned_agent_id for approval status
                     assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
                     closed_by: session.closed_by || null, 
+                    contact_info: session.contact_info || null, // Store contact info/notes
                     approvalStatus: isClosed 
                         ? 'closed'
                         : (effectiveAgentId 
@@ -379,12 +470,19 @@ export default function ConversationsPage() {
                             }
                             
                             if (msg.bot) {
+                                const isHuman = msg.botSenderType === 'HUMAN';
+                                // If not human, it's a bot/system message
+                                const isBot = !isHuman;
+
                                 turns.push({
                                     text: msg.bot,
                                     direction: 'out',
                                     time: formatTime(msg.botTimestamp || msg.timestamp),
                                     timestamp: msg.botTimestamp || msg.timestamp,
-                                    cost: msg.cost || 0
+                                    cost: msg.cost || 0,
+                                    isBot: isBot,
+                                    isAgent: isHuman,
+                                    botSenderId: msg.botSenderId // Pass this through for name resolution
                                 });
                             }
                             return turns;
@@ -398,6 +496,8 @@ export default function ConversationsPage() {
                                 time: formatTime(msg.timestamp),
                                 timestamp: msg.timestamp,
                                 cost: msg.whatsapp_cost || 0,
+                                isAgent: !!msg.agent_id,
+                                isBot: !msg.agent_id && msg.direction === 'out'
                             }];
                         }
 
@@ -408,7 +508,9 @@ export default function ConversationsPage() {
                                 direction: msg.role === 'user' ? 'in' : 'out',
                                 time: formatTime(msg.timestamp),
                                 timestamp: msg.timestamp,
-                                cost: msg.cost || 0
+                                cost: msg.cost || 0,
+                                isAgent: !!msg.agent_id,
+                                isBot: !msg.agent_id && msg.role !== 'user'
                             }];
                         }
 
@@ -505,6 +607,8 @@ export default function ConversationsPage() {
             displayedConversations = conversations.filter(conv => conv.approvalStatus === 'active');
         } else if (statusFilter === 'closed' || statusFilter === 'resolved') {
              displayedConversations = conversations.filter(conv => conv.approvalStatus === 'closed' || conv.status === 'resolved');
+        } else if (statusFilter === 'reported') {
+             displayedConversations = conversations.filter(conv => conv.isReported);
         } else {
             displayedConversations = conversations;
         }
@@ -534,6 +638,14 @@ export default function ConversationsPage() {
         conv.preview.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Helper to resolve agent name safely
+    const resolveAgentName = (id, fallbackName) => {
+        if (!id) return fallbackName || 'Agent';
+        // Look up in the full users list, not just the filtered agents list
+        const user = allUsers.find(u => u.id === id || u.id === parseInt(id));
+        return user ? (user.full_name || user.username) : (fallbackName || 'Agent');
+    };
+
     // Filter conversations for stats calculation based on Agent Filter
     let statsConversations = conversations;
     if (!isAgentEffective && selectedAgentFilter !== 'all') {
@@ -547,6 +659,7 @@ export default function ConversationsPage() {
     const assignedCount = statsConversations.filter(c => c.approvalStatus === 'assigned').length;
     const activeCount = statsConversations.filter(c => c.approvalStatus === 'active').length;
     const closedCount = statsConversations.filter(c => c.approvalStatus === 'closed').length;
+    const reportedCount = statsConversations.filter(c => c.isReported).length;
 
     // Get status badge styling
     const getStatusBadge = (status) => {
@@ -604,7 +717,16 @@ export default function ConversationsPage() {
             await fetchConversations(selectedConversation.id);
         } catch (error) {
             console.error("Failed to send message:", error);
-            alert(`Failed to send message: ${error.message}`);
+            
+            if (error.response && error.response.status === 400) {
+                const detail = error.response.data?.detail || "The 24-hour service window has expired.";
+                setErrorMessage(detail);
+                setShowErrorModal(true);
+            } else {
+                const genericMsg = error.response?.data?.detail || error.message || "An unexpected error occurred.";
+                alert(`Failed to send message: ${genericMsg}`);
+            }
+            
             setMessageInput(message); // Restore input on failure
         }
     };
@@ -617,14 +739,44 @@ export default function ConversationsPage() {
     };
 
     // Handle End Chat
-    // Handle End Chat
     // Handle End Chat Click
     const handleEndChat = () => {
         if (!selectedConversation) return;
-        setShowEndChatConfirm(true);
+        // Use new modal instead of simple confirmation
+        setShowCloseChatModal(true);
     };
 
-    // Confirm End Session (API Call)
+    // New: Submit Close Chat with Feedback
+    // New: Submit Close Chat with Feedback
+    const handleCloseChatSubmit = async (data) => {
+        if (!selectedConversation) return;
+        
+        const currentUser = user || JSON.parse(localStorage.getItem('user'));
+        const userId = currentUser?.id || currentUser?.userId;
+
+        setIsClosing(true);
+        try {
+            await closeConversation(selectedConversation.id, {
+                ...data,
+                agent_id: userId
+            });
+            
+            // Clear selection and refresh list
+            setSelectedConversation(null);
+            setShowCloseChatModal(false);
+            await fetchConversations();
+            
+        } catch (error) {
+            console.error("Failed to close conversation:", error);
+            const msg = error.response?.data?.detail || error.message || "Failed to close conversation";
+            alert(msg);
+        } finally {
+            setIsClosing(false);
+        }
+    };
+
+    // Confirm End Session (API Call) - KEEPING FOR BACKWARD COMPATIBILITY OR ADMIN OVERRIDE IF NEEDED
+    // BUT UI NOW USES handleCloseChatSubmit
     const confirmEndSession = async () => {
         try {
             const currentUser = user || JSON.parse(localStorage.getItem('user'));
@@ -692,6 +844,8 @@ export default function ConversationsPage() {
                                 <Clock size={15} />
                                 Pending ({pendingCount})
                             </button>
+
+                            
                         </>
                     )}
 
@@ -718,6 +872,17 @@ export default function ConversationsPage() {
                         <CheckCircle size={15} />
                         Closed ({closedCount})
                     </button>
+
+                    <button
+                                onClick={() => setStatusFilter('reported')}
+                                className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'reported'
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-white text-red-600 hover:bg-red-50'
+                                    }`}
+                            >
+                                <AlertCircle size={15} />
+                                Reported ({reportedCount})
+                            </button>
                 </div>
 
                 {/* Agent Filter - Admin Only */}
@@ -880,15 +1045,28 @@ export default function ConversationsPage() {
                                                 </span>
                                             )}
 
-                                            <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                                <Clock size={10} />
-                                                {conv.time}
-                                            </span>
-                                        </div>
-                                    </div>
+                                            {/* Reported Tag with Tooltip */}
+                                            {/* Reported Tag - Simplified for List (Tag Only) */}
+                                            {conv.isReported && (
+                                                <div className="">
+                                                    <div className="bg-red-50 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-medium border border-red-100 inline-flex items-center gap-1.5">
+                                                        <AlertCircle size={10} />
+                                                        <span className="truncate max-w-[120px]">Reported by {resolveAgentName(conv.reportedAgentId, conv.reportedAgentName)}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                 </div>
-                            ))
-                        ) : (
+
+                            </div>
+
+                            <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                <Clock size={10} />
+                                {conv.time}
+                            </span>
+                        </div>
+            ))
+        ) : (
                             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                                 <MessageSquare size={32} className="mb-2" />
                                 <p className="text-sm">No conversations found</p>
@@ -932,18 +1110,64 @@ export default function ConversationsPage() {
                                         )}
                                     </div>
                                     
+                                     {/* Reported Status in Header (Full Details View) */}
+                                     {selectedConversation.isReported && (
+                                        <div className="flex items-center gap-2 relative">
+                                            <div className="bg-red-50 text-red-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-100 flex items-center gap-1.5">
+                                                <AlertCircle size={12} />
+                                                <span>Reported by {resolveAgentName(selectedConversation.reportedAgentId, selectedConversation.reportedAgentName)}</span>
+                                            </div>
+                                            
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveReportTooltipId(activeReportTooltipId === selectedConversation.id ? null : selectedConversation.id);
+                                                    }}
+                                                    className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-full hover:bg-blue-50"
+                                                    title="View Report Details"
+                                                >
+                                                    <Info size={16} />
+                                                </button>
+
+                                                {/* Header Tooltip Model */}
+                                                {activeReportTooltipId === selectedConversation.id && (
+                                                    <div 
+                                                        className="absolute top-full right-0 mt-2 w-64 bg-white shadow-xl border border-gray-200 rounded-xl overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="px-4 py-3 border-b border-gray-100 bg-red-50">
+                                                            <h5 className="font-bold text-red-700 text-sm flex items-center gap-2">
+                                                                <AlertCircle size={14} />
+                                                                {selectedConversation.reportReason || 'Reported'}
+                                                            </h5>
+                                                        </div>
+                                                        <div className="p-4">
+                                                            <p className="text-sm text-gray-700 leading-relaxed italic">
+                                                                "{selectedConversation.reportFeedback}"
+                                                            </p>
+                                                            <div className="mt-3 text-xs text-gray-400 font-medium text-right border-t border-gray-50 pt-2">
+                                                                Reported by <span className="text-gray-600">{resolveAgentName(selectedConversation.reportedAgentId, selectedConversation.reportedAgentName)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                     )}
+                                    
                                      {/* Assigned Agent Details - REMOVED */}
 
 
                                     <div className="flex items-center gap-3">
                                         {/* End Chat Button (Agent Only) */}
-                                        {isAgentEffective && (
+                                        {isAgentEffective && selectedConversation.approvalStatus !== 'closed' && (
                                             <button 
                                                 onClick={handleEndChat}
                                                 className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
                                                 title="End this conversation"
                                             >
-                                                End Chat
+                                                Close / Report
                                             </button>
                                         )}
 
@@ -952,6 +1176,18 @@ export default function ConversationsPage() {
                                             <DollarSign size={14} />
                                             <span className="text-sm font-semibold">${selectedConversation.cost}</span>
                                         </div>
+
+                                        {/* Show Notes Button (New) */}
+                                        {selectedConversation.contact_info?.agent_notes?.length > 0 && (
+                                            <button
+                                                onClick={() => setShowNotesModal(true)}
+                                                className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2"
+                                                title="View Agent Notes"
+                                            >
+                                                <FileText size={18} />
+                                                <span className="text-sm font-medium hidden sm:inline">Notes</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${
@@ -967,60 +1203,81 @@ export default function ConversationsPage() {
                             </div>
 
                             {/* Messages */}
-    <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 scroll-smooth">
+                            <div className="flex-1 overflow-y-auto p-6 bg-gray-50 scroll-smooth">
                                 {selectedConversation.messages.length > 0 ? (
-                                    selectedConversation.messages.map((msg, index) => {
-                                        // Date Grouping Logic
-                                        const prevMsg = selectedConversation.messages[index - 1];
-                                        const currentDate = new Date(msg.timestamp).toDateString();
-                                        const prevDate = prevMsg ? new Date(prevMsg.timestamp).toDateString() : null;
-                                        const showDateHeader = currentDate !== prevDate;
-                                        const dateHeaderLabel = formatDateHeader(msg.timestamp);
+                                    (() => {
+                                        // Group messages by date
+                                        const groups = [];
+                                        selectedConversation.messages.forEach(msg => {
+                                            const date = formatDateHeader(msg.timestamp);
+                                            if (groups.length === 0 || groups[groups.length - 1].date !== date) {
+                                                groups.push({ date, messages: [msg] });
+                                            } else {
+                                                groups[groups.length - 1].messages.push(msg);
+                                            }
+                                        });
 
-                                        return (
-                                            <div key={index} className="flex flex-col gap-2">
-                                                {/* Date Header */}
-                                                {showDateHeader && (
-                                                    <div className="flex justify-center my-4">
-                                                        <span className="bg-gray-100/90 backdrop-blur-sm text-gray-600 text-[11px] font-semibold px-3 py-1 rounded-full shadow-sm border border-gray-200">
-                                                            {dateHeaderLabel}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                        return groups.map((group, gIdx) => (
+                                            <div key={gIdx} className="relative pb-4">
+                                                {/* Date Header - Sticky within this group */}
+                                                <div className="sticky top-0 z-10 flex justify-center w-full py-2 pointer-events-none">
+                                                    <span className="bg-white/90 backdrop-blur-md text-gray-500 text-[11px] font-bold px-4 py-1.5 rounded-full shadow-sm border border-gray-100 pointer-events-auto">
+                                                        {group.date}
+                                                    </span>
+                                                </div>
 
-                                                <div className={`flex items-end gap-2 ${msg.direction === 'in' ? 'justify-start' : 'justify-end'}`}>
-                                                    {/* User Avatar (Now on Left for 'in') */}
-                                                    {msg.direction === 'in' && (
-                                                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                                                            <User size={16} className="text-white" />
+                                                <div className="space-y-4">
+                                                    {group.messages.map((msg, mIdx) => (
+                                                        <div key={mIdx} className={`flex items-end gap-2 ${msg.direction === 'in' ? 'justify-start' : 'justify-end'}`}>
+                                                            {/* User Avatar (Now on Left for 'in') */}
+                                                            {msg.direction === 'in' && (
+                                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                                    <User size={14} className="text-white" />
+                                                                </div>
+                                                            )}
+
+                                                            {/* Message Bubble Wrapper (Column for Name + Bubble) */}
+                                                            <div className={`flex flex-col ${msg.direction === 'in' ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                                                                {/* Agent Name Display */}
+                                                                {msg.isAgent && msg.direction === 'out' && (
+                                                                    <span className="text-[10px] text-gray-500 font-medium mb-1 mr-1">
+                                                                        {resolveAgentName(msg.botSenderId || msg.agent_id)}
+                                                                    </span>
+                                                                )}
+                                                                
+                                                                <div
+                                                                    className={`px-4 py-3 rounded-2xl shadow-sm w-full ${msg.direction === 'in'
+                                                                         // User (Left): White style
+                                                                        ? 'bg-white text-gray-800 border border-gray-50 rounded-bl-sm'
+                                                                         // Agent (Right): Primary color style
+                                                                        : 'bg-indigo-600 text-white rounded-br-sm'
+                                                                        }`}
+                                                                >
+                                                                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageContent(msg.text)}</div>
+                                                                    <div className={`flex items-center justify-end gap-1.5 mt-1.5 ${msg.direction === 'in' ? 'text-gray-400' : 'text-indigo-100'}`}>
+                                                                        <span className="text-[10px]">{msg.time}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                             {/* Sender Avatar (Right side for Agent/Bot) */}
+                                                             {msg.direction === 'out' && (
+                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 shadow-sm ${
+                                                                    msg.isAgent ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-gray-100'
+                                                                }`}>
+                                                                    {msg.isAgent ? (
+                                                                        <User size={14} className="text-indigo-600" />
+                                                                    ) : (
+                                                                        <Bot size={14} className="text-indigo-600" />
+                                                                    )}
+                                                                </div>
+                                                             )}
                                                         </div>
-                                                    )}
-
-                                                    {/* Message Bubble */}
-                                                    <div
-                                                        className={`max-w-md px-4 py-3 rounded-2xl ${msg.direction === 'in'
-                                                             // User (Left): White/Gray style
-                                                            ? 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm shadow-sm'
-                                                             // Agent (Right): Blue style
-                                                            : 'bg-blue-500 text-white rounded-br-sm'
-                                                            }`}
-                                                    >
-                                                        <div className="text-sm leading-relaxed">{renderMessageContent(msg.text)}</div>
-                                                        <p className={`text-[10px] mt-1.5 ${msg.direction === 'in' ? 'text-gray-400' : 'text-blue-100'}`}>
-                                                            {msg.time}
-                                                        </p>
-                                                    </div>
-                                                    
-                                                     {/* Bot Avatar (Now on Right for 'out') */}
-                                                     {msg.direction === 'out' && (
-                                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            <Bot size={16} className="text-gray-600" />
-                                                        </div>
-                                                    )}
+                                                    ))}
                                                 </div>
                                             </div>
-                                        );
-                                    })
+                                        ));
+                                    })()
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-gray-400">
                                         <p className="text-sm">No messages in this conversation</p>
@@ -1188,7 +1445,7 @@ export default function ConversationsPage() {
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">Phone</span>
-                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.phone_number || assignedAgent.phone || 'N/A'}</p>
+                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.mobile || assignedAgent.phone_number || assignedAgent.phone || 'N/A'}</p>
                                 </div>
                             </div>
 
@@ -1204,36 +1461,47 @@ export default function ConversationsPage() {
             )}
 
             {/* End Chat Confirmation Modal */}
-            {showEndChatConfirm && (
-                <div className="absolute inset-0 z-[70] bg-black/50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 text-center">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                                <AlertCircle size={24} />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">End Conversation?</h3>
-                            <p className="text-gray-500 text-sm mb-6">
-                                Are you sure you want to end this chat? This will close the session and archive the conversation.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowEndChatConfirm(false)}
-                                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={confirmEndSession}
-                                    className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-red-500/30"
-                                >
-                                    End Chat
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
+
+            {/* End Chat Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showEndChatConfirm}
+                onClose={() => setShowEndChatConfirm(false)}
+                onConfirm={confirmEndSession}
+                title="End Conversation"
+                message="Are you sure you want to end this conversation? It will be moved to the resolved list."
+                confirmText="End Chat"
+                cancelText="Cancel"
+                type="danger"
+            />
+
+            {/* Error Alert Modal */}
+            <ConfirmationModal
+                isOpen={showErrorModal}
+                onClose={() => setShowErrorModal(false)}
+                onConfirm={() => setShowErrorModal(false)}
+                title="Message Failed"
+                message={errorMessage}
+                confirmText="OK"
+                cancelText={null}
+                type="warning"
+            />
+
+            {/* Close Chat Modal */}
+            <CloseChatModal 
+                isOpen={showCloseChatModal}
+                onClose={() => setShowCloseChatModal(false)}
+                onConfirm={handleCloseChatSubmit}
+                loading={isClosing}
+            />
+
+            {/* Notes History Modal */}
+            <NotesHistoryModal
+                isOpen={showNotesModal}
+                onClose={() => setShowNotesModal(false)}
+                notes={selectedConversation?.contact_info?.agent_notes || []}
+                users={allUsers}
+            />
         </div>
     );
 }

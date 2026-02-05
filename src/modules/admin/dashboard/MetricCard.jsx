@@ -26,8 +26,24 @@ export default function MetricCard({ metric }) {
             </div>
             <div className="text-sm text-gray-500 mb-1">{metric.label}</div>
             <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
-            {metric.comparison && (
-                <div className="text-xs text-gray-400 mb-2">{metric.comparison}</div>
+            
+            {metric.breakdown ? (
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50">
+                    <div>
+                        <div className="text-lg font-bold text-gray-800">{metric.breakdown.leads || 0}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Leads</div>
+                    </div>
+                    <div>
+                        <div className="text-lg font-bold text-gray-800">{metric.breakdown.manual || 0}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Imported</div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {metric.comparison && (
+                        <div className="text-xs text-gray-400 mb-2">{metric.comparison}</div>
+                    )}
+                </>
             )}
             <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${metric.trendUp ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
                 <TrendingUp size={12} style={{ transform: metric.trendUp ? 'none' : 'rotate(180deg)' }} />

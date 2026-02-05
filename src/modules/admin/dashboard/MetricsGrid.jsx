@@ -10,11 +10,12 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
     // Define structure but initialize with NRTD or API data
     const metrics = [
         {
-            label: 'Active Users',
+            label: 'Total Contacts',
             value: activeUsers?.value || '0',
             comparison: activeUsers?.comparison || '',
             trend: activeUsers?.trend || '+0%',
             trendUp: activeUsers?.trendUp ?? true,
+            breakdown: activeUsers?.breakdown,
             icon: Users,
             iconBg: 'purple',
             sparkline: activeUsers?.value ? 'M0,28 L10,26 L30,20 L50,18 L70,10 L100,5' : null,

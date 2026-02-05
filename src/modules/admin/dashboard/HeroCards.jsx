@@ -1,32 +1,20 @@
-import { Wallet, MessageCircle, TrendingUp, Users, CheckCircle, Clock } from 'lucide-react';
+import { MessageCircle, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function HeroCards({ walletBalance, activeConversations, whatsappCost, agentPerformance }) {
+export default function HeroCards({ activeConversations, whatsappCost, agentPerformance }) {
     const navigate = useNavigate();
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-            {/* Wallet Balance */}
-            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
-
-                <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
-                    <Wallet size={18} />
-                    <span className="font-medium">Wallet Balance</span>
-                </div>
-                <div className="text-4xl font-bold mb-1">{walletBalance?.inr || '₹2,450.00'}</div>
-                <div className="text-white/70 text-sm mb-5">{walletBalance?.messages || '~12,250 messages'}</div>
-            </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
             {/* Active Conversations */}
             <div 
-                onClick={() => navigate('/conversations?filter=active')}
+                onClick={() => navigate('/conversations?filter=all')}
                 className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300"
             >
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                 <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
                     <MessageCircle size={18} />
-                    <span className="font-medium">Active Conversations</span>
+                    <span className="font-medium">Overall Conversations</span>
                 </div>
                 <div className="text-4xl font-bold mb-1">{activeConversations?.value || '0'}</div>
                 <div className="flex items-center gap-1.5 text-white/70 text-sm">

@@ -42,7 +42,7 @@ export default function DashboardPage() {
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
                 <p className="text-gray-500 text-sm mb-8">Monitor your WhatsApp Business performance</p>
 
-                {/* Loading State */}
+                {/* Loading State */} 
                 {loading ? (
                     <div className="flex items-center justify-center py-12 h-64">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
@@ -61,7 +61,6 @@ export default function DashboardPage() {
                             {/* Hero Cards */}
                         <div id="hero-cards" className={`rounded-xl ${getHighlightClass('hero-cards')}`}>
                             <HeroCards
-                                walletBalance={data.walletBalance}
                                 activeConversations={data.totalConversations}
                                 whatsappCost={data.whatsappCost}
                                 agentPerformance={data.agentPerformance}
