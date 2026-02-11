@@ -10,7 +10,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
+  server: { 
+    host: "0.0.0.0",
     proxy: {
       // NestJS backend for Auth/RBAC
       '/api': {

@@ -150,7 +150,7 @@ export function useDashboardData() {
         totalConversations: { value: '0', comparison: '', trend: '+0%', trendUp: true },
         activeUsers: { value: '0', comparison: '', trend: '+0%', trendUp: true, breakdown: { leads: 0, manual: 0 } },
         humanHandledConversations: { value: '0', trend: '+0%', trendUp: true },
-        costPerConversation: { value: '$0.00', trend: '+0%', trendUp: false },
+        costPerConversation: { value: '₹0.00', trend: '+0%', trendUp: false },
         avgResponseTime: { value: '0s', trend: '+0%', trendUp: true },
         conversationVolumeData: [],
         hourlyActivityData: [],

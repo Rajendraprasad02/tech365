@@ -163,18 +163,18 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
     };
 
     return (
-        <header className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-100">
+        <header className="flex items-center justify-between px-4 md:px-6 py-3 bg-white border-b border-gray-100">
             <div className="flex items-center gap-4">
                 {/* Workspace Selector */}
                 <div className="relative" ref={workspaceRef}>
                     <div
-                        className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="flex items-center gap-2 px-2 md:px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => setShowWorkspaceDropdown(!showWorkspaceDropdown)}
                     >
-                        <div className="w-6 h-6 bg-violet-100 rounded-md flex items-center justify-center">
+                        <div className="w-6 h-6 bg-violet-100 rounded-md flex items-center justify-center flex-shrink-0">
                             <Building2 size={14} className="text-violet-600" />
                         </div>
-                        <span className="text-sm font-medium text-gray-700">{activeWorkspace.name}</span>
+                        <span className="text-sm font-medium text-gray-700 hidden sm:block whitespace-nowrap">{activeWorkspace.name}</span>
                         <ChevronDown size={14} className={`text-gray-500 transition-transform ${showWorkspaceDropdown ? 'rotate-180' : ''}`} />
                     </div>
 
@@ -214,22 +214,22 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
                 </div>
 
                 {/* Search Box */}
-                <div className="relative" ref={searchRef}>
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg w-72">
-                        <Search size={16} className="text-gray-400" />
+                <div className="relative flex-1 md:flex-none md:w-72" ref={searchRef}>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg w-full">
+                        <Search size={16} className="text-gray-400 flex-shrink-0" />
                         <input
                             ref={searchInputRef}
                             type="text"
-                            placeholder="Search dashboard sections..."
+                            placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => handleSearch(e.target.value)}
                             onFocus={() => { if (searchQuery) setShowSearchResults(true); else { setSearchResults(dashboardSections); setShowSearchResults(true); } }}
-                            className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400"
+                            className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400 min-w-0"
                         />
                         {searchQuery ? (
                             <button onClick={() => { setSearchQuery(''); setSearchResults([]); setShowSearchResults(false); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                         ) : (
-                            <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">⌘K</span>
+                            <span className="hidden md:block text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">⌘K</span>
                         )}
                     </div>
 
@@ -303,10 +303,10 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
 
                 {/* User Profile */}
                 <div className="relative" ref={userMenuRef}>
-                    <div className="flex items-center gap-2 pl-4 border-l border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setShowUserMenu(!showUserMenu)}>
-                        <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold">{currentUser.initials}</div>
-                        <div>
-                            <div className="text-sm font-medium text-gray-900">{currentUser.name}</div>
+                    <div className="flex items-center gap-2 md:pl-4 md:border-l border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setShowUserMenu(!showUserMenu)}>
+                        <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">{currentUser.initials}</div>
+                        <div className="hidden lg:block">
+                            <div className="text-sm font-medium text-gray-900 leading-tight">{currentUser.name}</div>
                             <div className="text-xs text-gray-500">{currentUser.role}</div>
                         </div>
                         <ChevronDown size={14} className={`text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />

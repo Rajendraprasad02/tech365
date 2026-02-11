@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, Clock, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown } from 'lucide-react';
+import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown } from 'lucide-react';
 import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, getUsers, notifyAgentTyping } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
@@ -29,6 +29,7 @@ export default function ConversationsPage() {
     const [selectedAgentFilter, setSelectedAgentFilter] = useState('all');
     const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
     const agentMenuRef = useRef(null);
+    const reportTooltipRef = useRef(null);
 
     const messagesEndRef = useRef(null);
     const lastConversationId = useRef(null);
@@ -117,7 +118,7 @@ export default function ConversationsPage() {
                 setIsAgentMenuOpen(false);
             }
              // Also close tooltip if clicking outside
-             if (!event.target.closest('.relative')) {
+             if (reportTooltipRef.current && !reportTooltipRef.current.contains(event.target)) {
                  setActiveReportTooltipId(null);
              }
         };
@@ -425,7 +426,8 @@ export default function ConversationsPage() {
                     wa_id: session.whatsapp, // Add this for API calls
                     title: displayName,
                     preview: lastMsg?.text?.substring(0, 50) || lastMsg?.user?.substring(0, 50) || 'No messages',
-                    status: isClosed ? 'resolved' : (session.conversation?.length > 0 ? 'active' : 'resolved'),
+                    startStatus: lead?.status, // Specifically expose lead status for input disabling logic
+                    status: isClosed ? 'resolved' : (lead?.status || (session.status !== 'active' ? session.status : 'active')),
                     time: formatTimeAgo(session.updated_at || session.created_at),
                     unread: false, // Legacy Support
                     unreadCount: 0, // New Counter
@@ -797,9 +799,9 @@ export default function ConversationsPage() {
     };
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-64px)] lg:h-auto">
             {/* Page Header */}
-            <div className="p-6 bg-white border-b border-gray-100">
+            <div className={`p-4 lg:p-6 bg-white border-b border-gray-100 ${selectedConversation ? 'hidden lg:block' : 'block'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 ">Conversations</h1>
@@ -813,7 +815,7 @@ export default function ConversationsPage() {
                 </div>
 
                 {/* Status Filter Tabs - For Admin AND Agents */}
-                <div className="flex items-center gap-3 mt-4 overflow-x-auto scrollbar-hide whitespace-nowrap">
+                <div className="flex items-center gap-2 lg:gap-3 mt-4 overflow-x-auto scrollbar-hide whitespace-nowrap pb-2 lg:pb-0">
                     {!isAgentEffective && (
                         <>
                             <button
@@ -888,7 +890,7 @@ export default function ConversationsPage() {
 
                 {/* Agent Filter - Admin Only */}
                 {!isAgentEffective && (
-                    <div className="mt-3 flex items-center gap-3">
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
                         <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider text-[11px]">Filter by Agent:</span>
                         <div className="relative" ref={agentMenuRef}>
                             <button
@@ -900,10 +902,16 @@ export default function ConversationsPage() {
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
                                     selectedAgentFilter === 'all' ? 'bg-gray-100 text-gray-500' : 'bg-violet-100 text-violet-600'
                                 }`}>
-                                    {selectedAgentFilter === 'all' ? <Headset size={12} /> : (agents.find(a => String(a.id) === String(selectedAgentFilter))?.full_name?.[0] || 'A')}
+                                    {selectedAgentFilter === 'all' ? <Headset size={12} /> : ((() => {
+                                        const a = agents.find(a => String(a.id) === String(selectedAgentFilter));
+                                        return (a?.full_name || a?.username || 'A')[0].toUpperCase();
+                                    })())}
                                 </div>
                                 <span className="text-sm font-medium text-gray-700">
-                                    {selectedAgentFilter === 'all' ? 'All Agents' : (agents.find(a => String(a.id) === String(selectedAgentFilter))?.full_name || 'Agent')}
+                                    {selectedAgentFilter === 'all' ? 'All Agents' : ((() => {
+                                        const a = agents.find(a => String(a.id) === String(selectedAgentFilter));
+                                        return a?.full_name || a?.username || 'Agent';
+                                    })())}
                                 </span>
                                 <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isAgentMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -950,9 +958,9 @@ export default function ConversationsPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden p-2 gap-4">
+            <div className={`flex-1 flex overflow-hidden ${selectedConversation ? 'p-0 h-full' : 'p-2'} lg:p-2 gap-0 lg:gap-4 relative lg:h-auto`}>
                 {/* Left Panel - Conversation List */}
-                <div className="w-80 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[80vh]">
+                <div className={`w-full lg:w-80 bg-white lg:rounded-xl border lg:border-gray-200 flex flex-col overflow-hidden h-full lg:h-[80vh] ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
                     {/* Search and New Button */}
                     <div className="p-4 border-b border-gray-100 flex gap-2">
                         <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-lg">
@@ -1011,7 +1019,7 @@ export default function ConversationsPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center justify-between gap-2 ">
                                             <div className="flex items-center gap-1.5 min-w-0">
                                                 <span className="font-semibold text-gray-900 text-sm truncate">
                                                     {conv.title}
@@ -1077,14 +1085,20 @@ export default function ConversationsPage() {
                 </div>
 
                 {/* Right Panel - Chat View */}
-                <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-y-auto h-[80vh]">
+                <div className={`flex-1 bg-white lg:rounded-xl border lg:border-gray-200 flex flex-col overflow-hidden h-full lg:h-[80vh] ${!selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
                     {selectedConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="px-6 py-4 border-b border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="font-semibold text-gray-900">{selectedConversation.title}</h2>
+                            <div className="px-4 lg:px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-20">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-2 ">
+                                    <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                                        <button
+                                            onClick={() => setSelectedConversation(null)}
+                                            className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg flex-shrink-0"
+                                        >
+                                            <ArrowLeft size={20} />
+                                        </button>
+                                        <h2 className="font-semibold text-gray-900 truncate">{selectedConversation.title}</h2>
                                         <button
                                             onClick={(e) => handleShowLeadDetails(e, selectedConversation.wa_id || selectedConversation.title)}
                                             className="text-gray-400 hover:text-blue-600 transition-colors p-1.5 rounded-lg bg-gray-50 hover:bg-blue-50"
@@ -1114,12 +1128,13 @@ export default function ConversationsPage() {
                                      {/* Reported Status in Header (Full Details View) */}
                                      {selectedConversation.isReported && (
                                         <div className="flex items-center gap-2 relative">
-                                            <div className="bg-red-50 text-red-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-100 flex items-center gap-1.5">
-                                                <AlertCircle size={12} />
-                                                <span>Reported by {resolveAgentName(selectedConversation.reportedAgentId, selectedConversation.reportedAgentName)}</span>
+                                            <div className="bg-red-50 text-red-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-100 flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                                                <AlertCircle size={12} className="flex-shrink-0" />
+                                                <span className="truncate hidden sm:inline">Reported by {resolveAgentName(selectedConversation.reportedAgentId, selectedConversation.reportedAgentName)}</span>
+                                                <span className="truncate sm:hidden">Reported</span>
                                             </div>
                                             
-                                            <div className="relative">
+                                            <div className="relative" ref={reportTooltipRef}>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -1160,7 +1175,7 @@ export default function ConversationsPage() {
                                      {/* Assigned Agent Details - REMOVED */}
 
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex  items-center gap-3">
                                         {/* End Chat Button (Agent Only) */}
                                         {isAgentEffective && selectedConversation.approvalStatus !== 'closed' && (
                                             <button 
@@ -1168,7 +1183,8 @@ export default function ConversationsPage() {
                                                 className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
                                                 title="End this conversation"
                                             >
-                                                Close / Report
+                                                <span className="hidden sm:inline">Close / Report</span>
+                                                <span className="sm:hidden">Close</span>
                                             </button>
                                         )}
 
@@ -1204,7 +1220,7 @@ export default function ConversationsPage() {
                             </div>
 
                             {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-6 bg-gray-50 scroll-smooth">
+                            <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50 scroll-smooth">
                                 {selectedConversation.messages.length > 0 ? (
                                     (() => {
                                         // Group messages by date
@@ -1238,7 +1254,7 @@ export default function ConversationsPage() {
                                                             )}
 
                                                             {/* Message Bubble Wrapper (Column for Name + Bubble) */}
-                                                            <div className={`flex flex-col ${msg.direction === 'in' ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                                                            <div className={`flex flex-col ${msg.direction === 'in' ? 'items-start' : 'items-end'} max-w-[85%] lg:max-w-[75%]`}>
                                                                 {/* Agent Name Display */}
                                                                 {msg.isAgent && msg.direction === 'out' && (
                                                                     <span className="text-[10px] text-gray-500 font-medium mb-1 mr-1">
@@ -1301,7 +1317,7 @@ export default function ConversationsPage() {
                                     )} */}
                                 </div>
                             ) : (
-                                <div className="px-6 py-4 border-t border-gray-100 bg-white">
+                                <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-white">
                                     <div className="flex items-center gap-3">
                                         <input
                                             type="text"

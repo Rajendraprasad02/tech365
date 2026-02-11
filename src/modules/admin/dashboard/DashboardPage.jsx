@@ -38,9 +38,9 @@ export default function DashboardPage() {
             <DashboardHeader onScrollToSection={handleScrollToSection} />
 
             {/* Dashboard Content */}
-            <div className="flex-1 p-8 overflow-y-auto">
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
-                <p className="text-gray-500 text-sm mb-8">Monitor your WhatsApp Business performance</p>
+                <p className="text-gray-500 text-sm mb-6 md:mb-8">Monitor your WhatsApp Business performance</p>
 
                 {/* Loading State */} 
                 {loading ? (
@@ -79,8 +79,8 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Charts Section */}
-                        <div className="grid grid-cols-3 gap-5 mb-6">
-                            <div id="conversation-volume" className={`col-span-2 rounded-xl ${getHighlightClass('conversation-volume')}`}>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+                            <div id="conversation-volume" className={`lg:col-span-2 rounded-xl ${getHighlightClass('conversation-volume')}`}>
                                 <ConversationVolumeChart data={data.conversationVolumeData} />
                             </div>
                             <div id="resolution-breakdown" className={`rounded-xl ${getHighlightClass('resolution-breakdown')}`}>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Bottom Section */}
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                             {/* Recent Conversations */}
                             <div id="recent-conversations" className={`rounded-xl ${getHighlightClass('recent-conversations')}`}>
                                 <RecentConversations conversations={data.recentConversations} />

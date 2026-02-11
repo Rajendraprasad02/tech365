@@ -60,7 +60,7 @@ export default function ResolutionBreakdownChart() {
             </div>
 
             {/* Custom Legend */}
-            <div className="flex items-center justify-center gap-4 mt-4 pt-2 border-t border-gray-50">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-2 border-t border-gray-50">
                 {data.map((item) => (
                     <div key={item.name} className="flex items-center gap-1.5">
                         <div

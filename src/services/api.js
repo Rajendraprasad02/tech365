@@ -359,6 +359,30 @@ export async function quickSendCampaign(data) {
     });
 }
 
+// Quick send by phone numbers (New Endpoint)
+export async function quickSendByPhone(data) {
+    return fetchDataApi('/campaigns/quick-send-by-phone', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// Schedule an existing campaign
+export async function scheduleCampaign(campaignId, scheduledAt) {
+    return fetchDataApi(`/campaigns/${campaignId}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+    });
+}
+
+// Reschedule an existing campaign
+export async function rescheduleCampaign(campaignId, scheduledAt) {
+    return fetchDataApi(`/campaigns/${campaignId}/schedule`, {
+        method: 'PATCH',
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+    });
+}
+
 // Get WhatsApp message templates
 export async function getWhatsAppTemplates() {
     return fetchDataApi('/whatsapp/templates');
@@ -377,25 +401,43 @@ export async function sendWhatsAppTemplate(waId, templateName, variables = {}, c
     });
 }
 
-// ============ Contact Management APIs ============
+// Upload media specifically for WhatsApp
+export async function uploadMedia(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchDataApi('/whatsapp/media/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {}, // Let browser set Content-Type for FormData
+    });
+}
 
 // Get all contacts with pagination and filters
-export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc', source = 'all') {
+export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc', source = 'all', product = 'all') {
     const params = new URLSearchParams({ skip, limit, sort_by: sortBy });
     if (search) params.append('search', search);
     if (status !== 'all') params.append('status', status);
     if (source !== 'all') params.append('source', source);
+    if (product !== 'all') params.append('product', product);
     return fetchDataApi(`/contacts?${params}`);
 }
 
 // Create a single contact
 export async function createContact(data) {
-    // data is FormData
+    const params = new URLSearchParams();
+    params.append('phone_number', data.phone_number);
+    if (data.name) params.append('name', data.name);
+    // Add list_id if it's ever needed, for now sending empty or omitting is likely fine based on curl
+    // params.append('list_id', ''); 
+
+    console.log(params);
+    
     return fetchDataApi('/contacts', {
         method: 'POST',
-        body: data,
-        // No Content-Type header needed for FormData; browser sets it with boundary
-        headers: {},
+        body: params,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
     });
 }
 
@@ -626,7 +668,11 @@ export default {
     deleteCampaign,
     addCampaignRecipients,
     sendCampaign,
+    quickSendByPhone,
+    scheduleCampaign,
+    rescheduleCampaign,
     getWhatsAppTemplates,
+    uploadMedia, // Added
     getContacts,
     getRoles,
     getRoleById,

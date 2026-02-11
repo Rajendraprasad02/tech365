@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Users, Upload, FolderOpen, Clock, AlertCircle, Search,
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
-    FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck
+    FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck,
+    ChevronDown, Filter, Tag, ArrowUpDown
 } from 'lucide-react';
-import api from '@/services/api';
+import api,{createContact} from '@/services/api';
+import CustomSelect from './CustomSelect';
 
 // API base URL - still kept just in case of fallback, but api.js handles it
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -73,18 +75,43 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [productFilter, setProductFilter] = useState('all');
+    const [productOptions, setProductOptions] = useState([{ value: 'all', label: 'All Products' }]);
     const [sortBy, setSortBy] = useState('desc'); // 'desc' | 'asc' | 'name_asc' | 'name_desc'
+
+    // Fetch unique products for filter
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                // Fetch a batch of contacts to extract available products
+                // Using a larger limit to ensure we get a good representation of products
+                const data = await api.getContacts(0, 100, '', 'all', 'desc', 'all', 'all');
+                if (data && data.contacts) {
+                    const uniqueProducts = [...new Set(data.contacts.map(c => c.product).filter(p => p))];
+                    const options = [
+                        { value: 'all', label: 'All Products' },
+                        ...uniqueProducts.map(p => ({ value: p, label: p }))
+                    ];
+                    setProductOptions(options);
+                }
+            } catch (error) {
+                console.error('Error fetching products for filter:', error);
+            }
+        };
+        fetchProducts();
+    }, []);
     const [stats, setStats] = useState({ total: 0, valid: 0, invalid: 0, blocked: 0 });
     const [showAddModal, setShowAddModal] = useState(false);
     const [newContact, setNewContact] = useState({ phone_number: '', name: '' });
     const [page, setPage] = useState(0);
-    const limit = 20;
+    const [pageSize, setPageSize] = useState(10);
 
     const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
-            console.log("Fetching contacts with params:", { page, limit, searchQuery, statusFilter, sortBy, sourceFilterProp });
-            const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy, sourceFilterProp);
+            setLoading(true);
+            console.log("Fetching contacts with params:", { page, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter });
+            const data = await api.getContacts(page * pageSize, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
 
@@ -109,11 +136,16 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, statusFilter, sortBy, page, sourceFilterProp]);
+    }, [searchQuery, statusFilter, sortBy, page, sourceFilterProp, productFilter]);
 
     useEffect(() => {
         fetchContacts();
     }, [fetchContacts]);
+
+    // Reset to first page when filters or page size change
+    useEffect(() => {
+        setPage(0);
+    }, [searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter, pageSize]);
 
     const handleDelete = async (id) => {
         if (!confirm('Delete this contact?')) return;
@@ -137,11 +169,14 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     const handleAddContact = async () => {
         if (!newContact.phone_number.trim()) return;
         try {
-            const formData = new FormData();
-            formData.append('phone_number', newContact.phone_number);
-            if (newContact.name) formData.append('name', newContact.name);
-
-            await api.createContact(formData);
+            // Use JSON payload instead of FormData
+            const payload = {
+                phone_number: newContact.phone_number,
+                name: newContact.name || ''
+            };
+            console.log(payload);
+            
+            await createContact(payload);
             setNewContact({ phone_number: '', name: '' });
             setShowAddModal(false);
             fetchContacts();
@@ -161,7 +196,8 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         const styles = {
             valid: 'bg-green-100 text-green-700',
             invalid: 'bg-red-100 text-red-700',
-            blocked: 'bg-orange-100 text-orange-700'
+            blocked: 'bg-orange-100 text-orange-700',
+            reported: 'bg-yellow-100 text-yellow-800'
         };
         return (
             <span className={`px-2.5 py-1 text-xs font-medium rounded-full capitalize ${styles[status] || 'bg-gray-100'}`}>
@@ -184,20 +220,35 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                         className="flex-1 bg-transparent text-sm outline-none"
                     />
                 </div>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-sm">
-                    <option value="all">All Status</option>
-                    <option value="valid">Valid</option>
-                    <option value="invalid">Invalid</option>
-                    <option value="blocked">Blocked</option>
-                </select>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                    className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-sm">
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                </select>
+                <CustomSelect
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    icon={Filter}
+                    options={[
+                        { value: 'all', label: 'All Status' },
+                        { value: 'valid', label: 'Valid' },
+                        { value: 'invalid', label: 'Invalid' },
+                        { value: 'reported', label: 'Reported' },
+                        { value: 'blocked', label: 'Blocked' }
+                    ]}
+                />
+                <CustomSelect
+                    value={productFilter}
+                    onChange={setProductFilter}
+                    icon={Tag}
+                    options={productOptions}
+                />
+                {/* <CustomSelect
+                    value={sortBy}
+                    onChange={setSortBy}
+                    icon={ArrowUpDown}
+                    options={[
+                        { value: 'desc', label: 'Newest First' },
+                        { value: 'asc', label: 'Oldest First' },
+                        { value: 'name_asc', label: 'Name A-Z' },
+                        { value: 'name_desc', label: 'Name Z-A' }
+                    ]}
+                /> */}
                 <button onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600">
                     <Plus size={16} /> Add Contact
@@ -213,7 +264,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto min-h-[530px] custom-scrollbar">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
@@ -226,6 +277,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                 <th className="px-6 py-3 text-left">Name</th>
                                 <th className="px-6 py-3 text-center">Status</th>
                                 <th className="px-6 py-3 text-center">Source</th>
+                                <th className="px-6 py-3 text-center">Product</th>
                                 <th className="px-6 py-3 text-center">Created</th>
                                 <th className="px-6 py-3 text-center">Actions</th>
                             </tr>
@@ -251,18 +303,14 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                         </td>
                                         <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
                                         <td className="px-6 py-3 text-center">
-                                            <select
-                                                value={contact.status}
-                                                onChange={(e) => handleStatusChange(contact.id, e.target.value)}
-                                                className={`text-xs font-medium rounded-full px-2 py-1 border-0 outline-none cursor-pointer appearance-none ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
-                                                    contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
-                                                        'bg-orange-100 text-orange-700'
-                                                    }`}
-                                            >
-                                                <option value="valid">Valid</option>
-                                                <option value="invalid">Invalid</option>
-                                                <option value="blocked">Blocked</option>
-                                            </select>
+                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
+                                                contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                                contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-orange-100 text-orange-700'
+                                            }`}>
+                                                {contact.status}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-3 text-center">
                                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
@@ -273,6 +321,9 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                                 <FileText size={12} />
                                                 {contact.source || 'Manual'}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-center text-gray-600 font-medium">
+                                            {contact.product || '-'}
                                         </td>
                                         <td className="px-6 py-3 text-gray-500 text-center">
                                             <div className="flex items-center justify-center gap-1">
@@ -304,13 +355,51 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-3 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Page {page + 1}</span>
-                <div className="flex gap-2">
-                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                        className="px-3 py-1.5 text-sm border rounded disabled:opacity-50">Previous</button>
-                    <button onClick={() => setPage(p => p + 1)} disabled={contacts.length < limit}
-                        className="px-3 py-1.5 text-sm border rounded disabled:opacity-50">Next</button>
+            <div className="px-6 py-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
+                    <span className="flex items-center gap-2">
+                        Show
+                        <select 
+                            value={pageSize}
+                            onChange={(e) => setPageSize(Number(e.target.value))}
+                            className="bg-white border border-gray-200 rounded px-2 py-1 outline-none focus:border-violet-300 transition-colors"
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                        per page
+                    </span>
+                    <span className="text-gray-300">|</span>
+                    <span>
+                        Showing {Math.min(stats.total, page * pageSize + 1)} - {Math.min(stats.total, (page + 1) * pageSize)} of {stats.total}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <button 
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                        <ChevronDown size={20} className="rotate-90" />
+                    </button>
+                    
+                    <div className="flex items-center px-4">
+                        <span className="text-sm font-bold text-gray-700">Page {page + 1}</span>
+                        <span className="text-gray-300 mx-2">/</span>
+                        <span className="text-sm text-gray-400 font-medium">{Math.ceil(stats.total / pageSize) || 1}</span>
+                    </div>
+
+                    <button 
+                        onClick={() => setPage(p => p + 1)}
+                        disabled={contacts.length < pageSize || (page + 1) * pageSize >= stats.total}
+                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                        <ChevronDown size={20} className="-rotate-90" />
+                    </button>
                 </div>
             </div>
 
