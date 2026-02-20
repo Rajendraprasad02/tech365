@@ -35,7 +35,7 @@ const handleResponse = async (response, isNestJS = false) => {
 
         let errorMessage = `API Error: ${response.status} ${response.statusText}`;
         let errorData = null;
-        
+
         try {
             errorData = await response.json();
             if (errorData && errorData.detail) {
@@ -46,7 +46,7 @@ const handleResponse = async (response, isNestJS = false) => {
         } catch (e) {
             // Could not parse JSON, use default error message
         }
-        
+
         const error = new Error(errorMessage);
         error.response = {
             status: response.status,
@@ -288,6 +288,14 @@ export async function deleteKnowledgeGroup(groupId) {
     return fetchDataApi(`/knowledge/groups/${groupId}`, { method: 'DELETE' });
 }
 
+// Update a knowledge group entry (title, content, category, priority)
+export async function updateKnowledgeGroup(groupId, { title, content, category, priority }) {
+    return fetchDataApi(`/knowledge/groups/${groupId}/update`, {
+        method: 'POST',
+        body: JSON.stringify({ title, content, category: category || null, priority }),
+    });
+}
+
 // Update a chunk's content (with optional re-embedding)
 export async function updateChunk(chunkId, content, reEmbed = true) {
     return fetchDataApi(`/knowledge/chunks/${chunkId}`, {
@@ -304,6 +312,14 @@ export async function deleteChunk(chunkId) {
 // Trigger manual re-clustering
 export async function reclusterKnowledge() {
     return fetchDataApi('/knowledge/recluster', { method: 'POST' });
+}
+
+// Add manual knowledge entry with priority
+export async function addManualKnowledge({ title, content, category, priority }) {
+    return fetchDataApi('/knowledge/add-manual', {
+        method: 'POST',
+        body: JSON.stringify({ title, content, category: category || null, priority: priority || 5 }),
+    });
 }
 
 // ============ Campaign APIs ============
@@ -431,7 +447,7 @@ export async function createContact(data) {
     // params.append('list_id', ''); 
 
     console.log(params);
-    
+
     return fetchDataApi('/contacts', {
         method: 'POST',
         body: params,
@@ -471,15 +487,49 @@ export async function getContactLists() {
     return fetchDataApi('/contacts/lists');
 }
 
+// Get Contact List Details (with contacts)
+export async function getContactListDetails(listId) {
+    return fetchDataApi(`/contacts/lists/${listId}`);
+}
+
 // Create Contact List
-export async function createContactList(name) {
+export async function createContactList(name, description) {
     const formData = new FormData();
     formData.append('name', name);
+    if (description) formData.append('description', description);
     return fetchDataApi('/contacts/lists', {
         method: 'POST',
         body: formData,
         headers: {},
     });
+}
+
+// Update Contact List
+export async function updateContactList(listId, name, description) {
+    const formData = new FormData();
+    formData.append('name', name);
+    if (description) formData.append('description', description);
+    return fetchDataApi(`/contacts/lists/${listId}`, {
+        method: 'PUT',
+        body: formData,
+        headers: {},
+    });
+}
+
+// Add Contacts to List
+export async function addContactsToList(listId, contactIds) {
+    const formData = new FormData();
+    contactIds.forEach(id => formData.append('contact_ids', id));
+    return fetchDataApi(`/contacts/lists/${listId}/contacts`, {
+        method: 'POST',
+        body: formData,
+        headers: {},
+    });
+}
+
+// Remove Contact from List
+export async function removeContactFromList(listId, contactId) {
+    return fetchDataApi(`/contacts/lists/${listId}/contacts/${contactId}`, { method: 'DELETE' });
 }
 
 // Delete Contact List
@@ -490,6 +540,11 @@ export async function deleteContactList(listId) {
 // Get Import History
 export async function getImportHistory() {
     return fetchDataApi('/contacts/import-history');
+}
+
+// Clear Import History
+export async function clearImportHistory() {
+    return fetchDataApi('/contacts/import-history', { method: 'DELETE' });
 }
 
 // Get Invalid Contacts
@@ -575,7 +630,7 @@ export async function deleteUser(userId) {
     return fetchApi(`/users/${userId}`, {
         method: 'DELETE',
     });
-} 
+}
 
 // Get User Details (Python Backend)
 export async function getUserDetails(userId) {
@@ -674,6 +729,20 @@ export default {
     getWhatsAppTemplates,
     uploadMedia, // Added
     getContacts,
+    createContact,
+    deleteContact,
+    updateContactStatus,
+    bulkImportContacts,
+    getContactLists,
+    getContactListDetails,
+    createContactList,
+    updateContactList,
+    addContactsToList,
+    removeContactFromList,
+    deleteContactList,
+    getImportHistory,
+    clearImportHistory,
+    getInvalidContacts,
     getRoles,
     getRoleById,
     createRole,

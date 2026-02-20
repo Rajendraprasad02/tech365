@@ -95,6 +95,19 @@ export default function KnowledgeDrawer({ entry, isOpen, onClose }) {
                                         ○ Pending
                                     </span>
                                 )}
+                                {/* Priority Badge */}
+                                {(() => {
+                                    const p = entry.priority ?? 5;
+                                    let badgeClass = '';
+                                    if (p <= 3) badgeClass = 'text-red-300 bg-red-500/20';
+                                    else if (p <= 7) badgeClass = 'text-amber-300 bg-amber-500/20';
+                                    else badgeClass = 'text-gray-300 bg-gray-500/20';
+                                    return (
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${badgeClass}`}>
+                                            Priority: {p}
+                                        </span>
+                                    );
+                                })()}
                             </div>
                             <h2 className="text-lg font-semibold text-white truncate">
                                 {entry.title || 'Untitled Entry'}
