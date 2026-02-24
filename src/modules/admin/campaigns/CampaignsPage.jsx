@@ -17,7 +17,7 @@ import {
 } from '../../../services/api';
 
 // API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8004';
 
 // Status badge component
 const StatusBadge = ({ status }) => {

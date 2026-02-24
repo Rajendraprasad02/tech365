@@ -20,6 +20,8 @@ import RoleManagementPage from '@/modules/superadmin/RoleManagementPage';
 import MenuBuilderPage from '@/modules/superadmin/MenuBuilderPage';
 import PermissionRoute from '@/modules/auth/PermissionRoute';
 import SmartRedirect from '@/modules/auth/SmartRedirect';
+import FormsPage from '@/modules/forms/FormsPage';
+import FormBuilderPage from '@/modules/forms/FormBuilderPage';
 
 function App() {
   return (
@@ -69,6 +71,8 @@ function App() {
                 <Route element={<PermissionRoute requiredScreen="users" />}>
                   <Route path="users" element={<UsersPage />} />
                 </Route>
+                <Route path="form-demo" element={<FormsPage />} />
+                <Route path="forms/builder" element={<FormBuilderPage />} />
               </Route>
             </Route>
 

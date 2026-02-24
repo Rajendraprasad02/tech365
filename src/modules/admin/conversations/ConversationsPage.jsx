@@ -47,7 +47,7 @@ export default function ConversationsPage() {
         
         const now = Date.now();
         // Throttle: Send every 8 seconds while typing
-        if (now - lastTypingTime.current > 8000) {
+        if (now - lastTypingTime.current > 8004) {
             lastTypingTime.current = now;
             notifyAgentTyping(selectedConversation.wa_id).catch(err => {
                 console.warn("[Typing] Indicator failed:", err.message);
@@ -135,7 +135,7 @@ export default function ConversationsPage() {
         const clientId = userId ? `agent_${userId}` : `session_${Date.now()}`;
         
         // Use environment variable for WebSocket URL
-        const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
+        const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8004';
         console.log("🔍 [DEBUG] Env VITE_DATA_API_URL:", import.meta.env.VITE_DATA_API_URL);
         console.log("🔍 [DEBUG] Resolved WebSocket API URL:", apiUrl);
 

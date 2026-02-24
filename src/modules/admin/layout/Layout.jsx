@@ -30,6 +30,23 @@ export default function Layout() {
                     items = data.modules;
                 }
 
+                // Add "Forms" module if not present in the dynamic menu
+                const formModuleId = 'forms-module';
+                if (!items.find(m => m.id === formModuleId)) {
+                    items.push({
+                        id: formModuleId,
+                        label: 'Forms',
+                        screens: [
+                            {
+                                id: 'dynamic-forms',
+                                label: 'Form Builder',
+                                path: '/forms/builder',
+                                icon: 'FileText'
+                            }
+                        ]
+                    });
+                }
+
                 setMenuItems(items);
 
                 // Derive permissions from menu

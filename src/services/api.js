@@ -35,7 +35,7 @@ const handleResponse = async (response, isNestJS = false) => {
 
         let errorMessage = `API Error: ${response.status} ${response.statusText}`;
         let errorData = null;
-        
+
         try {
             errorData = await response.json();
             if (errorData && errorData.detail) {
@@ -46,7 +46,7 @@ const handleResponse = async (response, isNestJS = false) => {
         } catch (e) {
             // Could not parse JSON, use default error message
         }
-        
+
         const error = new Error(errorMessage);
         error.response = {
             status: response.status,
@@ -533,7 +533,7 @@ export async function deleteUser(userId) {
     return fetchApi(`/users/${userId}`, {
         method: 'DELETE',
     });
-} 
+}
 
 // Get User Details (Python Backend)
 export async function getUserDetails(userId) {
@@ -604,6 +604,49 @@ export async function getLeads(skip = 0, limit = 100) {
     return fetchDataApi(`/leads/?skip=${skip}&limit=${limit}`);
 }
 
+// ============ Forms APIs ============
+
+// Get form schema by ID
+export async function getFormSchema(formId) {
+    return fetchDataApi(`/forms/${formId}`);
+}
+
+// Submit form response
+export async function submitForm(formId, responseData) {
+    return fetchDataApi(`/forms/${formId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify(responseData)
+    });
+}
+
+// Create a new form
+export async function createForm(data) {
+    return fetchDataApi('/forms', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+// Update an existing form
+export async function updateForm(formId, data) {
+    return fetchDataApi(`/forms/${formId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+// Publish form to WhatsApp
+export async function publishForm(formId) {
+    return fetchDataApi(`/forms/${formId}/publish`, {
+        method: 'POST'
+    });
+}
+
+// Get form submission status/progress
+export async function getFormStatus(formId) {
+    return fetchDataApi(`/forms/${formId}/status`);
+}
+
 export default {
     getSessions,
     getPendingSessions, // Added
@@ -643,6 +686,14 @@ export default {
     getLeadByPhone,
     getLeads,
     getUserDetails,
+
+    // Form APIs
+    getFormSchema,
+    createForm,
+    updateForm,
+    publishForm,
+    submitForm,
+    getFormStatus,
 
     // --- Auth APIs ---
     loginUsername: async (username, password) => {

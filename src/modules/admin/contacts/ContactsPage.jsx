@@ -7,7 +7,7 @@ import {
 import api from '@/services/api';
 
 // API base URL - still kept just in case of fallback, but api.js handles it
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8004';
 
 export default function ContactsPage() {
     const [activeTab, setActiveTab] = useState('all-contacts');
