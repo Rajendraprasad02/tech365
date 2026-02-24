@@ -98,7 +98,7 @@ export default function Layout() {
                 onClose={() => setSidebarOpen(false)}
             />
 
-            <main className="flex-1 flex flex-col overflow-hidden w-full relative">
+            <main className="flex-1 flex flex-col overflow-hidden w-full relative pt-16 md:pt-0">
                 {/* Desktop Header */}
                 {/* Desktop Header - Hidden as per user request to remove duplicate navbar
                 <div className="hidden md:block">

@@ -1,4 +1,4 @@
-import { Users, DollarSign, CheckCircle, Bot, Clock, Headphones } from 'lucide-react';
+import { Users, DollarSign, CheckCircle, Bot, Clock, Headphones, IndianRupee } from 'lucide-react';
 import MetricCard from './MetricCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,7 +28,7 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
             comparison: '',
             trend: costPerConversation?.trend || '+0%',
             trendUp: costPerConversation?.trendUp ?? false,
-            icon: DollarSign,
+            icon: IndianRupee,
             iconBg: 'green',
             sparkline: null
         },
@@ -55,7 +55,7 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
     ];
 
     return (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {metrics.map((metric, index) => (
                 <MetricCard key={index} metric={metric} />
             ))}

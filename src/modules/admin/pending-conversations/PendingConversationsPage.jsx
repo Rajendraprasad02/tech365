@@ -5,8 +5,10 @@ import LeadDetailsModal from '../conversations/LeadDetailsModal';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../../../store/slices/authSlice';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
+import { useToast } from '../../../context/ToastContext';
 
 export default function PendingConversationsPage() {
+    const { toast } = useToast();
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -14,8 +16,13 @@ export default function PendingConversationsPage() {
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [conversationToApprove, setConversationToApprove] = useState(null);
+    const [confirmMessage, setConfirmMessage] = useState(''); // Custom confirmation message
 
-    // Product Filter State
+    const { user } = useSelector(selectAuth);
+    const currentUser = user || JSON.parse(localStorage.getItem('user'));
+    const userRole = currentUser?.role?.name || currentUser?.role || '';
+    const isAdmin = userRole.toLowerCase().includes('admin');
+    const isAgent = userRole.toLowerCase() === 'agent';
     const [products, setProducts] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState('all');
 
@@ -28,7 +35,7 @@ export default function PendingConversationsPage() {
         try {
             const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
             if (!cleanPhone) {
-                alert("No phone number available for this contact.");
+                toast({ title: "Warning", description: "No phone number available for this contact.", variant: "destructive" });
                 return;
             }
             const leadData = await getLeadByPhone(cleanPhone);
@@ -36,12 +43,11 @@ export default function PendingConversationsPage() {
             setShowLeadModal(true);
         } catch (error) {
             console.error("Failed to fetch lead details:", error);
-            alert("Could not fetch lead details. Lead might not exist.");
+            toast({ title: "Error", description: "Could not fetch lead details. Lead might not exist.", variant: "destructive" });
         }
     };
 
-    // Auth context for current user ID
-    const { user } = useSelector(selectAuth);
+    // Auth context for current user ID is handled above
 
     useEffect(() => {
         fetchPendingConversations();
@@ -103,6 +109,7 @@ export default function PendingConversationsPage() {
                     contactId: waId ? `+${waId}` : `#${session.id}`,
                     // Mocking 'online' status based on recency (e.g. < 5 mins)
                     isOnline: isRecentlyActive(session.updated_at || session.created_at),
+                    status: lead?.status || session.status, // Prioritize Lead status
                     productInterest: lead?.product_interest, // Store for filtering
                     messages: (session.conversation || []).flatMap((msg, idx, arr) => {
                         // Handle Turn-based structures (user prompt + bot response)
@@ -182,6 +189,15 @@ export default function PendingConversationsPage() {
 
     const handleApproveClick = (conv) => {
         setConversationToApprove(conv);
+        
+        let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
+        
+        // Admin warning for premature acceptance
+        if (isAdmin && conv.status !== 'transfer_to_agent') {
+            message = "The user has not filled the basic details so accepting this chat leads to not capturing the information. Are you sure you want to accept this chat?";
+        }
+        
+        setConfirmMessage(message);
         setShowConfirmModal(true);
     };
 
@@ -194,7 +210,7 @@ export default function PendingConversationsPage() {
 
         if (!userId) {
             console.error('No user ID found - cannot assign conversation. User state:', currentUser);
-            alert('User identification failed. Please refresh the page or login again.');
+            toast({ title: "User Error", description: "User identification failed. Please refresh the page or login again.", variant: "destructive" });
             return;
         }
 
@@ -212,9 +228,10 @@ export default function PendingConversationsPage() {
 
             setShowConfirmModal(false);
             setConversationToApprove(null);
+            toast({ title: "Success", description: "Chat assigned to you successfully.", variant: "success" });
         } catch (error) {
             console.error('Error approving conversation:', error);
-            alert(`Failed to approve: ${error.message}`);
+            toast({ title: "Error", description: `Failed to approve: ${error.message}`, variant: "destructive" });
         } finally {
             setApprovingId(null);
         }
@@ -308,15 +325,18 @@ export default function PendingConversationsPage() {
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
-                                    <button
-                                        onClick={() => handleApproveClick(conv)}
-                                        disabled={approvingId === conv.id || (!user && !localStorage.getItem('user'))}
-                                        title={!user ? "Loading user data..." : "Accept"}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-[#1E1B4B] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors"
-                                    >
-                                        <Check size={16} />
-                                        {approvingId === conv.id ? '...' : 'Accept'}
-                                    </button>
+                                    {/* Accept Button Logic: Admin always sees it; Agents only if status is transfer_to_agent */}
+                                    {(isAdmin || conv.status === 'transfer_to_agent') && (
+                                        <button
+                                            onClick={() => handleApproveClick(conv)}
+                                            disabled={approvingId === conv.id || (!user && !localStorage.getItem('user'))}
+                                            title={!user ? "Loading user data..." : "Accept"}
+                                            className="flex-1 flex items-center justify-center gap-2 bg-[#1E1B4B] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors"
+                                        >
+                                            <Check size={16} />
+                                            {approvingId === conv.id ? '...' : 'Accept'}
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setSelectedConversation(conv)}
                                         className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
@@ -382,9 +402,9 @@ export default function PendingConversationsPage() {
                                             <div className="w-2 h-2 bg-green-500 rounded-full" title="Online" />
                                         )}
                                     </div>
-                                    <p className="text-gray-500 text-sm">
+                                    {/* <p className="text-gray-500 text-sm">
                                         {selectedConversation.isOnline ? 'Online' : 'Offline'}
-                                    </p>
+                                    </p> */}
                                 </div>
                             </div>
                             <button
@@ -450,15 +470,17 @@ export default function PendingConversationsPage() {
 
                         {/* Modal Footer */}
                         <div className="p-6 pt-4 flex gap-3">
-                            <button
-                                onClick={() => handleApproveClick(selectedConversation)}
-                                disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
-                                title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Accept"}
-                                className="flex-1 bg-[#1E1B4B] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Check size={18} />
-                                {approvingId === selectedConversation.id ? 'Approving...' : 'Accept'}
-                            </button>
+                            {(isAdmin || selectedConversation.status === 'transfer_to_agent') && (
+                                <button
+                                    onClick={() => handleApproveClick(selectedConversation)}
+                                    disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
+                                    title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Accept"}
+                                    className="flex-1 bg-[#1E1B4B] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#2e2a6b] disabled:opacity-70 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Check size={18} />
+                                    {approvingId === selectedConversation.id ? 'Approving...' : 'Accept'}
+                                </button>
+                            )}
                             <button
                                 onClick={() => setSelectedConversation(null)}
                                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
@@ -479,8 +501,8 @@ export default function PendingConversationsPage() {
                 }}
                 onConfirm={handleConfirmApprove}
                 title="Accept Conversation"
-                message={`Are you sure you want to approve the conversation with ${conversationToApprove?.name}? This will assign the session to you.`}
-                confirmText="Accept"
+                message={confirmMessage}
+                confirmText={isAdmin && conversationToApprove?.status !== 'transfer_to_agent' ? "Yes, Accept Anyway" : "Accept"}
                 type="info"
                 loading={approvingId === conversationToApprove?.id}
             />
@@ -498,10 +520,9 @@ export default function PendingConversationsPage() {
 
 function formatTime(timestamp) {
     if (!timestamp) return '';
-    if (!timestamp) return '';
     // Treat as UTC if missing timezone info
     const date = new Date(timestamp.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(timestamp) ? timestamp : timestamp + 'Z');
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function formatTimeAgo(dateString) {
@@ -560,7 +581,47 @@ function renderMessageContent(text) {
             return text;
         }
     }
-    
-    // Regular text
+    // Check if it's a details submission block (Meta Flow formatted string)
+    if (typeof text === 'string' && text.includes('[DETAILS SUBMISSION]')) {
+        const parts = text.split('[DETAILS SUBMISSION]');
+        const preText = parts[0];
+        const submissionText = parts[1];
+        const lines = submissionText.trim().split('\n');
+        
+        return (
+            <div className="space-y-2 py-1">
+                {preText && <div className="text-sm">{preText}</div>}
+                <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100 space-y-1.5">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pb-1 border-b border-gray-100">Submission Details</div>
+                    {lines.map((line, idx) => {
+                        const colonIndex = line.indexOf(':');
+                        if (colonIndex === -1) return <div key={idx} className="text-xs text-gray-500">{line}</div>;
+                        
+                        let key = line.substring(0, colonIndex).trim();
+                        let value = line.substring(colonIndex + 1).trim();
+                        
+                        // Clean Key: screen_0_Model_1 -> Model, license_quantity -> License Quantity
+                        key = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
+                        if (key.toLowerCase() === 'license_quantity') key = 'License Quantity';
+                        
+                        // Clean Value: 0_Yes -> Yes
+                        value = value.replace(/^\d+_/, '');
+
+                        return (
+                            <div key={idx} className="flex flex-col">
+                                <span className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">{key}</span>
+                                <span className="text-sm font-medium text-gray-800">{value}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // Regular text (fallback for formatting individual strings)
+    if (typeof text === 'string') {
+        text = text.replace(/license_quantity:/g, 'License Quantity:');
+    }
     return text;
 }

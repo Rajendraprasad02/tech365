@@ -27,7 +27,7 @@ export default function DeliveryOverview({ deliveryStats = defaultStats }) {
             <div className="mb-3 text-xs font-semibold text-gray-700">
                 Broadcast Messages
             </div>
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {deliveryCards.map(({ key, label, icon: Icon, iconBg, rateColor }) => (
                     <div key={key} className="bg-white rounded-xl p-4 border border-gray-100 hover:border-violet-300 hover:shadow-md transition-all duration-300">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${iconBg}`}>

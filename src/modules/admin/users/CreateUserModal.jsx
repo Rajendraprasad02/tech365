@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles = [], user = null }) => {
     const [formData, setFormData] = useState({
@@ -54,9 +57,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
             return;
         }
 
-        // Mobile validation (E.164 format: + followed by 1-15 digits)
-        const mobileRegex = /^\+[1-9]\d{1,14}$/;
-        if (formData.mobile && !mobileRegex.test(formData.mobile)) {
+        // Mobile validation
+        if (formData.mobile && !isValidPhoneNumber(formData.mobile)) {
             setError('Valid mobile number with country code is required (e.g. +1234567890)');
             return;
         }
@@ -145,12 +147,13 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Mobile Number</label>
-                        <Input
-                            type="text"
-                            name="mobile"
+                        <PhoneInput
+                            defaultCountry="in"
                             value={formData.mobile}
-                            onChange={handleChange}
-                            placeholder="+1234567890"
+                            onChange={(value) => setFormData(prev => ({ ...prev, mobile: value }))}
+                            className="flex items-center h-10 w-full rounded-lg border border-slate-200 bg-white px-2 py-0 text-sm ring-offset-white focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+                            inputStyle={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }}
+                            buttonStyle={{ border: 'none', background: 'transparent' }}
                             disabled={loading}
                         />
                         <p className="text-xs text-gray-500">Include country code</p>

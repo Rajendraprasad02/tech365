@@ -55,6 +55,24 @@ export default function KnowledgeDrawer({ entry, isOpen, onClose }) {
         return colors[category] || colors.default;
     };
 
+    const getSafeUrl = (url) => {
+        if (!url) return null;
+        if (url.match(/^https?:\/\//)) return url;
+        if (url.includes('.') && !url.includes(' ')) return `https://${url}`;
+        return null;
+    };
+
+    const isValidUrl = (url) => {
+        const safeUrl = getSafeUrl(url);
+        if (!safeUrl) return false;
+        try {
+            new URL(safeUrl);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     const overview = generateOverview(entry.content_full || entry.content);
     const keyTopics = extractKeyTopics(entry.content_full || entry.content);
     const services = extractServices(entry.content_full || entry.content);
@@ -95,21 +113,52 @@ export default function KnowledgeDrawer({ entry, isOpen, onClose }) {
                                         ○ Pending
                                     </span>
                                 )}
+                                {/* Priority Badge */}
+                                {(() => {
+                                    const p = entry.priority ?? 5;
+                                    let badgeClass = '';
+                                    if (p <= 3) badgeClass = 'text-red-300 bg-red-500/20';
+                                    else if (p <= 7) badgeClass = 'text-amber-300 bg-amber-500/20';
+                                    else badgeClass = 'text-gray-300 bg-gray-500/20';
+                                    return (
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${badgeClass}`}>
+                                            Priority: {p}
+                                        </span>
+                                    );
+                                })()}
                             </div>
                             <h2 className="text-lg font-semibold text-white truncate">
                                 {entry.title || 'Untitled Entry'}
                             </h2>
-                            {entry.url && (
-                                <a
-                                    href={entry.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1.5 mt-2 text-sm text-slate-300 hover:text-white transition-colors"
-                                >
-                                    <Globe size={14} />
-                                    <span className="truncate max-w-[300px]">{new URL(entry.url).hostname}</span>
-                                    <ExternalLink size={12} />
-                                </a>
+                            {entry?.url && (
+                                isValidUrl(entry.url) ? (
+                                    <a
+                                        href={getSafeUrl(entry.url)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 mt-2 text-sm text-slate-300 hover:text-white transition-colors"
+                                    >
+                                        <Globe size={14} />
+                                        <span className="truncate max-w-[300px]">
+                                            {(() => {
+                                                try {
+                                                    const formatted = entry.url.match(/^https?:\/\//) ? entry.url : `https://${entry.url}`;
+                                                    return new URL(formatted).hostname;
+                                                } catch (e) {
+                                                    return entry.url;
+                                                }
+                                            })()}
+                                        </span>
+                                        <ExternalLink size={12} />
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 mt-2 text-sm text-slate-300">
+                                        <Globe size={14} />
+                                        <span className="truncate max-w-[300px] text-slate-400">
+                                            {entry.url}
+                                        </span>
+                                    </div>
+                                )
                             )}
                         </div>
                         <button

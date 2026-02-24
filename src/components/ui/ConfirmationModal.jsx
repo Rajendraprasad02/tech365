@@ -11,7 +11,8 @@ const ConfirmationModal = ({
     confirmText = 'Confirm', 
     cancelText = 'Cancel',
     type = 'info', // 'info', 'success', 'warning', 'danger'
-    loading = false
+    loading = false,
+    image = null
 }) => {
     if (!isOpen) return null;
 
@@ -73,6 +74,11 @@ const ConfirmationModal = ({
                         </div>
                         <div className="flex-1 text-sm text-gray-600 leading-relaxed pt-1">
                             {message}
+                            {image && (
+                                <div className="mt-4 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center min-h-[100px] max-h-[200px]">
+                                    <img src={image} alt="Preview" className="max-w-full max-h-full object-contain" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -150,7 +150,7 @@ export function useDashboardData() {
         totalConversations: { value: '0', comparison: '', trend: '+0%', trendUp: true },
         activeUsers: { value: '0', comparison: '', trend: '+0%', trendUp: true, breakdown: { leads: 0, manual: 0 } },
         humanHandledConversations: { value: '0', trend: '+0%', trendUp: true },
-        costPerConversation: { value: '$0.00', trend: '+0%', trendUp: false },
+        costPerConversation: { value: '₹0.00', trend: '+0%', trendUp: false },
         avgResponseTime: { value: '0s', trend: '+0%', trendUp: true },
         conversationVolumeData: [],
         hourlyActivityData: [],
@@ -340,7 +340,7 @@ export function useDashboardData() {
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .slice(0, 4)
                 .map((session, index) => ({
-                    name: session.whatsapp || session.name || session.email || `Unknown`,
+                    name: session.name || session.whatsapp || session.email || `Unknown`,
                     status: session.status || 'active',
                     message: session.conversation?.[session.conversation.length - 1]?.text || 'No messages',
                     time: formatTimeAgo(session.created_at),

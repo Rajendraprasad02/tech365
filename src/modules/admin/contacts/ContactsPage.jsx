@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Users, Upload, FolderOpen, Clock, AlertCircle, Search,
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
-    FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck
+    FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck,
+    ChevronDown, Filter, Tag, ArrowUpDown
 } from 'lucide-react';
-import api from '@/services/api';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+import { CircleFlag } from 'react-circle-flags';
+import parsePhoneNumber from 'libphonenumber-js';
+import api, { createContact } from '@/services/api';
+import CustomSelect from './CustomSelect';
 
 // API base URL - still kept just in case of fallback, but api.js handles it
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8004';
@@ -73,18 +80,43 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [productFilter, setProductFilter] = useState('all');
+    const [productOptions, setProductOptions] = useState([{ value: 'all', label: 'All Products' }]);
     const [sortBy, setSortBy] = useState('desc'); // 'desc' | 'asc' | 'name_asc' | 'name_desc'
+
+    // Fetch unique products for filter
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                // Fetch a batch of contacts to extract available products
+                // Using a larger limit to ensure we get a good representation of products
+                const data = await api.getContacts(0, 100, '', 'all', 'desc', 'all', 'all');
+                if (data && data.contacts) {
+                    const uniqueProducts = [...new Set(data.contacts.map(c => c.product).filter(p => p))];
+                    const options = [
+                        { value: 'all', label: 'All Products' },
+                        ...uniqueProducts.map(p => ({ value: p, label: p }))
+                    ];
+                    setProductOptions(options);
+                }
+            } catch (error) {
+                console.error('Error fetching products for filter:', error);
+            }
+        };
+        fetchProducts();
+    }, []);
     const [stats, setStats] = useState({ total: 0, valid: 0, invalid: 0, blocked: 0 });
     const [showAddModal, setShowAddModal] = useState(false);
     const [newContact, setNewContact] = useState({ phone_number: '', name: '' });
     const [page, setPage] = useState(0);
-    const limit = 20;
+    const [pageSize, setPageSize] = useState(10);
 
     const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
-            console.log("Fetching contacts with params:", { page, limit, searchQuery, statusFilter, sortBy, sourceFilterProp });
-            const data = await api.getContacts(page * limit, limit, searchQuery, statusFilter, sortBy, sourceFilterProp);
+            setLoading(true);
+            console.log("Fetching contacts with params:", { page, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter });
+            const data = await api.getContacts(page * pageSize, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
 
@@ -109,17 +141,32 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, statusFilter, sortBy, page, sourceFilterProp]);
+    }, [searchQuery, statusFilter, sortBy, page, sourceFilterProp, productFilter]);
 
     useEffect(() => {
         fetchContacts();
     }, [fetchContacts]);
 
-    const handleDelete = async (id) => {
-        if (!confirm('Delete this contact?')) return;
+    // Reset to first page when filters or page size change
+    useEffect(() => {
+        setPage(0);
+    }, [searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter, pageSize]);
+
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [contactToDelete, setContactToDelete] = useState(null);
+
+    const confirmDelete = (contact) => {
+        setContactToDelete(contact);
+        setShowDeleteModal(true);
+    };
+
+    const handleDelete = async () => {
+        if (!contactToDelete) return;
         try {
-            await api.deleteContact(id);
+            await api.deleteContact(contactToDelete.id);
             fetchContacts();
+            setShowDeleteModal(false);
+            setContactToDelete(null);
         } catch (error) {
             console.error('Error deleting contact:', error);
         }
@@ -135,13 +182,20 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     };
 
     const handleAddContact = async () => {
-        if (!newContact.phone_number.trim()) return;
+        if (!newContact.phone_number) return;
+        if (!isValidPhoneNumber(newContact.phone_number)) {
+            alert("Valid phone number with country code is required (e.g. +1234567890)");
+            return;
+        }
         try {
-            const formData = new FormData();
-            formData.append('phone_number', newContact.phone_number);
-            if (newContact.name) formData.append('name', newContact.name);
+            // Use JSON payload instead of FormData
+            const payload = {
+                phone_number: newContact.phone_number,
+                name: newContact.name || ''
+            };
+            console.log(payload);
 
-            await api.createContact(formData);
+            await createContact(payload);
             setNewContact({ phone_number: '', name: '' });
             setShowAddModal(false);
             fetchContacts();
@@ -161,7 +215,8 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         const styles = {
             valid: 'bg-green-100 text-green-700',
             invalid: 'bg-red-100 text-red-700',
-            blocked: 'bg-orange-100 text-orange-700'
+            blocked: 'bg-orange-100 text-orange-700',
+            reported: 'bg-yellow-100 text-yellow-800'
         };
         return (
             <span className={`px-2.5 py-1 text-xs font-medium rounded-full capitalize ${styles[status] || 'bg-gray-100'}`}>
@@ -184,20 +239,35 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                         className="flex-1 bg-transparent text-sm outline-none"
                     />
                 </div>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-sm">
-                    <option value="all">All Status</option>
-                    <option value="valid">Valid</option>
-                    <option value="invalid">Invalid</option>
-                    <option value="blocked">Blocked</option>
-                </select>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                    className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-sm">
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                </select>
+                <CustomSelect
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    icon={Filter}
+                    options={[
+                        { value: 'all', label: 'All Status' },
+                        { value: 'valid', label: 'Valid' },
+                        { value: 'invalid', label: 'Invalid' },
+                        { value: 'reported', label: 'Reported' },
+                        { value: 'blocked', label: 'Blocked' }
+                    ]}
+                />
+                <CustomSelect
+                    value={productFilter}
+                    onChange={setProductFilter}
+                    icon={Tag}
+                    options={productOptions}
+                />
+                {/* <CustomSelect
+                    value={sortBy}
+                    onChange={setSortBy}
+                    icon={ArrowUpDown}
+                    options={[
+                        { value: 'desc', label: 'Newest First' },
+                        { value: 'asc', label: 'Oldest First' },
+                        { value: 'name_asc', label: 'Name A-Z' },
+                        { value: 'name_desc', label: 'Name Z-A' }
+                    ]}
+                /> */}
                 <button onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600">
                     <Plus size={16} /> Add Contact
@@ -213,7 +283,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto min-h-[530px] custom-scrollbar">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
@@ -226,53 +296,60 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                 <th className="px-6 py-3 text-left">Name</th>
                                 <th className="px-6 py-3 text-center">Status</th>
                                 <th className="px-6 py-3 text-center">Source</th>
+                                <th className="px-6 py-3 text-center">Product</th>
                                 <th className="px-6 py-3 text-center">Created</th>
                                 <th className="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {contacts.length > 0 ? contacts.map((contact) => {
-                                // Simple helper for flags (can be moved to constants)
-                                const getFlag = (code) => {
-                                    const flags = { '91': '🇮🇳', '1': '🇺🇸', '44': '🇬🇧', '971': '🇦🇪' };
-                                    return flags[code] || '🌐';
+                                // Derive country code (ISO alpha-2) from phone number for CircleFlag
+                                const getCountryCode = (phoneNumber) => {
+                                    try {
+                                        const parsed = parsePhoneNumber(phoneNumber);
+                                        if (parsed && parsed.country) return parsed.country.toLowerCase();
+                                    } catch (e) { /* ignore */ }
+                                    return null;
                                 };
+                                const countryIso = getCountryCode(contact.phone_number);
                                 return (
                                     <tr key={contact.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-3">
                                             <div className="flex items-center gap-3">
-                                                {/* Simulated Shadcn Country Dropdown Trigger */}
-                                                <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-md shadow-sm text-xs font-medium text-gray-700 cursor-default">
-                                                    <span>{getFlag(contact.country_code)}</span>
-                                                    <span className="text-gray-400">▼</span>
+                                                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium text-gray-600">
+                                                    <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                        {countryIso ? (
+                                                            <CircleFlag countryCode={countryIso} height={16} />
+                                                        ) : (
+                                                            <Globe size={16} className="text-gray-400" />
+                                                        )}
+                                                    </div>
+                                                    {contact.country_code && <span>{contact.country_code}</span>}
                                                 </div>
                                                 <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
                                         <td className="px-6 py-3 text-center">
-                                            <select
-                                                value={contact.status}
-                                                onChange={(e) => handleStatusChange(contact.id, e.target.value)}
-                                                className={`text-xs font-medium rounded-full px-2 py-1 border-0 outline-none cursor-pointer appearance-none ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
-                                                    contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                                contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                    contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
                                                         'bg-orange-100 text-orange-700'
-                                                    }`}
-                                            >
-                                                <option value="valid">Valid</option>
-                                                <option value="invalid">Invalid</option>
-                                                <option value="blocked">Blocked</option>
-                                            </select>
+                                                }`}>
+                                                {contact.status}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-3 text-center">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
-                                                (contact.source && contact.source.toLowerCase().includes('lead')) 
-                                                ? 'bg-blue-100 text-blue-700' 
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${(contact.source && contact.source.toLowerCase().includes('lead'))
+                                                ? 'bg-blue-100 text-blue-700'
                                                 : 'text-gray-500 bg-gray-50'
-                                            }`}>
+                                                }`}>
                                                 <FileText size={12} />
                                                 {contact.source || 'Manual'}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-center text-gray-600 font-medium">
+                                            {contact.product || '-'}
                                         </td>
                                         <td className="px-6 py-3 text-gray-500 text-center">
                                             <div className="flex items-center justify-center gap-1">
@@ -282,7 +359,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                         </td>
                                         <td className="px-6 py-3 text-center">
                                             <button
-                                                onClick={() => handleDelete(contact.id)}
+                                                onClick={() => confirmDelete(contact)}
                                                 className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
                                                 title="Delete Contact"
                                             >
@@ -304,45 +381,128 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-3 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Page {page + 1}</span>
-                <div className="flex gap-2">
-                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                        className="px-3 py-1.5 text-sm border rounded disabled:opacity-50">Previous</button>
-                    <button onClick={() => setPage(p => p + 1)} disabled={contacts.length < limit}
-                        className="px-3 py-1.5 text-sm border rounded disabled:opacity-50">Next</button>
+            <div className="px-6 py-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
+                    <span className="flex items-center gap-2">
+                        Show
+                        <select
+                            value={pageSize}
+                            onChange={(e) => setPageSize(Number(e.target.value))}
+                            className="bg-white border border-gray-200 rounded px-2 py-1 outline-none focus:border-violet-300 transition-colors"
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                        per page
+                    </span>
+                    <span className="text-gray-300">|</span>
+                    <span>
+                        Showing {Math.min(stats.total, page * pageSize + 1)} - {Math.min(stats.total, (page + 1) * pageSize)} of {stats.total}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                        <ChevronDown size={20} className="rotate-90" />
+                    </button>
+
+                    <div className="flex items-center px-4">
+                        <span className="text-sm font-bold text-gray-700">Page {page + 1}</span>
+                        <span className="text-gray-300 mx-2">/</span>
+                        <span className="text-sm text-gray-400 font-medium">{Math.ceil(stats.total / pageSize) || 1}</span>
+                    </div>
+
+                    <button
+                        onClick={() => setPage(p => p + 1)}
+                        disabled={contacts.length < pageSize || (page + 1) * pageSize >= stats.total}
+                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                        <ChevronDown size={20} className="-rotate-90" />
+                    </button>
                 </div>
             </div>
 
             {/* Add Contact Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-96">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold">Add New Contact</h3>
-                            <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <div className="bg-white rounded-xl p-6 w-[420px] shadow-xl">
+                        <div className="flex justify-between items-center mb-5">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Add New Contact</h3>
+                                <p className="text-sm text-gray-400 mt-0.5">Enter phone number with country code</p>
+                            </div>
+                            <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100">
                                 <X size={20} />
                             </button>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Phone Number *</label>
-                                <input type="text" placeholder="+1234567890"
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number *</label>
+                                <PhoneInput
+                                    defaultCountry="in"
                                     value={newContact.phone_number}
-                                    onChange={(e) => setNewContact({ ...newContact, phone_number: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg" />
+                                    onChange={(value) => setNewContact({ ...newContact, phone_number: value })}
+                                    placeholder="+1 234 567 890"
+                                    className="flex items-center h-10 w-full rounded-lg border border-slate-200 bg-white px-2 py-0 text-sm ring-offset-white focus-within:ring-2 focus-within:ring-violet-500 focus-within:ring-offset-2"
+                                    inputStyle={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }}
+                                    buttonStyle={{ border: 'none', background: 'transparent' }}
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Name (Optional)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Name (Optional)</label>
                                 <input type="text" placeholder="John Doe"
                                     value={newContact.name}
                                     onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg" />
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                            <button onClick={handleAddContact} className="px-4 py-2 bg-violet-500 text-white rounded-lg">Add</button>
+                            <button onClick={() => { setShowAddModal(false); setNewContact({ phone_number: '', name: '' }); }}
+                                className="px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium">Cancel</button>
+                            <button onClick={handleAddContact}
+                                className="px-5 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 text-sm font-medium shadow-sm">Add Contact</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-96 max-w-[90%] shadow-lg transform transition-all">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4 text-red-600">
+                                <Trash2 size={24} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Contact?</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                Are you sure you want to delete <span className="font-medium text-gray-700">{contactToDelete?.name || contactToDelete?.phone_number}</span>?
+                                This action will soft delete the contact.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => {
+                                        setShowDeleteModal(false);
+                                        setContactToDelete(null);
+                                    }}
+                                    className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -390,7 +550,9 @@ function UploadTab() {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            // formData.append('uploaded_by', 'admin@system'); // API can infer from token or use default
+            // Send uploader identity from localStorage
+            const userName = localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'admin';
+            formData.append('uploaded_by', userName);
             const result = await api.bulkImportContacts(formData);
             setUploadResult(result);
             setCurrentStep(4);
@@ -490,10 +652,7 @@ function UploadTab() {
                         </div>
                         <button onClick={resetUpload} className="text-red-500 text-sm">Remove</button>
                     </div>
-                    <div className="p-4 border border-gray-200 rounded-lg">
-                        <h4 className="font-medium mb-3">Column Mapping</h4>
-                        <p className="text-sm text-gray-500 mb-4">Auto-detects columns named "phone", "phone_number", "name", etc.</p>
-                    </div>
+
                     <div className="flex justify-end gap-3">
                         <button onClick={resetUpload} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button onClick={() => setCurrentStep(3)} className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600">Continue</button>
@@ -539,11 +698,26 @@ function UploadTab() {
 
 // ============ Lists/Groups Tab ============
 // Uses: GET /contacts/lists, POST /contacts/lists, DELETE /contacts/lists/{id}
+// GET /contacts/lists/{id}, PUT /contacts/lists/{id}, POST/DELETE contacts in lists
 function ListsGroupsTab() {
     const [lists, setLists] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newListName, setNewListName] = useState('');
+    const [newListDesc, setNewListDesc] = useState('');
+    const [selectedList, setSelectedList] = useState(null);
+    const [listContacts, setListContacts] = useState([]);
+    const [listLoading, setListLoading] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [listToDelete, setListToDelete] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editListName, setEditListName] = useState('');
+    const [editListDesc, setEditListDesc] = useState('');
+    const [showAddContactsModal, setShowAddContactsModal] = useState(false);
+    const [allContacts, setAllContacts] = useState([]);
+    const [contactSearch, setContactSearch] = useState('');
+    const [selectedContactIds, setSelectedContactIds] = useState([]);
+    const [addingContacts, setAddingContacts] = useState(false);
 
     const fetchLists = async () => {
         try {
@@ -562,8 +736,9 @@ function ListsGroupsTab() {
     const handleCreateList = async () => {
         if (!newListName.trim()) return;
         try {
-            await api.createContactList(newListName);
+            await api.createContactList(newListName, newListDesc);
             setNewListName('');
+            setNewListDesc('');
             setShowCreateModal(false);
             fetchLists();
         } catch (error) {
@@ -571,16 +746,326 @@ function ListsGroupsTab() {
         }
     };
 
-    const handleDeleteList = async (id) => {
-        if (!confirm('Delete this list?')) return;
+    const confirmDeleteList = (list) => {
+        setListToDelete(list);
+        setShowDeleteModal(true);
+    };
+
+    const handleDeleteList = async () => {
+        if (!listToDelete) return;
         try {
-            await api.deleteContactList(id);
+            await api.deleteContactList(listToDelete.id);
+            setShowDeleteModal(false);
+            setListToDelete(null);
+            if (selectedList?.id === listToDelete.id) setSelectedList(null);
             fetchLists();
         } catch (error) {
             console.error('Error deleting list:', error);
         }
     };
 
+    const openListDetail = async (list) => {
+        setSelectedList(list);
+        setListLoading(true);
+        try {
+            const data = await api.getContactListDetails(list.id);
+            setListContacts(data.contacts || []);
+        } catch (error) {
+            console.error('Error fetching list details:', error);
+        } finally {
+            setListLoading(false);
+        }
+    };
+
+    const handleEditList = async () => {
+        if (!editListName.trim() || !selectedList) return;
+        try {
+            await api.updateContactList(selectedList.id, editListName, editListDesc);
+            setShowEditModal(false);
+            fetchLists();
+            setSelectedList(prev => ({ ...prev, name: editListName, description: editListDesc }));
+        } catch (error) {
+            console.error('Error updating list:', error);
+        }
+    };
+
+    const openEditModal = () => {
+        setEditListName(selectedList.name);
+        setEditListDesc(selectedList.description || '');
+        setShowEditModal(true);
+    };
+
+    const openAddContactsModal = async () => {
+        setShowAddContactsModal(true);
+        setContactSearch('');
+        setSelectedContactIds([]);
+        try {
+            const data = await api.getContacts(0, 200);
+            // Filter out contacts already in this list
+            const existingIds = new Set(listContacts.map(c => c.id));
+            setAllContacts((data.contacts || []).filter(c => !existingIds.has(c.id)));
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+        }
+    };
+
+    const toggleContactSelection = (id) => {
+        setSelectedContactIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleAddContacts = async () => {
+        if (selectedContactIds.length === 0 || !selectedList) return;
+        setAddingContacts(true);
+        try {
+            await api.addContactsToList(selectedList.id, selectedContactIds);
+            setShowAddContactsModal(false);
+            setSelectedContactIds([]);
+            // Refresh list details
+            openListDetail(selectedList);
+            fetchLists();
+        } catch (error) {
+            console.error('Error adding contacts:', error);
+        } finally {
+            setAddingContacts(false);
+        }
+    };
+
+    const handleRemoveContact = async (contactId) => {
+        if (!selectedList) return;
+        try {
+            await api.removeContactFromList(selectedList.id, contactId);
+            setListContacts(prev => prev.filter(c => c.id !== contactId));
+            fetchLists(); // Refresh counts
+        } catch (error) {
+            console.error('Error removing contact:', error);
+        }
+    };
+
+    const filteredAvailableContacts = allContacts.filter(c => {
+        const q = contactSearch.toLowerCase();
+        return !q || (c.name && c.name.toLowerCase().includes(q)) || c.phone_number.includes(q);
+    });
+
+    // ---- List Detail View ----
+    if (selectedList) {
+        return (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setSelectedList(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5m7-7-7 7 7 7" /></svg>
+                        </button>
+                        <FolderOpen size={24} className="text-violet-500" />
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">{selectedList.name}</h2>
+                            {selectedList.description && <p className="text-sm text-gray-500">{selectedList.description}</p>}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={openAddContactsModal} className="flex items-center gap-2 px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 text-sm">
+                            <Plus size={16} /> Add Contacts
+                        </button>
+                        <button onClick={openEditModal} className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm">
+                            <Edit3 size={14} /> Edit
+                        </button>
+                        <button onClick={() => confirmDeleteList(selectedList)} className="flex items-center gap-2 px-3 py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 text-sm">
+                            <Trash2 size={14} /> Delete
+                        </button>
+                    </div>
+                </div>
+
+                {/* Stats bar */}
+                <div className="flex items-center gap-6 mb-4 pb-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Users size={14} /> <span className="font-medium text-gray-900">{listContacts.length}</span> contacts
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Calendar size={14} /> Created {selectedList.created_at ? new Date(selectedList.created_at).toLocaleDateString() : 'N/A'}
+                    </div>
+                </div>
+
+                {/* Contacts Table */}
+                {listLoading ? (
+                    <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>
+                ) : listContacts.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                                    <th className="pb-3 px-3">Name</th>
+                                    <th className="pb-3 px-3">Phone</th>
+                                    <th className="pb-3 px-3">Status</th>
+                                    <th className="pb-3 px-3">Source</th>
+                                    <th className="pb-3 px-3">Added</th>
+                                    <th className="pb-3 px-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {listContacts.map((contact) => {
+                                    const parsedCountry = (() => {
+                                        try {
+                                            const p = parsePhoneNumber(contact.phone_number);
+                                            return p && p.country ? p.country.toLowerCase() : null;
+                                        } catch (e) { return null; }
+                                    })();
+                                    return (
+                                    <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-3 px-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs">
+                                                    {(contact.name || 'U')[0].toUpperCase()}
+                                                </div>
+                                                <span className="font-medium text-gray-900 text-sm">{contact.name || 'Unknown'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-3 text-sm text-gray-600 font-mono">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                    {parsedCountry ? (
+                                                        <CircleFlag countryCode={parsedCountry} height={16} />
+                                                    ) : (
+                                                        <Globe size={16} className="text-gray-400" />
+                                                    )}
+                                                </div>
+                                                {contact.phone_number}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-3">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                                contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {contact.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-3 text-sm text-gray-500 capitalize">{contact.source}</td>
+                                        <td className="py-3 px-3 text-sm text-gray-400">{contact.created_at ? new Date(contact.created_at).toLocaleDateString() : '-'}</td>
+                                        <td className="py-3 px-3 text-right">
+                                            <button onClick={() => handleRemoveContact(contact.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50" title="Remove from list">
+                                                <X size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )})}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-gray-400">
+                        <Users size={48} className="mx-auto mb-3 opacity-50" />
+                        <p className="font-medium">No contacts in this list</p>
+                        <p className="text-sm mt-1">Click "Add Contacts" to populate this list</p>
+                    </div>
+                )}
+
+                {/* Edit Modal */}
+                {showEditModal && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+                            <h3 className="text-lg font-semibold mb-4">Edit List</h3>
+                            <input type="text" placeholder="List name..." value={editListName} onChange={(e) => setEditListName(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                            <textarea placeholder="Description (optional)..." value={editListDesc} onChange={(e) => setEditListDesc(e.target.value)} rows={2}
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none" />
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button onClick={handleEditList} className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Add Contacts Modal */}
+                {showAddContactsModal && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-[520px] max-h-[80vh] flex flex-col shadow-xl">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold">Add Contacts to "{selectedList.name}"</h3>
+                                <button onClick={() => setShowAddContactsModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                            </div>
+                            {/* Search */}
+                            <div className="relative mb-4">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input type="text" placeholder="Search by name or phone..." value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                            </div>
+                            {/* Selected count */}
+                            {selectedContactIds.length > 0 && (
+                                <div className="mb-3 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-lg text-sm font-medium">
+                                    {selectedContactIds.length} contact{selectedContactIds.length > 1 ? 's' : ''} selected
+                                </div>
+                            )}
+                            {/* Contact List */}
+                            <div className="flex-1 overflow-y-auto max-h-[360px] border border-gray-100 rounded-lg">
+                                {filteredAvailableContacts.length > 0 ? filteredAvailableContacts.map(c => {
+                                    const parsedCountry = (() => {
+                                        try {
+                                            const p = parsePhoneNumber(c.phone_number);
+                                            return p && p.country ? p.country.toLowerCase() : null;
+                                        } catch (e) { return null; }
+                                    })();
+                                    return (
+                                    <label key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
+                                        <input type="checkbox" checked={selectedContactIds.includes(c.id)} onChange={() => toggleContactSelection(c.id)}
+                                            className="rounded border-gray-300 text-violet-500 focus:ring-violet-500" />
+                                        <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs flex-shrink-0">
+                                            {(c.name || 'U')[0].toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm text-gray-900 truncate">{c.name || 'Unknown'}</div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <div className="w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0">
+                                                    {parsedCountry ? (
+                                                        <CircleFlag countryCode={parsedCountry} height={14} />
+                                                    ) : (
+                                                        <Globe size={14} className="text-gray-400" />
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 font-mono">{c.phone_number}</div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                )}) : (
+                                    <div className="text-center py-8 text-gray-400 text-sm">No contacts available to add</div>
+                                )}
+                            </div>
+                            {/* Actions */}
+                            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+                                <button onClick={() => setShowAddContactsModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button onClick={handleAddContacts} disabled={selectedContactIds.length === 0 || addingContacts}
+                                    className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    {addingContacts ? 'Adding...' : `Add ${selectedContactIds.length} Contact${selectedContactIds.length !== 1 ? 's' : ''}`}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {showDeleteModal && listToDelete && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 size={18} className="text-red-500" /></div>
+                                <h3 className="text-lg font-semibold">Delete List</h3>
+                            </div>
+                            <p className="text-gray-600 mb-1">Are you sure you want to delete <strong>"{listToDelete.name}"</strong>?</p>
+                            <p className="text-sm text-gray-400 mb-4">Contacts in this list will be unassigned, not deleted.</p>
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => { setShowDeleteModal(false); setListToDelete(null); }} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button onClick={handleDeleteList} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // ---- List Grid View (default) ----
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -598,19 +1083,21 @@ function ListsGroupsTab() {
             ) : lists.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {lists.map((list) => (
-                        <div key={list.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between mb-3">
+                        <div key={list.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer group"
+                            onClick={() => openListDetail(list)}>
+                            <div className="flex items-start justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <FolderOpen size={20} className="text-violet-500" />
-                                    <h3 className="font-semibold">{list.name}</h3>
+                                    <h3 className="font-semibold text-gray-900">{list.name}</h3>
                                 </div>
-                                <button onClick={() => handleDeleteList(list.id)} className="text-gray-400 hover:text-red-500">
+                                <button onClick={(e) => { e.stopPropagation(); confirmDeleteList(list); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Trash2 size={16} />
                                 </button>
                             </div>
-                            <div className="flex items-center justify-between text-sm text-gray-400">
+                            {list.description && <p className="text-sm text-gray-400 mb-3 line-clamp-2">{list.description}</p>}
+                            <div className="flex items-center justify-between text-sm text-gray-400 mt-3 pt-3 border-t border-gray-100">
                                 <div className="flex items-center gap-1"><Users size={14} /> {list.contact_count} contacts</div>
-                                <div className="flex items-center gap-1"><Calendar size={14} /> {new Date(list.created_at).toLocaleDateString()}</div>
+                                <div className="flex items-center gap-1"><Calendar size={14} /> {list.created_at ? new Date(list.created_at).toLocaleDateString() : '-'}</div>
                             </div>
                         </div>
                     ))}
@@ -619,15 +1106,36 @@ function ListsGroupsTab() {
                 <div className="text-center py-12 text-gray-400"><FolderOpen size={48} className="mx-auto mb-3 opacity-50" /><p>No lists created yet</p></div>
             )}
 
+            {/* Create List Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-96">
+                    <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
                         <h3 className="text-lg font-semibold mb-4">Create New List</h3>
                         <input type="text" placeholder="List name..." value={newListName} onChange={(e) => setNewListName(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg mb-4" />
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                        <textarea placeholder="Description (optional)..." value={newListDesc} onChange={(e) => setNewListDesc(e.target.value)} rows={2}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none" />
                         <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                            <button onClick={handleCreateList} className="px-4 py-2 bg-violet-500 text-white rounded-lg">Create</button>
+                            <button onClick={() => { setShowCreateModal(false); setNewListName(''); setNewListDesc(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                            <button onClick={handleCreateList} className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600">Create</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && listToDelete && (
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 size={18} className="text-red-500" /></div>
+                            <h3 className="text-lg font-semibold">Delete List</h3>
+                        </div>
+                        <p className="text-gray-600 mb-1">Are you sure you want to delete <strong>"{listToDelete.name}"</strong>?</p>
+                        <p className="text-sm text-gray-400 mb-4">Contacts in this list will be unassigned, not deleted.</p>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => { setShowDeleteModal(false); setListToDelete(null); }} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                            <button onClick={handleDeleteList} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -642,29 +1150,39 @@ function ListsGroupsTab() {
 function ImportHistoryTab() {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showClearModal, setShowClearModal] = useState(false);
+
+    const fetchHistory = async () => {
+        try {
+            setLoading(true);
+            const data = await api.getImportHistory();
+            setHistory(data.history || []);
+        } catch (error) {
+            console.error('Error fetching history:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchHistory = async () => {
-            try {
-                setLoading(true);
-                const data = await api.getImportHistory();
-                setHistory(data.history || []);
-            } catch (error) {
-                console.error('Error fetching history:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchHistory();
     }, []);
 
+    const handleClearHistory = async () => {
+        try {
+            await api.clearImportHistory();
+            setHistory([]);
+            setShowClearModal(false);
+        } catch (error) {
+            console.error('Error clearing history:', error);
+        }
+    };
+
     const handleDownload = async (id) => {
         try {
-            // Should probably add specific download API to api.js, but streaming binary 
-            // is often easier with direct fetch or window.open if auth allows.
-            // For now, if we need auth, we must use fetch with token.
             const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE_URL}/contacts/import-history/${id}/download`, {
+            const dataApiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${dataApiUrl}/contacts/import-history/${id}/download`, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
             });
             const blob = await response.blob();
@@ -688,8 +1206,52 @@ function ImportHistoryTab() {
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Import History</h2>
-            <p className="text-gray-500 mb-6">Track and audit all your contact uploads</p>
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-1">Import History</h2>
+                    <p className="text-gray-500">Track and audit all your contact uploads</p>
+                </div>
+                {history.length > 0 && (
+                    <button
+                        onClick={() => setShowClearModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                    >
+                        <Trash2 size={16} />
+                        Clear History
+                    </button>
+                )}
+            </div>
+
+            {/* Clear History Confirmation Modal */}
+            {showClearModal && (
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-96 max-w-[90%] shadow-lg">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4 text-red-600">
+                                <Trash2 size={24} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Clear Import History?</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                This will permanently remove all <span className="font-medium text-gray-700">{history.length}</span> import history records. This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setShowClearModal(false)}
+                                    className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleClearHistory}
+                                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {loading ? (
                 <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>

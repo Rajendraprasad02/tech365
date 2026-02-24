@@ -94,7 +94,7 @@ async function fetchApi(endpoint, options = {}) {
 // Fetch wrapper for Python Data APIs with token propagation and error handling
 async function fetchDataApi(endpoint, options = {}) {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const id = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     // Ensure Base URL doesn't have trailing slash when concatenating
     // REMOVED HARDCODED DEFAULT as per user request
@@ -168,6 +168,14 @@ export async function endSession(sessionId, userId) {
 // Close a conversation with feedback (New)
 export async function closeConversation(sessionId, data) {
     return fetchDataApi(`/conversations/${sessionId}/close`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+// Reopen a closed session
+export async function reopenConversation(sessionId, data) {
+    return fetchDataApi(`/session/${sessionId}/reopen`, {
         method: 'POST',
         body: JSON.stringify(data)
     });
@@ -288,6 +296,14 @@ export async function deleteKnowledgeGroup(groupId) {
     return fetchDataApi(`/knowledge/groups/${groupId}`, { method: 'DELETE' });
 }
 
+// Update a knowledge group entry (title, content, category, priority)
+export async function updateKnowledgeGroup(groupId, { title, content, category, priority }) {
+    return fetchDataApi(`/knowledge/groups/${groupId}/update`, {
+        method: 'POST',
+        body: JSON.stringify({ title, content, category: category || null, priority }),
+    });
+}
+
 // Update a chunk's content (with optional re-embedding)
 export async function updateChunk(chunkId, content, reEmbed = true) {
     return fetchDataApi(`/knowledge/chunks/${chunkId}`, {
@@ -304,6 +320,14 @@ export async function deleteChunk(chunkId) {
 // Trigger manual re-clustering
 export async function reclusterKnowledge() {
     return fetchDataApi('/knowledge/recluster', { method: 'POST' });
+}
+
+// Add manual knowledge entry with priority
+export async function addManualKnowledge({ title, content, category, priority }) {
+    return fetchDataApi('/knowledge/add-manual', {
+        method: 'POST',
+        body: JSON.stringify({ title, content, category: category || null, priority: priority || 5 }),
+    });
 }
 
 // ============ Campaign APIs ============
@@ -359,6 +383,30 @@ export async function quickSendCampaign(data) {
     });
 }
 
+// Quick send by phone numbers (New Endpoint)
+export async function quickSendByPhone(data) {
+    return fetchDataApi('/campaigns/quick-send-by-phone', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// Schedule an existing campaign
+export async function scheduleCampaign(campaignId, scheduledAt) {
+    return fetchDataApi(`/campaigns/${campaignId}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+    });
+}
+
+// Reschedule an existing campaign
+export async function rescheduleCampaign(campaignId, scheduledAt) {
+    return fetchDataApi(`/campaigns/${campaignId}/schedule`, {
+        method: 'PATCH',
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+    });
+}
+
 // Get WhatsApp message templates
 export async function getWhatsAppTemplates() {
     return fetchDataApi('/whatsapp/templates');
@@ -377,25 +425,43 @@ export async function sendWhatsAppTemplate(waId, templateName, variables = {}, c
     });
 }
 
-// ============ Contact Management APIs ============
+// Upload media specifically for WhatsApp
+export async function uploadMedia(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchDataApi('/whatsapp/media/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {}, // Let browser set Content-Type for FormData
+    });
+}
 
 // Get all contacts with pagination and filters
-export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc', source = 'all') {
+export async function getContacts(skip = 0, limit = 20, search = '', status = 'all', sortBy = 'desc', source = 'all', product = 'all') {
     const params = new URLSearchParams({ skip, limit, sort_by: sortBy });
     if (search) params.append('search', search);
     if (status !== 'all') params.append('status', status);
     if (source !== 'all') params.append('source', source);
+    if (product !== 'all') params.append('product', product);
     return fetchDataApi(`/contacts?${params}`);
 }
 
 // Create a single contact
 export async function createContact(data) {
-    // data is FormData
+    const params = new URLSearchParams();
+    params.append('phone_number', data.phone_number);
+    if (data.name) params.append('name', data.name);
+    // Add list_id if it's ever needed, for now sending empty or omitting is likely fine based on curl
+    // params.append('list_id', ''); 
+
+    console.log(params);
+
     return fetchDataApi('/contacts', {
         method: 'POST',
-        body: data,
-        // No Content-Type header needed for FormData; browser sets it with boundary
-        headers: {},
+        body: params,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
     });
 }
 
@@ -429,15 +495,49 @@ export async function getContactLists() {
     return fetchDataApi('/contacts/lists');
 }
 
+// Get Contact List Details (with contacts)
+export async function getContactListDetails(listId) {
+    return fetchDataApi(`/contacts/lists/${listId}`);
+}
+
 // Create Contact List
-export async function createContactList(name) {
+export async function createContactList(name, description) {
     const formData = new FormData();
     formData.append('name', name);
+    if (description) formData.append('description', description);
     return fetchDataApi('/contacts/lists', {
         method: 'POST',
         body: formData,
         headers: {},
     });
+}
+
+// Update Contact List
+export async function updateContactList(listId, name, description) {
+    const formData = new FormData();
+    formData.append('name', name);
+    if (description) formData.append('description', description);
+    return fetchDataApi(`/contacts/lists/${listId}`, {
+        method: 'PUT',
+        body: formData,
+        headers: {},
+    });
+}
+
+// Add Contacts to List
+export async function addContactsToList(listId, contactIds) {
+    const formData = new FormData();
+    contactIds.forEach(id => formData.append('contact_ids', id));
+    return fetchDataApi(`/contacts/lists/${listId}/contacts`, {
+        method: 'POST',
+        body: formData,
+        headers: {},
+    });
+}
+
+// Remove Contact from List
+export async function removeContactFromList(listId, contactId) {
+    return fetchDataApi(`/contacts/lists/${listId}/contacts/${contactId}`, { method: 'DELETE' });
 }
 
 // Delete Contact List
@@ -448,6 +548,11 @@ export async function deleteContactList(listId) {
 // Get Import History
 export async function getImportHistory() {
     return fetchDataApi('/contacts/import-history');
+}
+
+// Clear Import History
+export async function clearImportHistory() {
+    return fetchDataApi('/contacts/import-history', { method: 'DELETE' });
 }
 
 // Get Invalid Contacts
@@ -588,9 +693,14 @@ export async function seedDatabase() {
 
 // Get Lead by Phone (Public)
 export async function getLeadByPhone(phone) {
+    let formattedPhone = phone?.toString() || '';
+    if (formattedPhone && !formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone;
+    }
+    
     // Explicitly public call (no default headers with token)
     const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
-    const response = await fetch(`${baseUrl}/leads/phone/${phone}`, {
+    const response = await fetch(`${baseUrl}/leads/phone/${encodeURIComponent(formattedPhone)}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -653,6 +763,8 @@ export default {
     assignSessionToAgent, // Added
     sendSessionMessage, // Added
     endSession, // Added
+    closeConversation, // Added
+    reopenConversation, // Added
     getAgentSessions, // Added
     getSessionById,
     getWhatsAppConversations,
@@ -669,8 +781,26 @@ export default {
     deleteCampaign,
     addCampaignRecipients,
     sendCampaign,
+    quickSendByPhone,
+    scheduleCampaign,
+    rescheduleCampaign,
     getWhatsAppTemplates,
+    uploadMedia, // Added
     getContacts,
+    createContact,
+    deleteContact,
+    updateContactStatus,
+    bulkImportContacts,
+    getContactLists,
+    getContactListDetails,
+    createContactList,
+    updateContactList,
+    addContactsToList,
+    removeContactFromList,
+    deleteContactList,
+    getImportHistory,
+    clearImportHistory,
+    getInvalidContacts,
     getRoles,
     getRoleById,
     createRole,
