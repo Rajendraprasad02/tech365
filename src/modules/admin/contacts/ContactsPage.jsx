@@ -5,7 +5,9 @@ import {
     FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck,
     ChevronDown, Filter, Tag, ArrowUpDown
 } from 'lucide-react';
-import { PhoneInput } from '@/components/ui/phone-input';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 import { CircleFlag } from 'react-circle-flags';
 import parsePhoneNumber from 'libphonenumber-js';
 import api, { createContact } from '@/services/api';
@@ -180,7 +182,11 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     };
 
     const handleAddContact = async () => {
-        if (!newContact.phone_number.trim()) return;
+        if (!newContact.phone_number) return;
+        if (!isValidPhoneNumber(newContact.phone_number)) {
+            alert("Valid phone number with country code is required (e.g. +1234567890)");
+            return;
+        }
         try {
             // Use JSON payload instead of FormData
             const payload = {
@@ -440,11 +446,13 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number *</label>
                                 <PhoneInput
+                                    defaultCountry="in"
                                     value={newContact.phone_number}
-                                    onChange={(e) => setNewContact({ ...newContact, phone_number: e.target.value })}
-                                    defaultCountry="IN"
-                                    placeholder="+91 98765 43210"
-                                    className="h-10"
+                                    onChange={(value) => setNewContact({ ...newContact, phone_number: value })}
+                                    placeholder="+1 234 567 890"
+                                    className="flex items-center h-10 w-full rounded-lg border border-slate-200 bg-white px-2 py-0 text-sm ring-offset-white focus-within:ring-2 focus-within:ring-violet-500 focus-within:ring-offset-2"
+                                    inputStyle={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }}
+                                    buttonStyle={{ border: 'none', background: 'transparent' }}
                                 />
                             </div>
                             <div>
@@ -896,7 +904,14 @@ function ListsGroupsTab() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {listContacts.map((contact) => (
+                                {listContacts.map((contact) => {
+                                    const parsedCountry = (() => {
+                                        try {
+                                            const p = parsePhoneNumber(contact.phone_number);
+                                            return p && p.country ? p.country.toLowerCase() : null;
+                                        } catch (e) { return null; }
+                                    })();
+                                    return (
                                     <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                                         <td className="py-3 px-3">
                                             <div className="flex items-center gap-2">
@@ -906,7 +921,18 @@ function ListsGroupsTab() {
                                                 <span className="font-medium text-gray-900 text-sm">{contact.name || 'Unknown'}</span>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-3 text-sm text-gray-600 font-mono">{contact.phone_number}</td>
+                                        <td className="py-3 px-3 text-sm text-gray-600 font-mono">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                    {parsedCountry ? (
+                                                        <CircleFlag countryCode={parsedCountry} height={16} />
+                                                    ) : (
+                                                        <Globe size={16} className="text-gray-400" />
+                                                    )}
+                                                </div>
+                                                {contact.phone_number}
+                                            </div>
+                                        </td>
                                         <td className="py-3 px-3">
                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
                                                 contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
@@ -923,7 +949,7 @@ function ListsGroupsTab() {
                                             </button>
                                         </td>
                                     </tr>
-                                ))}
+                                )})}
                             </tbody>
                         </table>
                     </div>
@@ -974,7 +1000,14 @@ function ListsGroupsTab() {
                             )}
                             {/* Contact List */}
                             <div className="flex-1 overflow-y-auto max-h-[360px] border border-gray-100 rounded-lg">
-                                {filteredAvailableContacts.length > 0 ? filteredAvailableContacts.map(c => (
+                                {filteredAvailableContacts.length > 0 ? filteredAvailableContacts.map(c => {
+                                    const parsedCountry = (() => {
+                                        try {
+                                            const p = parsePhoneNumber(c.phone_number);
+                                            return p && p.country ? p.country.toLowerCase() : null;
+                                        } catch (e) { return null; }
+                                    })();
+                                    return (
                                     <label key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
                                         <input type="checkbox" checked={selectedContactIds.includes(c.id)} onChange={() => toggleContactSelection(c.id)}
                                             className="rounded border-gray-300 text-violet-500 focus:ring-violet-500" />
@@ -983,10 +1016,19 @@ function ListsGroupsTab() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="font-medium text-sm text-gray-900 truncate">{c.name || 'Unknown'}</div>
-                                            <div className="text-xs text-gray-400 font-mono">{c.phone_number}</div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <div className="w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0">
+                                                    {parsedCountry ? (
+                                                        <CircleFlag countryCode={parsedCountry} height={14} />
+                                                    ) : (
+                                                        <Globe size={14} className="text-gray-400" />
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 font-mono">{c.phone_number}</div>
+                                            </div>
                                         </div>
                                     </label>
-                                )) : (
+                                )}) : (
                                     <div className="text-center py-8 text-gray-400 text-sm">No contacts available to add</div>
                                 )}
                             </div>

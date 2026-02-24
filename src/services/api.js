@@ -94,7 +94,7 @@ async function fetchApi(endpoint, options = {}) {
 // Fetch wrapper for Python Data APIs with token propagation and error handling
 async function fetchDataApi(endpoint, options = {}) {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const id = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     // Ensure Base URL doesn't have trailing slash when concatenating
     // REMOVED HARDCODED DEFAULT as per user request
@@ -168,6 +168,14 @@ export async function endSession(sessionId, userId) {
 // Close a conversation with feedback (New)
 export async function closeConversation(sessionId, data) {
     return fetchDataApi(`/conversations/${sessionId}/close`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+// Reopen a closed session
+export async function reopenConversation(sessionId, data) {
+    return fetchDataApi(`/session/${sessionId}/reopen`, {
         method: 'POST',
         body: JSON.stringify(data)
     });
@@ -685,9 +693,14 @@ export async function seedDatabase() {
 
 // Get Lead by Phone (Public)
 export async function getLeadByPhone(phone) {
+    let formattedPhone = phone?.toString() || '';
+    if (formattedPhone && !formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone;
+    }
+    
     // Explicitly public call (no default headers with token)
     const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
-    const response = await fetch(`${baseUrl}/leads/phone/${phone}`, {
+    const response = await fetch(`${baseUrl}/leads/phone/${encodeURIComponent(formattedPhone)}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -707,6 +720,8 @@ export default {
     assignSessionToAgent, // Added
     sendSessionMessage, // Added
     endSession, // Added
+    closeConversation, // Added
+    reopenConversation, // Added
     getAgentSessions, // Added
     getSessionById,
     getWhatsAppConversations,

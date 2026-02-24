@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     Search, Database, Globe, FileText, Trash2, ExternalLink,
     Filter, Cloud, Shield, HardDrive, BookOpen, Loader2, ArrowUpDown, Calendar,
-    Plus, X, AlertCircle, Info, Pencil, AlertTriangle
+    Plus, X, AlertCircle, Info, Pencil, AlertTriangle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import {
     getKnowledgeGroups,
@@ -21,6 +21,12 @@ export default function KnowledgeBasePage() {
     const [categories, setCategories] = useState([]);
     const [totalGroups, setTotalGroups] = useState(0);
     const [sortOrder, setSortOrder] = useState('newest');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 9;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, selectedCategory, sortOrder]);
 
     // Drawer state
     const [selectedEntry, setSelectedEntry] = useState(null);
@@ -54,7 +60,7 @@ export default function KnowledgeBasePage() {
     const fetchGroups = async () => {
         try {
             setLoading(true);
-            const data = await getKnowledgeGroups(0, 100, selectedCategory || null);
+            const data = await getKnowledgeGroups(0, 500, null);
             setGroups(data.groups || []);
             setTotalGroups(data.total_groups || 0);
 
@@ -70,21 +76,25 @@ export default function KnowledgeBasePage() {
 
     useEffect(() => {
         fetchGroups();
-    }, [selectedCategory]);
+    }, []);
 
     // Filter by search
-    const filteredGroups = groups.filter(group =>
-        group.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.content_preview?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.url?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredGroups = groups.filter(group => {
+        const matchesSearch = !searchQuery || 
+            group.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            group.content_preview?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            group.url?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory ? group.category === selectedCategory : true;
+        
+        return matchesSearch && matchesCategory;
+    });
 
     // Sort
     const sortedGroups = [...filteredGroups].sort((a, b) => {
         if (sortOrder === 'newest') {
-            return new Date(b.created_at) - new Date(a.created_at);
+            return new Date(b.created_at || new Date()) - new Date(a.created_at || new Date());
         } else if (sortOrder === 'oldest') {
-            return new Date(a.created_at) - new Date(b.created_at);
+            return new Date(a.created_at || new Date()) - new Date(b.created_at || new Date());
         } else if (sortOrder === 'priority_asc') {
             return (a.priority ?? 5) - (b.priority ?? 5);
         } else if (sortOrder === 'priority_desc') {
@@ -92,6 +102,12 @@ export default function KnowledgeBasePage() {
         }
         return 0;
     });
+
+    const totalPages = Math.ceil(sortedGroups.length / itemsPerPage);
+    const paginatedGroups = sortedGroups.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
 
     // Show delete confirmation
     const handleDeleteClick = (item) => {
@@ -211,10 +227,15 @@ export default function KnowledgeBasePage() {
         }
     };
 
-    // Open drawer
+    // Open drawer or redirect
     const handleCardClick = (item) => {
-        setSelectedEntry(item);
-        setDrawerOpen(true);
+        const safeUrl = getSafeUrl(item.url);
+        if (safeUrl && isValidUrl(item.url)) {
+            window.open(safeUrl, '_blank');
+        } else {
+            setSelectedEntry(item);
+            setDrawerOpen(true);
+        }
     };
 
     // Helpers
@@ -226,7 +247,31 @@ export default function KnowledgeBasePage() {
     };
 
     const getHostname = (url) => {
-        try { return new URL(url).hostname; } catch { return url; }
+        if (!url) return '';
+        try {
+            const formatted = url.match(/^https?:\/\//) ? url : `https://${url}`;
+            return new URL(formatted).hostname;
+        } catch {
+            return url;
+        }
+    };
+
+    const getSafeUrl = (url) => {
+        if (!url) return null;
+        if (url.match(/^https?:\/\//)) return url;
+        if (url.includes('.') && !url.includes(' ')) return `https://${url}`;
+        return null;
+    };
+
+    const isValidUrl = (url) => {
+        const safeUrl = getSafeUrl(url);
+        if (!safeUrl) return false;
+        try {
+            new URL(safeUrl);
+            return true;
+        } catch {
+            return false;
+        }
     };
 
     const getCategoryStyle = (category) => {
@@ -294,34 +339,69 @@ export default function KnowledgeBasePage() {
                             />
                         </div>
 
-                        {/* Category */}
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <Filter size={16} className="text-gray-400" />
-                            <select
-                                value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="bg-transparent text-sm outline-none text-gray-700 cursor-pointer"
-                            >
-                                <option value="">All Categories</option>
-                                {categories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
+                        {/* Category Dropdown UI */}
+                        <div className="relative group">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-violet-300 transition-colors cursor-pointer text-sm font-medium text-gray-700">
+                                <Filter size={16} className="text-gray-400" />
+                                <span>Category: {selectedCategory ? selectedCategory.replace('_', ' ') : 'All'}</span>
+                            </div>
+
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 transform origin-top-right">
+                                <div className="p-1.5 flex flex-col">
+                                    {['All', ...categories].map(cat => {
+                                        const val = cat === 'All' ? '' : cat;
+                                        return (
+                                            <button
+                                                key={cat}
+                                                onClick={() => setSelectedCategory(val)}
+                                                className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                    selectedCategory === val 
+                                                        ? 'bg-violet-50 text-violet-700 font-medium' 
+                                                        : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {cat.replace('_', ' ')}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Sort */}
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <ArrowUpDown size={16} className="text-gray-400" />
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value)}
-                                className="bg-transparent text-sm outline-none text-gray-700 cursor-pointer"
-                            >
-                                <option value="newest">Newest</option>
-                                <option value="oldest">Oldest</option>
-                                <option value="priority_asc">Priority (High → Low)</option>
-                                <option value="priority_desc">Priority (Low → High)</option>
-                            </select>
+                        {/* Sort Dropdown UI */}
+                        <div className="relative group">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-violet-300 transition-colors cursor-pointer text-sm font-medium text-gray-700">
+                                <ArrowUpDown size={16} className="text-gray-400" />
+                                <span>Sort By: {[
+                                    { val: 'newest', label: 'Newest' },
+                                    { val: 'oldest', label: 'Oldest' },
+                                    { val: 'priority_asc', label: 'High Priority' },
+                                    { val: 'priority_desc', label: 'Low Priority' }
+                                ].find(opt => opt.val === sortOrder)?.label}</span>
+                            </div>
+                            
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 transform origin-top-right">
+                                <div className="p-1.5 flex flex-col">
+                                    {[
+                                        { val: 'newest', label: 'Newest' },
+                                        { val: 'oldest', label: 'Oldest' },
+                                        { val: 'priority_asc', label: 'High Priority' },
+                                        { val: 'priority_desc', label: 'Low Priority' }
+                                    ].map(option => (
+                                        <button
+                                            key={option.val}
+                                            onClick={() => setSortOrder(option.val)}
+                                            className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                sortOrder === option.val 
+                                                    ? 'bg-violet-50 text-violet-700 font-medium' 
+                                                    : 'text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -338,8 +418,9 @@ export default function KnowledgeBasePage() {
                                 <span className="ml-3 text-gray-500">Loading content...</span>
                             </div>
                         ) : sortedGroups.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-                                {sortedGroups.map((item) => {
+                            <div className="flex flex-col h-full">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
+                                {paginatedGroups.map((item) => {
                                     const catStyle = getCategoryStyle(item.category);
                                     const CatIcon = catStyle.icon;
 
@@ -385,17 +466,24 @@ export default function KnowledgeBasePage() {
 
                                                 {/* URL */}
                                                 {item.url && (
-                                                    <a
-                                                        href={item.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-600 mb-2 truncate transition-colors w-fit"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <Globe size={12} />
-                                                        <span className="truncate max-w-[200px]">{getHostname(item.url)}</span>
-                                                        <ExternalLink size={10} />
-                                                    </a>
+                                                    isValidUrl(item.url) ? (
+                                                        <a
+                                                            href={getSafeUrl(item.url)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-600 mb-2 truncate transition-colors w-fit"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Globe size={12} />
+                                                            <span className="truncate max-w-[200px]">{getHostname(item.url)}</span>
+                                                            <ExternalLink size={10} />
+                                                        </a>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2 truncate w-fit">
+                                                            <Globe size={12} />
+                                                            <span className="truncate max-w-[200px]">{item.url}</span>
+                                                        </div>
+                                                    )
                                                 )}
 
                                                 {/* Title */}
@@ -411,6 +499,58 @@ export default function KnowledgeBasePage() {
                                         </div>
                                     );
                                 })}
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                                <div className="flex justify-center items-center gap-2 mt-8 pt-4 pb-8">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1">
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                                            if (
+                                                page === 1 ||
+                                                page === totalPages ||
+                                                (page >= currentPage - 1 && page <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
+                                                            currentPage === page
+                                                                ? 'bg-violet-600 text-white shadow-md shadow-violet-200'
+                                                                : 'text-gray-600 hover:bg-gray-100'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                page === currentPage - 2 ||
+                                                page === currentPage + 2
+                                            ) {
+                                                return <span key={page} className="text-gray-400 px-1">...</span>;
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
+                                </div>
+                            )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -496,19 +636,32 @@ export default function KnowledgeBasePage() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <select
-                                        value={addForm.priority}
-                                        onChange={(e) => setAddForm({ ...addForm, priority: parseInt(e.target.value) })}
-                                        className="w-28 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm bg-white cursor-pointer"
-                                    >
-                                        <option value={1}>1 - Highest</option>
-                                        <option value={2}>2 - High</option>
-                                        <option value={3}>3 - Medium</option>
-                                        <option value={4}>4 - Low</option>
-                                        <option value={5}>5 - Lowest</option>
-                                    </select>
-                                    <span className="text-xs text-gray-400">1 (highest) to 5 (lowest)</span>
+                                <div className="flex gap-2 mt-2">
+                                    {[
+                                        { val: 1, label: 'P1', desc: 'Highest', activeClass: 'bg-red-50 text-red-700 border-red-300 ring-1 ring-red-500 shadow-sm' },
+                                        { val: 2, label: 'P2', desc: 'High', activeClass: 'bg-orange-50 text-orange-700 border-orange-300 ring-1 ring-orange-500 shadow-sm' },
+                                        { val: 3, label: 'P3', desc: 'Medium', activeClass: 'bg-blue-50 text-blue-700 border-blue-300 ring-1 ring-blue-500 shadow-sm' },
+                                        { val: 4, label: 'P4', desc: 'Low', activeClass: 'bg-gray-100 text-gray-800 border-gray-400 ring-1 ring-gray-500 shadow-sm' },
+                                        { val: 5, label: 'P5', desc: 'Lowest', activeClass: 'bg-gray-100 text-gray-800 border-gray-400 ring-1 ring-gray-500 shadow-sm' },
+                                    ].map((p) => (
+                                        <button
+                                            key={p.val}
+                                            type="button"
+                                            onClick={() => setAddForm({ ...addForm, priority: p.val })}
+                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${
+                                                addForm.priority === p.val 
+                                                    ? p.activeClass
+                                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                                            }`}
+                                        >
+                                            <span className={`font-bold text-sm ${addForm.priority === p.val ? '' : 'text-gray-600'}`}>
+                                                {p.label}
+                                            </span>
+                                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 mt-0.5">
+                                                {p.desc}
+                                            </span>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -606,19 +759,32 @@ export default function KnowledgeBasePage() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <select
-                                        value={editForm.priority}
-                                        onChange={(e) => setEditForm({ ...editForm, priority: parseInt(e.target.value) })}
-                                        className="w-28 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm bg-white cursor-pointer"
-                                    >
-                                        <option value={1}>1 - Highest</option>
-                                        <option value={2}>2 - High</option>
-                                        <option value={3}>3 - Medium</option>
-                                        <option value={4}>4 - Low</option>
-                                        <option value={5}>5 - Lowest</option>
-                                    </select>
-                                    <span className="text-xs text-gray-400">1 (highest) to 5 (lowest)</span>
+                                <div className="flex gap-2 mt-2">
+                                    {[
+                                        { val: 1, label: 'P1', desc: 'Highest', activeClass: 'bg-red-50 text-red-700 border-red-300 ring-1 ring-red-500 shadow-sm' },
+                                        { val: 2, label: 'P2', desc: 'High', activeClass: 'bg-orange-50 text-orange-700 border-orange-300 ring-1 ring-orange-500 shadow-sm' },
+                                        { val: 3, label: 'P3', desc: 'Medium', activeClass: 'bg-blue-50 text-blue-700 border-blue-300 ring-1 ring-blue-500 shadow-sm' },
+                                        { val: 4, label: 'P4', desc: 'Low', activeClass: 'bg-gray-100 text-gray-800 border-gray-400 ring-1 ring-gray-500 shadow-sm' },
+                                        { val: 5, label: 'P5', desc: 'Lowest', activeClass: 'bg-gray-100 text-gray-800 border-gray-400 ring-1 ring-gray-500 shadow-sm' },
+                                    ].map((p) => (
+                                        <button
+                                            key={p.val}
+                                            type="button"
+                                            onClick={() => setEditForm({ ...editForm, priority: p.val })}
+                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${
+                                                editForm.priority === p.val 
+                                                    ? p.activeClass
+                                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                                            }`}
+                                        >
+                                            <span className={`font-bold text-sm ${editForm.priority === p.val ? '' : 'text-gray-600'}`}>
+                                                {p.label}
+                                            </span>
+                                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 mt-0.5">
+                                                {p.desc}
+                                            </span>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>

@@ -1,14 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown } from 'lucide-react';
-import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, getUsers, notifyAgentTyping } from '../../../services/api';
+import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown, CornerUpLeft } from 'lucide-react';
+import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, reopenConversation, getUsers, notifyAgentTyping, assignSessionToAgent } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import CloseChatModal from './CloseChatModal';
 import NotesHistoryModal from './NotesHistoryModal';
 import { useSelector } from 'react-redux';
 import { selectAuth, selectIsAgent } from '../../../store/slices/authSlice';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+import { useToast } from '../../../context/ToastContext';
 
 export default function ConversationsPage() {
+    const { toast } = useToast();
     const { role, user } = useSelector(selectAuth);
     const isAgent = useSelector(selectIsAgent);
     
@@ -69,6 +74,12 @@ export default function ConversationsPage() {
     const [showAgentModal, setShowAgentModal] = useState(false);
     const [showEndChatConfirm, setShowEndChatConfirm] = useState(false);
     
+    // Assign Pending Chat State
+    const [approvingId, setApprovingId] = useState(null);
+    const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+    const [conversationToApprove, setConversationToApprove] = useState(null);
+    const [approveConfirmMessage, setApproveConfirmMessage] = useState('');
+    
     // Error Handling Modal
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -78,6 +89,11 @@ export default function ConversationsPage() {
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [activeReportTooltipId, setActiveReportTooltipId] = useState(null);
     // Notes are stored in selectedConversation.contact_info.agent_notes
+    
+    // Reopen Chat Modal State
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [reopenReason, setReopenReason] = useState('');
+    const [isReopening, setIsReopening] = useState(false);
 
     // Fetch Users (Agents + Admins) for Resolution & Filtering
     useEffect(() => {
@@ -249,8 +265,13 @@ export default function ConversationsPage() {
                     if (n.agent_id) neededIds.add(n.agent_id);
                 });
             }
+            
+            // 3. Check reopened_by in conversation list
+            conversations.forEach(c => {
+                if (c.reopened_by) neededIds.add(c.reopened_by);
+            });
 
-            // 3. Filter out IDs we already have in allUsers
+            // 4. Filter out IDs we already have in allUsers
             const existingIds = new Set(allUsers.map(u => u.id));
             const idsToFetch = [...neededIds].filter(id => !existingIds.has(id) && !existingIds.has(parseInt(id)));
 
@@ -319,7 +340,7 @@ export default function ConversationsPage() {
             setShowLeadModal(true);
         } catch (error) {
             console.error("Failed to fetch lead details:", error);
-            alert("Could not fetch lead details. Lead might not exist.");
+            toast({ title: "Error", description: "Could not fetch lead details. Lead might not exist.", variant: "destructive" });
         }
     };
 
@@ -401,10 +422,11 @@ export default function ConversationsPage() {
                 // Determine effective agent ID (check both session and lead data)
                 const effectiveAgentId = session.assigned_agent_id || lead?.assigned_agent_id;
 
-                const isClosed = session.status === 'closed' || session.status === 'resolved' || !!session.closed_at;
+                // Reopened chats may still have a historical closed_at, so we rely securely on current status
+                const isClosed = session.status === 'closed' || session.status === 'resolved';
 
                 // Reported Logic
-                const isReported = lead?.is_reported || false;
+                const isReported = lead?.status === 'reported' || lead?.is_reported || false;
                 const reportReason = lead?.report_reason;
                 const agentNotes = lead?.agent_notes || [];
                 const lastNote = agentNotes.length > 0 ? agentNotes[agentNotes.length - 1] : null;
@@ -442,12 +464,14 @@ export default function ConversationsPage() {
                     assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
                     closed_by: session.closed_by || null, 
+                    reopened_by: session.reopened_by || null,
+                    reopen_reason: session.reopen_reason || null,
                     contact_info: session.contact_info || null, // Store contact info/notes
-                    approvalStatus: isClosed 
-                        ? 'closed'
-                        : (effectiveAgentId 
-                            ? 'assigned' 
-                            : (lead?.status === 'transfer_to_agent' ? 'pending' : 'active')),
+                    approvalStatus: (effectiveAgentId)
+                        ? 'assigned'
+                        : (isClosed || lead?.status === 'resolved' || lead?.status === 'closed' || lead?.status === 'reported')
+                            ? 'closed'
+                            : (lead?.status === 'transfer_to_agent' ? 'pending' : (session.status === 'transfer_to_agent' ? 'pending' : 'active')),
                     messages: session.conversation?.flatMap((msg, idx, arr) => {
                         // Handle Turn-based structures (user prompt + bot response)
                         // This usually comes after a standard message entry, leading to duplicates.
@@ -682,7 +706,12 @@ export default function ConversationsPage() {
     // Handle Start New Conversation
     const handleStartConversation = async () => {
         if (!newConvPhone || !newConvMessage) {
-            alert("Please enter both phone number and message.");
+            toast({ title: "Validation Error", description: "Please enter both phone number and message.", variant: "destructive" });
+            return;
+        }
+
+        if (!isValidPhoneNumber(newConvPhone)) {
+            toast({ title: "Validation Error", description: "Please enter a valid phone number with length and country code.", variant: "destructive" });
             return;
         }
 
@@ -698,9 +727,10 @@ export default function ConversationsPage() {
 
             // Refetch to see the new conversation
             await fetchConversations();
+            toast({ title: "Success", description: "Conversation started successfully.", variant: "success" });
         } catch (error) {
             console.error("Failed to start conversation:", error);
-            alert(`Failed to start conversation: ${error.message}`);
+            toast({ title: "Error", description: `Failed to start conversation: ${error.message}`, variant: "destructive" });
         } finally {
             setStartingConv(false);
         }
@@ -727,7 +757,7 @@ export default function ConversationsPage() {
                 setShowErrorModal(true);
             } else {
                 const genericMsg = error.response?.data?.detail || error.message || "An unexpected error occurred.";
-                alert(`Failed to send message: ${genericMsg}`);
+                toast({ title: "Request Failed", description: `Failed to send message: ${genericMsg}`, variant: "destructive" });
             }
             
             setMessageInput(message); // Restore input on failure
@@ -738,6 +768,61 @@ export default function ConversationsPage() {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage();
+        }
+    };
+
+    const handleApproveClick = (conv) => {
+        setConversationToApprove(conv);
+        
+        let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
+        
+        const currentUser = user || JSON.parse(localStorage.getItem('user'));
+        const userRole = currentUser?.role?.name || currentUser?.role || '';
+        const isAdmin = userRole.toLowerCase().includes('admin');
+
+        // Admin warning for premature acceptance
+        if (isAdmin && conv.status !== 'transfer_to_agent') {
+            message = "The user has not filled the basic details so accepting this chat leads to not capturing the information. Are you sure you want to accept this chat?";
+        }
+        
+        setApproveConfirmMessage(message);
+        setShowApproveConfirmModal(true);
+    };
+
+    const handleConfirmApprove = async () => {
+        if (!conversationToApprove) return;
+        
+        const conv = conversationToApprove;
+        const currentUser = user || JSON.parse(localStorage.getItem('user'));
+        const userId = currentUser?.id || currentUser?.userId;
+
+        if (!userId) {
+            console.error('No user ID found - cannot assign conversation. User state:', currentUser);
+            toast({ title: "User Error", description: 'User identification failed. Please refresh the page or login again.', variant: "destructive" });
+            return;
+        }
+
+        setApprovingId(conv.id);
+        try {
+            await assignSessionToAgent(conv.id, userId);
+
+            // Optimistic update: Update in list immediately
+            setConversations(prev => prev.map(c => 
+                c.id === conv.id ? { ...c, approvalStatus: 'assigned', assigned_agent_id: userId } : c
+            ));
+
+            if (selectedConversation?.id === conv.id) {
+                setSelectedConversation(prev => ({ ...prev, approvalStatus: 'assigned', assigned_agent_id: userId }));
+            }
+
+            setShowApproveConfirmModal(false);
+            setConversationToApprove(null);
+            toast({ title: "Success", description: "Chat assigned to you successfully.", variant: "success" });
+        } catch (error) {
+            console.error('Error approving conversation:', error);
+            toast({ title: "Error", description: `Failed to approve: ${error.message}`, variant: "destructive" });
+        } finally {
+            setApprovingId(null);
         }
     };
 
@@ -772,9 +857,40 @@ export default function ConversationsPage() {
         } catch (error) {
             console.error("Failed to close conversation:", error);
             const msg = error.response?.data?.detail || error.message || "Failed to close conversation";
-            alert(msg);
+            toast({ title: "Error", description: msg, variant: "destructive" });
         } finally {
             setIsClosing(false);
+        }
+    };
+
+    // Handle Reopen Chat Submit
+    const handleReopenSubmit = async () => {
+        if (!selectedConversation || !reopenReason.trim()) return;
+        
+        const currentUser = user || JSON.parse(localStorage.getItem('user'));
+        const userId = currentUser?.id || currentUser?.userId;
+
+        setIsReopening(true);
+        try {
+            await reopenConversation(selectedConversation.id, {
+                reopened_by: parseInt(userId),
+                reopen_reason: reopenReason.trim()
+            });
+            
+            toast({ title: "Success", description: "Chat reopened and transferred to an agent successfully.", variant: "success" });
+            
+            setShowReopenModal(false);
+            setReopenReason('');
+            
+            // Keep selection and refresh list to see the reopened status
+            await fetchConversations(selectedConversation.id);
+            
+        } catch (error) {
+            console.error("Failed to reopen conversation:", error);
+            const msg = error.response?.data?.detail || error.message || "Failed to reopen conversation";
+            toast({ title: "Error", description: msg, variant: "destructive" });
+        } finally {
+            setIsReopening(false);
         }
     };
 
@@ -793,7 +909,7 @@ export default function ConversationsPage() {
             setShowEndChatConfirm(false);
         } catch (error) {
             console.error("Failed to end session:", error);
-            alert(`Failed to end session: ${error.message}`);
+            toast({ title: "Error", description: `Failed to end session: ${error.message}`, variant: "destructive" });
             setShowEndChatConfirm(false);
         }
     };
@@ -801,7 +917,7 @@ export default function ConversationsPage() {
     return (
         <div className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-64px)] lg:h-auto">
             {/* Page Header */}
-            <div className={`p-4 lg:p-6 bg-white border-b border-gray-100 ${selectedConversation ? 'hidden lg:block' : 'block'}`}>
+            <div className={`p-4  bg-white border-b border-gray-100 ${selectedConversation ? 'hidden lg:block' : 'block'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 ">Conversations</h1>
@@ -1065,7 +1181,15 @@ export default function ConversationsPage() {
                                                 </div>
                                             )}
 
-                                </div>
+                                           
+                                        </div>
+                                         {/* Reopened Indicator for Lists */}
+                                            {conv.reopened_by && !isAgentEffective && (
+                                                <div className="bg-purple-50 text-purple-600 text-[10px] px-2 py-0.5 rounded-full font-medium border border-purple-100 inline-flex items-center gap-1.5" title={`Reason: ${conv.reopen_reason || 'N/A'}`}>
+                                                    <CornerUpLeft size={10} />
+                                                    <span className="truncate max-w-[120px]">Reopened details</span>
+                                                </div>
+                                            )}
 
                             </div>
 
@@ -1171,13 +1295,44 @@ export default function ConversationsPage() {
                                             </div>
                                         </div>
                                      )}
+                                     
+                                     {/* Reopened Indicator in Header */}
+                                     {selectedConversation.reopened_by && !isAgentEffective && (
+                                        <div className="flex items-center gap-2 relative group ml-2">
+                                            <div className="bg-purple-50 text-purple-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-purple-100 flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                                                <CornerUpLeft size={12} className="flex-shrink-0" />
+                                                <span className="truncate hidden sm:inline">Reopened by {resolveAgentName(selectedConversation.reopened_by)}</span>
+                                                <span className="truncate sm:hidden">Reopened</span>
+                                            </div>
+                                            {selectedConversation.reopen_reason && (
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-gray-900 text-white shadow-xl rounded-xl p-3 z-[50] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                                                    <p className="text-xs leading-relaxed italic opacity-90">
+                                                        "{selectedConversation.reopen_reason}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                     )}
                                     
                                      {/* Assigned Agent Details - REMOVED */}
 
 
-                                    <div className="flex  items-center gap-3">
-                                        {/* End Chat Button (Agent Only) */}
-                                        {isAgentEffective && selectedConversation.approvalStatus !== 'closed' && (
+                                    <div className="flex  items-center gap-3 ml-auto">
+                                        {/* Reopen Chat Button (Admin Only) */}
+                                        {!isAgentEffective && selectedConversation.approvalStatus === 'closed' && (
+                                            <button 
+                                                onClick={() => setShowReopenModal(true)}
+                                                className="px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                                title="Reopen this closed conversation"
+                                            >
+                                                <CornerUpLeft size={14} />
+                                                <span className="hidden sm:inline">Reopen Chat</span>
+                                                <span className="sm:hidden">Reopen</span>
+                                            </button>
+                                        )}
+
+                                        {/* End Chat Button */}
+                                        {selectedConversation.approvalStatus !== 'closed' && selectedConversation.approvalStatus !== 'pending' && (
                                             <button 
                                                 onClick={handleEndChat}
                                                 className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
@@ -1316,6 +1471,22 @@ export default function ConversationsPage() {
                                         </p>
                                     )} */}
                                 </div>
+                            ) : selectedConversation.approvalStatus === 'pending' ? (
+                                <div className="p-4 border-t border-gray-100 bg-amber-50 flex flex-col items-center justify-center gap-2 text-center">
+                                    <p className="text-amber-700 font-medium flex items-center justify-center gap-2">
+                                        <AlertCircle size={18} />
+                                        Please assign this chat to yourself to start messaging
+                                    </p>
+                                    <button 
+                                        onClick={() => handleApproveClick(selectedConversation)}
+                                        disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
+                                        title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Accept"}
+                                        className="px-6 py-2 bg-[#1E1B4B] text-white rounded-lg text-sm font-semibold hover:bg-[#2e2a6b] transition-colors shadow-sm mt-2 disabled:opacity-70 flex items-center gap-2"
+                                    >
+                                        <CheckCircle size={16} />
+                                        {approvingId === selectedConversation.id ? 'Assigning...' : 'Assign Chat'}
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-white">
                                     <div className="flex items-center gap-3">
@@ -1367,12 +1538,13 @@ export default function ConversationsPage() {
                         <div className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (WhatsApp ID)</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                                    placeholder="e.g. 919876543210"
+                                <PhoneInput
+                                    defaultCountry="in"
+                                    className="flex items-center w-full px-2 py-0 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus-within:ring-2 focus-within:ring-violet-500 transition-all shadow-sm h-10"
+                                    inputStyle={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }}
+                                    buttonStyle={{ border: 'none', background: 'transparent' }}
                                     value={newConvPhone}
-                                    onChange={(e) => setNewConvPhone(e.target.value)}
+                                    onChange={(value) => setNewConvPhone(value)}
                                 />
                             </div>
 
@@ -1492,6 +1664,62 @@ export default function ConversationsPage() {
                 type="danger"
             />
 
+            {/* Reopen Chat Modal */}
+            {showReopenModal && (
+                <div className="absolute inset-0 z-50 bg-black/50 flex flex-col items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                <CornerUpLeft size={18} className="text-purple-600" />
+                                Reopen Chat
+                            </h3>
+                            <button
+                                onClick={() => !isReopening && setShowReopenModal(false)}
+                                disabled={isReopening}
+                                className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Reopening <span className="text-red-500">*</span></label>
+                                <textarea
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 transition-all h-24 resize-none"
+                                    placeholder="Please explain why this chat needs to be reopened..."
+                                    value={reopenReason}
+                                    onChange={(e) => setReopenReason(e.target.value)}
+                                    disabled={isReopening}
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    onClick={() => setShowReopenModal(false)}
+                                    disabled={isReopening}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleReopenSubmit}
+                                    disabled={isReopening || !reopenReason.trim()}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isReopening ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Reopening...
+                                        </>
+                                    ) : (
+                                        'Confirm Reopen'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Error Alert Modal */}
             <ConfirmationModal
                 isOpen={showErrorModal}
@@ -1519,6 +1747,26 @@ export default function ConversationsPage() {
                 notes={selectedConversation?.contact_info?.agent_notes || []}
                 users={allUsers}
             />
+            {/* Confirmation Modal for Assign Chat */}
+            <ConfirmationModal
+                isOpen={showApproveConfirmModal}
+                onClose={() => {
+                    setShowApproveConfirmModal(false);
+                    setConversationToApprove(null);
+                }}
+                onConfirm={handleConfirmApprove}
+                title="Accept Conversation"
+                message={approveConfirmMessage}
+                confirmText={(() => {
+                    const currentUser = user || JSON.parse(localStorage.getItem('user'));
+                    const userRole = currentUser?.role?.name || currentUser?.role || '';
+                    const isAdmin = userRole.toLowerCase().includes('admin');
+                    return isAdmin && conversationToApprove?.status !== 'transfer_to_agent' ? "Yes, Accept Anyway" : "Accept";
+                })()}
+                type="info"
+                loading={approvingId === conversationToApprove?.id}
+            />
+
         </div>
     );
 }
@@ -1560,8 +1808,48 @@ function renderMessageContent(text) {
             return text;
         }
     }
-    
-    // Regular text
+    // Check if it's a details submission block (Meta Flow formatted string)
+    if (typeof text === 'string' && text.includes('[DETAILS SUBMISSION]')) {
+        const parts = text.split('[DETAILS SUBMISSION]');
+        const preText = parts[0];
+        const submissionText = parts[1];
+        const lines = submissionText.trim().split('\n');
+        
+        return (
+            <div className="space-y-2 py-1">
+                {preText && <div className="text-sm">{preText}</div>}
+                <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100 space-y-1.5">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pb-1 border-b border-gray-100">Submission Details</div>
+                    {lines.map((line, idx) => {
+                        const colonIndex = line.indexOf(':');
+                        if (colonIndex === -1) return <div key={idx} className="text-xs text-gray-500">{line}</div>;
+                        
+                        let key = line.substring(0, colonIndex).trim();
+                        let value = line.substring(colonIndex + 1).trim();
+                        
+                        // Clean Key: screen_0_Model_1 -> Model, license_quantity -> License Quantity
+                        key = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
+                        if (key.toLowerCase() === 'license_quantity') key = 'License Quantity';
+                        
+                        // Clean Value: 0_Yes -> Yes
+                        value = value.replace(/^\d+_/, '');
+
+                        return (
+                            <div key={idx} className="flex flex-col">
+                                <span className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">{key}</span>
+                                <span className="text-sm font-medium text-gray-800">{value}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // Regular text (fallback for formatting individual strings)
+    if (typeof text === 'string') {
+        text = text.replace(/license_quantity:/g, 'License Quantity:');
+    }
     return text;
 }
 

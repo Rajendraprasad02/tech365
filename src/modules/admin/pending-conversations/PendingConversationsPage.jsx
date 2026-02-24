@@ -5,8 +5,10 @@ import LeadDetailsModal from '../conversations/LeadDetailsModal';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../../../store/slices/authSlice';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
+import { useToast } from '../../../context/ToastContext';
 
 export default function PendingConversationsPage() {
+    const { toast } = useToast();
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -33,7 +35,7 @@ export default function PendingConversationsPage() {
         try {
             const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
             if (!cleanPhone) {
-                alert("No phone number available for this contact.");
+                toast({ title: "Warning", description: "No phone number available for this contact.", variant: "destructive" });
                 return;
             }
             const leadData = await getLeadByPhone(cleanPhone);
@@ -41,7 +43,7 @@ export default function PendingConversationsPage() {
             setShowLeadModal(true);
         } catch (error) {
             console.error("Failed to fetch lead details:", error);
-            alert("Could not fetch lead details. Lead might not exist.");
+            toast({ title: "Error", description: "Could not fetch lead details. Lead might not exist.", variant: "destructive" });
         }
     };
 
@@ -208,7 +210,7 @@ export default function PendingConversationsPage() {
 
         if (!userId) {
             console.error('No user ID found - cannot assign conversation. User state:', currentUser);
-            alert('User identification failed. Please refresh the page or login again.');
+            toast({ title: "User Error", description: "User identification failed. Please refresh the page or login again.", variant: "destructive" });
             return;
         }
 
@@ -226,9 +228,10 @@ export default function PendingConversationsPage() {
 
             setShowConfirmModal(false);
             setConversationToApprove(null);
+            toast({ title: "Success", description: "Chat assigned to you successfully.", variant: "success" });
         } catch (error) {
             console.error('Error approving conversation:', error);
-            alert(`Failed to approve: ${error.message}`);
+            toast({ title: "Error", description: `Failed to approve: ${error.message}`, variant: "destructive" });
         } finally {
             setApprovingId(null);
         }
@@ -399,9 +402,9 @@ export default function PendingConversationsPage() {
                                             <div className="w-2 h-2 bg-green-500 rounded-full" title="Online" />
                                         )}
                                     </div>
-                                    <p className="text-gray-500 text-sm">
+                                    {/* <p className="text-gray-500 text-sm">
                                         {selectedConversation.isOnline ? 'Online' : 'Offline'}
-                                    </p>
+                                    </p> */}
                                 </div>
                             </div>
                             <button
@@ -578,7 +581,47 @@ function renderMessageContent(text) {
             return text;
         }
     }
-    
-    // Regular text
+    // Check if it's a details submission block (Meta Flow formatted string)
+    if (typeof text === 'string' && text.includes('[DETAILS SUBMISSION]')) {
+        const parts = text.split('[DETAILS SUBMISSION]');
+        const preText = parts[0];
+        const submissionText = parts[1];
+        const lines = submissionText.trim().split('\n');
+        
+        return (
+            <div className="space-y-2 py-1">
+                {preText && <div className="text-sm">{preText}</div>}
+                <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100 space-y-1.5">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pb-1 border-b border-gray-100">Submission Details</div>
+                    {lines.map((line, idx) => {
+                        const colonIndex = line.indexOf(':');
+                        if (colonIndex === -1) return <div key={idx} className="text-xs text-gray-500">{line}</div>;
+                        
+                        let key = line.substring(0, colonIndex).trim();
+                        let value = line.substring(colonIndex + 1).trim();
+                        
+                        // Clean Key: screen_0_Model_1 -> Model, license_quantity -> License Quantity
+                        key = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
+                        if (key.toLowerCase() === 'license_quantity') key = 'License Quantity';
+                        
+                        // Clean Value: 0_Yes -> Yes
+                        value = value.replace(/^\d+_/, '');
+
+                        return (
+                            <div key={idx} className="flex flex-col">
+                                <span className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">{key}</span>
+                                <span className="text-sm font-medium text-gray-800">{value}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // Regular text (fallback for formatting individual strings)
+    if (typeof text === 'string') {
+        text = text.replace(/license_quantity:/g, 'License Quantity:');
+    }
     return text;
 }
