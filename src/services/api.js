@@ -701,6 +701,54 @@ export async function getLeads(skip = 0, limit = 100) {
     return fetchDataApi(`/leads/?skip=${skip}&limit=${limit}`);
 }
 
+// ============ Forms APIs ============
+
+// Get all forms
+export async function getForms() {
+    return fetchDataApi('/forms');
+}
+
+// Get a single form by ID
+export async function getFormById(formId) {
+    return fetchDataApi(`/forms/${formId}`);
+}
+
+// Get form schema (alias for getFormById to match the source project convention)
+export async function getFormSchema(formId) {
+    return fetchDataApi(`/forms/${formId}`);
+}
+
+// Create a new form
+export async function createForm(data) {
+    return fetchDataApi('/forms', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// Update an existing form
+export async function updateForm(formId, data) {
+    return fetchDataApi(`/forms/${formId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+}
+
+// Publish a form
+export async function publishForm(formId) {
+    return fetchDataApi(`/forms/${formId}/publish`, {
+        method: 'POST',
+    });
+}
+
+// Submit form response
+export async function submitForm(formId, data) {
+    return fetchDataApi(`/forms/${formId}/responses`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
 export default {
     getSessions,
     getPendingSessions, // Added
@@ -758,6 +806,15 @@ export default {
     getLeadByPhone,
     getLeads,
     getUserDetails,
+
+    // Forms APIs
+    getForms,
+    getFormById,
+    getFormSchema,
+    createForm,
+    updateForm,
+    publishForm,
+    submitForm,
 
     // --- Auth APIs ---
     loginUsername: async (username, password) => {
@@ -827,7 +884,7 @@ export default {
             const result = await fetchApi(`/menu-creator/${roleId}`);
 
             if (Array.isArray(result)) {
-                const menu = result.map((module, index) => ({
+                let menu = result.map((module, index) => ({
                     id: module.id || module.moduleId || `module-${index}`,
                     label: module.name || module.moduleName || 'Unnamed Module',
                     screens: (module.screens || []).map((screen, sIndex) => ({
@@ -837,6 +894,36 @@ export default {
                         icon: screen.icon || 'LayoutDashboard',
                     }))
                 }));
+
+                // Ensure 'Forms' is in the menu for the current role if it's not already there
+                let formsModule = menu.find(m => m.label.toLowerCase() === 'forms');
+                const formsScreenExists = menu.some(m => m.screens.some(s => s.id === 'forms' || s.label.toLowerCase() === 'forms'));
+
+                if (!formsScreenExists) {
+                    if (formsModule) {
+                        // Add to existing module
+                        formsModule.screens.push({
+                            id: 'forms',
+                            label: 'Manage Forms',
+                            path: 'forms',
+                            icon: 'FileText'
+                        });
+                    } else {
+                        // Create new module
+                        menu.push({
+                            id: 'forms-module',
+                            label: 'Forms',
+                            screens: [
+                                {
+                                    id: 'forms',
+                                    label: 'Manage Forms',
+                                    path: 'forms',
+                                    icon: 'FileText'
+                                }
+                            ]
+                        });
+                    }
+                }
 
                 return menu;
             }

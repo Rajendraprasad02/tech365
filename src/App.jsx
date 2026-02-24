@@ -21,6 +21,10 @@ import MenuBuilderPage from '@/modules/superadmin/MenuBuilderPage';
 import PermissionRoute from '@/modules/auth/PermissionRoute';
 import SmartRedirect from '@/modules/auth/SmartRedirect';
 
+// Forms Module
+import FormsPage from '@/modules/admin/forms/FormsPage';
+import FormBuilderPage from '@/modules/forms/FormBuilderPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -56,6 +60,11 @@ function App() {
                 </Route>
                 <Route element={<PermissionRoute requiredScreen="templates" />}>
                   <Route path="templates" element={<TemplatesPage />} />
+                </Route>
+
+                <Route element={<PermissionRoute requiredScreen="forms" />}>
+                  <Route path="forms" element={<FormsPage />} />
+                  <Route path="forms/builder" element={<FormBuilderPage />} />
                 </Route>
 
 

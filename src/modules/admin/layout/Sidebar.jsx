@@ -34,6 +34,7 @@ const iconMap = {
     'knowledgebase': Database,
     'contacts': Users,
     'templates': FileText,
+    'forms': FileText,
     'roles': Shield,
     'menu': Settings,
     'menubuilder': Settings,
