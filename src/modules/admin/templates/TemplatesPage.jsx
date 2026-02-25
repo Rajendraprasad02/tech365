@@ -5,7 +5,7 @@ import {
 import { 
     Search, Filter, RefreshCw, MessageSquare, CheckCircle, XCircle, 
     Clock, Globe, Tag, Smartphone, ExternalLink, Image as ImageIcon, 
-    FileText, Video, MoreVertical, Phone
+    FileText, Video, MoreVertical, Phone, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 // Status badge component
@@ -121,6 +121,12 @@ export default function TemplatesPage() {
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 12;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, categoryFilter]);
 
     useEffect(() => {
         fetchTemplates();
@@ -155,6 +161,12 @@ export default function TemplatesPage() {
             return matchesSearch && matchesCategory;
         });
     }, [templates, searchQuery, categoryFilter]);
+
+    const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage);
+    const paginatedTemplates = filteredTemplates.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
 
     if (loading) {
         return (
@@ -244,8 +256,9 @@ export default function TemplatesPage() {
             {/* List Section */}
             <div className="flex-1 overflow-auto p-8 custom-scrollbar">
                 {filteredTemplates.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-                        {filteredTemplates.map((template) => (
+                    <div className="flex flex-col h-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-8 flex-1">
+                        {paginatedTemplates.map((template) => (
                             <div 
                                 key={template.name} 
                                 className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4"
@@ -291,6 +304,58 @@ export default function TemplatesPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 mt-8 pt-4">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                                    if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= currentPage - 1 && page <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
+                                                    currentPage === page
+                                                        ? 'bg-violet-600 text-white shadow-md shadow-violet-200'
+                                                        : 'text-gray-600 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        );
+                                    } else if (
+                                        page === currentPage - 2 ||
+                                        page === currentPage + 2
+                                    ) {
+                                        return <span key={page} className="text-gray-400 px-1">...</span>;
+                                    }
+                                    return null;
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-32 text-center">

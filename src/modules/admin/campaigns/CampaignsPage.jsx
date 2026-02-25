@@ -3,9 +3,11 @@ import {
     CheckCircle, Clock, AlertCircle, XCircle, Users, Mail,
     X, Phone, ExternalLink, MessageSquare, Smartphone,
     Send, Loader2, Search, Filter, ArrowUpDown, Plus, Trash2, Eye, FileText,
-    ChevronDown, ChevronRight, Tag, User, Calendar
+    ChevronDown, ChevronRight, Tag, User, Calendar, Globe
 } from 'lucide-react';
 import CustomSelect from '../contacts/CustomSelect';
+import { CircleFlag } from 'react-circle-flags';
+import parsePhoneNumber from 'libphonenumber-js';
 import {
     getCampaigns,
     getCampaignById,
@@ -271,6 +273,13 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
                         <tbody className="divide-y divide-gray-100">
                             {contacts.map(contact => {
                                 const isSelected = selectedIds.has(contact.id);
+                                const parsedCountry = (() => {
+                                    try {
+                                        const p = parsePhoneNumber(contact.phone_number);
+                                        return p && p.country ? p.country.toLowerCase() : null;
+                                    } catch (e) { return null; }
+                                })();
+
                                 return (
                                     <tr
                                         key={contact.id}
@@ -289,13 +298,13 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
                                             <p className="font-medium text-gray-900">{contact.name || '-'}</p>
                                         </td>
                                         <td className="px-6 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-md shadow-sm text-xs font-medium text-gray-700 cursor-default">
-                                                    <span>{(() => {
-                                                        const flags = { '91': '🇮🇳', '1': '🇺🇸', '44': '🇬🇧', '971': '🇦🇪' };
-                                                        return flags[contact.country_code] || '🌐';
-                                                    })()}</span>
-                                                    <span className="text-gray-400">▼</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                    {parsedCountry ? (
+                                                        <CircleFlag countryCode={parsedCountry} height={16} />
+                                                    ) : (
+                                                        <Globe size={16} className="text-gray-400" />
+                                                    )}
                                                 </div>
                                                 <span className="font-medium text-gray-900 font-mono tracking-tight text-sm">{contact.phone_number}</span>
                                             </div>
