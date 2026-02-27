@@ -7,7 +7,7 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const dispatch = useDispatch();
-    const { user, token, isAuthenticated, permissions } = useSelector(selectAuth);
+    const { user, token, isAuthenticated, permissions, role } = useSelector(selectAuth);
     const [loading, setLoading] = useState(true);
     const [refreshMenuTrigger, setRefreshMenuTrigger] = useState(0);
 
@@ -50,12 +50,12 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         };
 
-        if (!isAuthenticated && localStorage.getItem('token')) {
+        if (localStorage.getItem('token') && !user) {
             initAuth();
         } else {
             setLoading(false);
         }
-    }, [dispatch, isAuthenticated]);
+    }, [dispatch, user]);
 
     // Login Flow: Standard 3-step process
     const login = async (email, password) => {
@@ -148,6 +148,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         isAuthenticated,
         permissions,
+        role,
         refreshMenuTrigger,
         refreshMenu
     };
@@ -161,7 +162,7 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) { 
+    if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown, CornerUpLeft } from 'lucide-react';
-import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, reopenConversation, getUsers, notifyAgentTyping, assignSessionToAgent } from '../../../services/api';
+import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getLeadByPhone, getLeads, getUserDetails, endSession, closeConversation, reopenConversation, unspamUser, getUsers, notifyAgentTyping, assignSessionToAgent } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import CloseChatModal from './CloseChatModal';
@@ -16,7 +16,7 @@ export default function ConversationsPage() {
     const { toast } = useToast();
     const { role, user } = useSelector(selectAuth);
     const isAgent = useSelector(selectIsAgent);
-    
+
     // Check localStorage for roleId as fallback for agent detection
     const storedRoleId = localStorage.getItem('roleId');
     const isAgentEffective = isAgent || storedRoleId === '3';
@@ -27,7 +27,7 @@ export default function ConversationsPage() {
     const [loading, setLoading] = useState(true);
     const [messageInput, setMessageInput] = useState('');
     const [statusFilter, setStatusFilter] = useState(isAgentEffective ? 'assigned' : 'all'); // 'all', 'pending', 'approved'
-    
+
     // Agent Filter State for Admins
     const [agents, setAgents] = useState([]);
     const [allUsers, setAllUsers] = useState([]); // Store all users for name resolution
@@ -50,7 +50,7 @@ export default function ConversationsPage() {
     const lastTypingTime = useRef(0);
     const handleTyping = () => {
         if (!selectedConversation?.wa_id) return;
-        
+
         const now = Date.now();
         // Throttle: Send every 8 seconds while typing
         if (now - lastTypingTime.current > 8000) {
@@ -73,13 +73,13 @@ export default function ConversationsPage() {
     const [assignedAgent, setAssignedAgent] = useState(null);
     const [showAgentModal, setShowAgentModal] = useState(false);
     const [showEndChatConfirm, setShowEndChatConfirm] = useState(false);
-    
+
     // Assign Pending Chat State
     const [approvingId, setApprovingId] = useState(null);
     const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
     const [conversationToApprove, setConversationToApprove] = useState(null);
     const [approveConfirmMessage, setApproveConfirmMessage] = useState('');
-    
+
     // Error Handling Modal
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -89,11 +89,12 @@ export default function ConversationsPage() {
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [activeReportTooltipId, setActiveReportTooltipId] = useState(null);
     // Notes are stored in selectedConversation.contact_info.agent_notes
-    
+
     // Reopen Chat Modal State
     const [showReopenModal, setShowReopenModal] = useState(false);
     const [reopenReason, setReopenReason] = useState('');
     const [isReopening, setIsReopening] = useState(false);
+    const [isUnspamming, setIsUnspamming] = useState(false);
 
     // Fetch Users (Agents + Admins) for Resolution & Filtering
     useEffect(() => {
@@ -106,15 +107,15 @@ export default function ConversationsPage() {
                 } else if (response && response.users && Array.isArray(response.users)) {
                     usersList = response.users;
                 }
-                
+
                 // Store ALL users for name resolution (reported by, notes, etc.)
                 setAllUsers(usersList);
 
                 // If Admin, populate the specific agent filter list
                 if (!isAgentEffective) {
-                    const agentList = usersList.filter(u => 
-                        u.role?.name === 'Agent' || 
-                        u.role_id === 3 || 
+                    const agentList = usersList.filter(u =>
+                        u.role?.name === 'Agent' ||
+                        u.role_id === 3 ||
                         (u.role && typeof u.role === 'string' && u.role.toLowerCase().includes('agent'))
                     );
                     setAgents(agentList);
@@ -127,16 +128,25 @@ export default function ConversationsPage() {
         fetchUsersData();
     }, [isAgentEffective]);
 
+    // ✅ Polling: Refresh conversations every 10 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchConversations(selectedConversation?.id, true); // true = silent refresh
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [selectedConversation?.id]); // Restart if selected conversation changes
+
     // Close custom agent menu on click outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (agentMenuRef.current && !agentMenuRef.current.contains(event.target)) {
                 setIsAgentMenuOpen(false);
             }
-             // Also close tooltip if clicking outside
-             if (reportTooltipRef.current && !reportTooltipRef.current.contains(event.target)) {
-                 setActiveReportTooltipId(null);
-             }
+            // Also close tooltip if clicking outside
+            if (reportTooltipRef.current && !reportTooltipRef.current.contains(event.target)) {
+                setActiveReportTooltipId(null);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -150,7 +160,7 @@ export default function ConversationsPage() {
 
         // Generate a random client ID or use user ID
         const clientId = userId ? `agent_${userId}` : `session_${Date.now()}`;
-        
+
         // Use environment variable for WebSocket URL
         const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
         console.log("🔍 [DEBUG] Env VITE_DATA_API_URL:", import.meta.env.VITE_DATA_API_URL);
@@ -159,7 +169,7 @@ export default function ConversationsPage() {
         const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
         const wsHost = apiUrl.replace(/^https?:\/\//, '');
         const wsUrl = `${wsProtocol}://${wsHost}/ws/${clientId}`;
-        
+
         console.log("✅ [WS] Connecting to:", wsUrl);
         const ws = new WebSocket(wsUrl);
 
@@ -177,17 +187,17 @@ export default function ConversationsPage() {
                 if (data.type === "new_message" && data.message) {
                     const incomingMsg = data.message;
                     console.log("📩 [WS] Processing Incoming Message:", incomingMsg);
-                    
+
                     // Format message to match UI structure
                     const formattedMsg = {
-                         text: incomingMsg.text,
-                         direction: incomingMsg.direction,
-                         time: formatTime(incomingMsg.timestamp),
-                         cost: 0, // Simplified for realtime
-                         // Role attribution if present
-                         isAgent: !!incomingMsg.agent_id,
-                         isBot: !incomingMsg.agent_id && incomingMsg.direction === 'out',
-                         ...(incomingMsg.direction === 'in' ? { role: 'user' } : { role: 'assistant' })
+                        text: incomingMsg.text,
+                        direction: incomingMsg.direction,
+                        time: formatTime(incomingMsg.timestamp),
+                        cost: 0, // Simplified for realtime
+                        // Role attribution if present
+                        isAgent: !!incomingMsg.agent_id,
+                        isBot: !incomingMsg.agent_id && incomingMsg.direction === 'out',
+                        ...(incomingMsg.direction === 'in' ? { role: 'user' } : { role: 'assistant' })
                     };
 
                     setConversations(prev => {
@@ -204,37 +214,37 @@ export default function ConversationsPage() {
                                 console.log("✅ [WS] Match Found! Updating conversation:", conv.id);
                                 // 1. Add message to conversation
                                 const updatedMessages = [...(conv.messages || []), formattedMsg];
-                                
+
                                 // 2. Determine if chat is active (selected)
                                 const isActive = selectedConversation?.id === conv.id;
-                                
+
                                 return {
                                     ...conv,
                                     messages: updatedMessages,
                                     preview: formattedMsg.text.substring(0, 50),
                                     time: "Just now",
-                                    unread: !isActive, 
+                                    unread: !isActive,
                                     unreadCount: isActive ? 0 : (conv.unreadCount || 0) + 1
                                 };
                             }
                             return conv;
                         });
                     });
-                    
+
                     // Also update selectedConversation if it matches
                     setSelectedConversation(prev => {
-                         if (!prev) return null;
-                         const convWaId = prev.wa_id?.replace(/\D/g, '');
-                         const msgWaId = incomingMsg.wa_id?.replace(/\D/g, '');
-                         
-                         if (convWaId && msgWaId && convWaId === msgWaId) {
-                             return {
-                                 ...prev,
-                                 messages: [...(prev.messages || []), formattedMsg],
-                                 time: "Just now"
-                             };
-                         }
-                         return prev;
+                        if (!prev) return null;
+                        const convWaId = prev.wa_id?.replace(/\D/g, '');
+                        const msgWaId = incomingMsg.wa_id?.replace(/\D/g, '');
+
+                        if (convWaId && msgWaId && convWaId === msgWaId) {
+                            return {
+                                ...prev,
+                                messages: [...(prev.messages || []), formattedMsg],
+                                time: "Just now"
+                            };
+                        }
+                        return prev;
                     });
                 }
             } catch (err) {
@@ -253,19 +263,19 @@ export default function ConversationsPage() {
     useEffect(() => {
         const fetchMissingUsers = async () => {
             const neededIds = new Set();
-            
+
             // 1. Check reported agents in conversation list
             conversations.forEach(c => {
                 if (c.reportedAgentId) neededIds.add(c.reportedAgentId);
             });
-            
+
             // 2. Check notes in selected conversation
             if (selectedConversation?.contact_info?.agent_notes) {
                 selectedConversation.contact_info.agent_notes.forEach(n => {
                     if (n.agent_id) neededIds.add(n.agent_id);
                 });
             }
-            
+
             // 3. Check reopened_by in conversation list
             conversations.forEach(c => {
                 if (c.reopened_by) neededIds.add(c.reopened_by);
@@ -289,7 +299,7 @@ export default function ConversationsPage() {
                     return null;
                 }
             }));
-            
+
             const validNewUsers = newUsers.filter(u => u && u.id);
             if (validNewUsers.length > 0) {
                 setAllUsers(prev => {
@@ -311,7 +321,7 @@ export default function ConversationsPage() {
 
     useEffect(() => {
         const fetchAgentDetails = async () => {
-             // Reset agent when conversation changes or if no agent is assigned
+            // Reset agent when conversation changes or if no agent is assigned
             if (!selectedConversation?.assigned_agent_id) {
                 setAssignedAgent(null);
                 return;
@@ -334,7 +344,7 @@ export default function ConversationsPage() {
             // Clean phone number (remove + if present, keep digits)
             // Assuming API expects pure digits or specific format. 
             // Based on user input example "919384000439" seems to be the ID format
-            const cleanPhone = phone.replace(/\D/g, ''); 
+            const cleanPhone = phone.replace(/\D/g, '');
             const leadData = await getLeadByPhone(cleanPhone);
             setSelectedLead(leadData);
             setShowLeadModal(true);
@@ -345,7 +355,8 @@ export default function ConversationsPage() {
     };
 
     // Fetch conversations from API
-    const fetchConversations = async (targetId = null) => {
+    const fetchConversations = async (targetId = null, silent = false) => {
+        if (!silent) setLoading(true);
         try {
             // For agents, only fetch their assigned conversations
             // For admins, fetch all conversations
@@ -360,8 +371,8 @@ export default function ConversationsPage() {
 
             // Treat as Agent if isAgent is true OR if storedRoleId is '3' (Agent role ID)
             // Uses component-level isAgentEffective
-            
-            if (isAgentEffective) { 
+
+            if (isAgentEffective) {
                 if (userId) {
                     const response = await getAgentSessions(userId);
                     // Handle new response structure: { agent_id: ..., sessions: [...] }
@@ -374,7 +385,7 @@ export default function ConversationsPage() {
                     }
                 } else {
                     console.warn("Agent detected but no User ID found. Waiting for auth...");
-                    sessions = []; 
+                    sessions = [];
                 }
             } else {
                 // Not an agent (Admin/Super Admin) -> Show all
@@ -385,7 +396,7 @@ export default function ConversationsPage() {
 
             // Fetch leads for filtering and naming
             let leadsMap = {};
-            try { 
+            try {
                 const leadsData = await getLeads(0, 100);
                 const leads = Array.isArray(leadsData) ? leadsData : [];
                 leads.forEach(l => {
@@ -411,7 +422,7 @@ export default function ConversationsPage() {
                 // Use total_conversation_cost_inr if available, otherwise fallback to converted USD or 0
                 // Assuming 1 USD = 83 INR approx if conversion needed on frontend, but better to use backend value
                 const totalCost = messageCount > 0 ? (session.total_conversation_cost_inr || (session.total_conversation_cost_usd || 0) * 85) : 0;
-                
+
                 // Resolve display name: Lead Name > Session Name > WhatsApp > Email
                 const waId = session.whatsapp ? session.whatsapp.replace(/\D/g, '') : '';
                 const lead = leadsMap[waId];
@@ -426,21 +437,21 @@ export default function ConversationsPage() {
                 const isClosed = session.status === 'closed' || session.status === 'resolved';
 
                 // Reported Logic
-                const isReported = lead?.status === 'reported' || lead?.is_reported || false;
+                const isReported = lead?.status === 'reported' || lead?.is_reported || session.contact_info?.is_reported || false;
                 const reportReason = lead?.report_reason;
                 const agentNotes = lead?.agent_notes || [];
                 const lastNote = agentNotes.length > 0 ? agentNotes[agentNotes.length - 1] : null;
-                
+
                 // Store raw ID and Name for render-time resolution vs agents list
                 const reportedAgentId = isReported ? lastNote?.agent_id : null;
                 const reportedAgentName = isReported ? lastNote?.agent_name : null;
-                
+
                 const reportFeedback = isReported ? (lastNote?.note || 'No additional details.') : null;
 
                 if (index === 0) {
-                     console.log('DEBUG SESSION:', session);
-                     console.log('DEBUG LEAD:', lead);
-                     console.log('Effective Agent ID:', effectiveAgentId);
+                    console.log('DEBUG SESSION:', session);
+                    console.log('DEBUG LEAD:', lead);
+                    console.log('Effective Agent ID:', effectiveAgentId);
                 }
 
                 return {
@@ -463,7 +474,7 @@ export default function ConversationsPage() {
                     // Use backend assigned_agent_id for approval status
                     assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
-                    closed_by: session.closed_by || null, 
+                    closed_by: session.closed_by || null,
                     reopened_by: session.reopened_by || null,
                     reopen_reason: session.reopen_reason || null,
                     contact_info: session.contact_info || null, // Store contact info/notes
@@ -477,12 +488,12 @@ export default function ConversationsPage() {
                         // This usually comes after a standard message entry, leading to duplicates.
                         if (msg.bot || msg.user) {
                             const turns = [];
-                            
+
                             // Check if this 'user' prompt is a duplicate of a previously handled message
                             // We compare with the immediately preceding message in the backend array
                             const prevMsg = idx > 0 ? arr[idx - 1] : null;
                             const isDuplicateUser = msg.user && prevMsg && (
-                                (prevMsg.text === msg.user) || 
+                                (prevMsg.text === msg.user) ||
                                 (prevMsg.role === 'user' && prevMsg.text === msg.user)
                             );
 
@@ -495,7 +506,7 @@ export default function ConversationsPage() {
                                     cost: 0
                                 });
                             }
-                            
+
                             if (msg.bot) {
                                 const isHuman = msg.botSenderType === 'HUMAN';
                                 // If not human, it's a bot/system message
@@ -603,8 +614,8 @@ export default function ConversationsPage() {
 
             // Only scroll if we switched conversation or we are already at the bottom
             if (isNewConversation || isNearBottom) {
-                messagesEndRef.current?.scrollIntoView({ 
-                    behavior: isNewConversation ? 'auto' : 'smooth' 
+                messagesEndRef.current?.scrollIntoView({
+                    behavior: isNewConversation ? 'auto' : 'smooth'
                 });
             }
         }
@@ -619,10 +630,10 @@ export default function ConversationsPage() {
         // Agents see only their assigned conversations (already returned from getAgentSessions)
         // But now they want to filter by Assigned vs Closed
         if (statusFilter === 'closed' || statusFilter === 'resolved') {
-             displayedConversations = conversations.filter(conv => conv.approvalStatus === 'closed' || conv.status === 'resolved');
+            displayedConversations = conversations.filter(conv => conv.approvalStatus === 'closed' || conv.status === 'resolved');
         } else {
-             // Default view: Assigned/Active (hide closed)
-             displayedConversations = conversations.filter(conv => conv.approvalStatus !== 'closed' && conv.status !== 'resolved');
+            // Default view: Assigned/Active (hide closed)
+            displayedConversations = conversations.filter(conv => conv.approvalStatus !== 'closed' && conv.status !== 'resolved');
         }
     } else {
         // Admins see all, with optional status filter
@@ -633,16 +644,16 @@ export default function ConversationsPage() {
         } else if (statusFilter === 'active') {
             displayedConversations = conversations.filter(conv => conv.approvalStatus === 'active');
         } else if (statusFilter === 'closed' || statusFilter === 'resolved') {
-             displayedConversations = conversations.filter(conv => conv.approvalStatus === 'closed' || conv.status === 'resolved');
+            displayedConversations = conversations.filter(conv => conv.approvalStatus === 'closed' || conv.status === 'resolved');
         } else if (statusFilter === 'reported') {
-             displayedConversations = conversations.filter(conv => conv.isReported);
+            displayedConversations = conversations.filter(conv => conv.isReported);
         } else {
             displayedConversations = conversations;
         }
 
         // Apply Agent Filter (if selected and not 'all')
         if (selectedAgentFilter !== 'all') {
-            displayedConversations = displayedConversations.filter(conv => 
+            displayedConversations = displayedConversations.filter(conv =>
                 // Check against assigned_agent_id which we stored in fetchConversations
                 // Ensure type safety (string vs int)
                 conv.assigned_agent_id && String(conv.assigned_agent_id) === String(selectedAgentFilter)
@@ -676,9 +687,9 @@ export default function ConversationsPage() {
     // Filter conversations for stats calculation based on Agent Filter
     let statsConversations = conversations;
     if (!isAgentEffective && selectedAgentFilter !== 'all') {
-         statsConversations = conversations.filter(conv => 
+        statsConversations = conversations.filter(conv =>
             conv.assigned_agent_id && String(conv.assigned_agent_id) === String(selectedAgentFilter)
-         );
+        );
     }
 
     // Stats for Admin view
@@ -736,6 +747,15 @@ export default function ConversationsPage() {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading conversations...</p>
+            </div>
+        );
+    }
+
     // Handle Send Message
     const handleSendMessage = async () => {
         if (!selectedConversation || !messageInput.trim()) return;
@@ -750,7 +770,7 @@ export default function ConversationsPage() {
             await fetchConversations(selectedConversation.id);
         } catch (error) {
             console.error("Failed to send message:", error);
-            
+
             if (error.response && error.response.status === 400) {
                 const detail = error.response.data?.detail || "The 24-hour service window has expired.";
                 setErrorMessage(detail);
@@ -759,7 +779,7 @@ export default function ConversationsPage() {
                 const genericMsg = error.response?.data?.detail || error.message || "An unexpected error occurred.";
                 toast({ title: "Request Failed", description: `Failed to send message: ${genericMsg}`, variant: "destructive" });
             }
-            
+
             setMessageInput(message); // Restore input on failure
         }
     };
@@ -773,9 +793,9 @@ export default function ConversationsPage() {
 
     const handleApproveClick = (conv) => {
         setConversationToApprove(conv);
-        
+
         let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
-        
+
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userRole = currentUser?.role?.name || currentUser?.role || '';
         const isAdmin = userRole.toLowerCase().includes('admin');
@@ -784,14 +804,14 @@ export default function ConversationsPage() {
         if (isAdmin && conv.status !== 'transfer_to_agent') {
             message = "The user has not filled the basic details so accepting this chat leads to not capturing the information. Are you sure you want to accept this chat?";
         }
-        
+
         setApproveConfirmMessage(message);
         setShowApproveConfirmModal(true);
     };
 
     const handleConfirmApprove = async () => {
         if (!conversationToApprove) return;
-        
+
         const conv = conversationToApprove;
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userId = currentUser?.id || currentUser?.userId;
@@ -807,7 +827,7 @@ export default function ConversationsPage() {
             await assignSessionToAgent(conv.id, userId);
 
             // Optimistic update: Update in list immediately
-            setConversations(prev => prev.map(c => 
+            setConversations(prev => prev.map(c =>
                 c.id === conv.id ? { ...c, approvalStatus: 'assigned', assigned_agent_id: userId } : c
             ));
 
@@ -838,7 +858,7 @@ export default function ConversationsPage() {
     // New: Submit Close Chat with Feedback
     const handleCloseChatSubmit = async (data) => {
         if (!selectedConversation) return;
-        
+
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userId = currentUser?.id || currentUser?.userId;
 
@@ -848,12 +868,12 @@ export default function ConversationsPage() {
                 ...data,
                 agent_id: userId
             });
-            
+
             // Clear selection and refresh list
             setSelectedConversation(null);
             setShowCloseChatModal(false);
             await fetchConversations();
-            
+
         } catch (error) {
             console.error("Failed to close conversation:", error);
             const msg = error.response?.data?.detail || error.message || "Failed to close conversation";
@@ -866,25 +886,25 @@ export default function ConversationsPage() {
     // Handle Reopen Chat Submit
     const handleReopenSubmit = async () => {
         if (!selectedConversation || !reopenReason.trim()) return;
-        
+
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userId = currentUser?.id || currentUser?.userId;
 
         setIsReopening(true);
         try {
             await reopenConversation(selectedConversation.id, {
-                reopened_by: parseInt(userId),
-                reopen_reason: reopenReason.trim()
+                agent_id: userId,
+                reason: reopenReason.trim()
             });
-            
-            toast({ title: "Success", description: "Chat reopened and transferred to an agent successfully.", variant: "success" });
-            
+
+            toast({ title: "Success", description: "Chat reopened successfully.", variant: "success" });
+
             setShowReopenModal(false);
             setReopenReason('');
-            
+
             // Keep selection and refresh list to see the reopened status
             await fetchConversations(selectedConversation.id);
-            
+
         } catch (error) {
             console.error("Failed to reopen conversation:", error);
             const msg = error.response?.data?.detail || error.message || "Failed to reopen conversation";
@@ -894,15 +914,39 @@ export default function ConversationsPage() {
         }
     };
 
+    // Handle Unspam User
+    const handleUnspamUser = async () => {
+        if (!selectedConversation) return;
+
+        const currentUser = user || JSON.parse(localStorage.getItem('user'));
+        const userId = currentUser?.id || currentUser?.userId;
+
+        setIsUnspamming(true);
+        try {
+            await unspamUser(selectedConversation.id, userId);
+
+            toast({ title: "Success", description: "User unspammed and restored successfully.", variant: "success" });
+
+            // Refresh the current conversation to update its status
+            await fetchConversations(selectedConversation.id);
+        } catch (error) {
+            console.error("Failed to unspam user:", error);
+            const msg = error.response?.data?.detail || error.message || "Failed to unspam user";
+            toast({ title: "Error", description: msg, variant: "destructive" });
+        } finally {
+            setIsUnspamming(false);
+        }
+    };
+
     // Confirm End Session (API Call) - KEEPING FOR BACKWARD COMPATIBILITY OR ADMIN OVERRIDE IF NEEDED
     // BUT UI NOW USES handleCloseChatSubmit
     const confirmEndSession = async () => {
         try {
             const currentUser = user || JSON.parse(localStorage.getItem('user'));
             const userId = currentUser?.id || currentUser?.userId;
-            
-            await endSession(selectedConversation.id, userId); 
-            
+
+            await endSession(selectedConversation.id, userId);
+
             // Clear selection and refresh list
             setSelectedConversation(null);
             fetchConversations();
@@ -964,7 +1008,7 @@ export default function ConversationsPage() {
                                 Pending ({pendingCount})
                             </button>
 
-                            
+
                         </>
                     )}
 
@@ -993,15 +1037,15 @@ export default function ConversationsPage() {
                     </button>
 
                     <button
-                                onClick={() => setStatusFilter('reported')}
-                                className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'reported'
-                                    ? 'bg-red-600 text-white'
-                                    : 'bg-white text-red-600 hover:bg-red-50'
-                                    }`}
-                            >
-                                <AlertCircle size={15} />
-                                Reported ({reportedCount})
-                            </button>
+                        onClick={() => setStatusFilter('reported')}
+                        className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${statusFilter === 'reported'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-white text-red-600 hover:bg-red-50'
+                            }`}
+                    >
+                        <AlertCircle size={15} />
+                        Reported ({reportedCount})
+                    </button>
                 </div>
 
                 {/* Agent Filter - Admin Only */}
@@ -1011,13 +1055,11 @@ export default function ConversationsPage() {
                         <div className="relative" ref={agentMenuRef}>
                             <button
                                 onClick={() => setIsAgentMenuOpen(!isAgentMenuOpen)}
-                                className={`flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm transition-all duration-200 hover:shadow-md ${
-                                    isAgentMenuOpen ? 'border-violet-500 ring-2 ring-violet-50/50' : 'border-gray-200 hover:border-violet-300'
-                                }`}
+                                className={`flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm transition-all duration-200 hover:shadow-md ${isAgentMenuOpen ? 'border-violet-500 ring-2 ring-violet-50/50' : 'border-gray-200 hover:border-violet-300'
+                                    }`}
                             >
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                                    selectedAgentFilter === 'all' ? 'bg-gray-100 text-gray-500' : 'bg-violet-100 text-violet-600'
-                                }`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${selectedAgentFilter === 'all' ? 'bg-gray-100 text-gray-500' : 'bg-violet-100 text-violet-600'
+                                    }`}>
                                     {selectedAgentFilter === 'all' ? <Headset size={12} /> : ((() => {
                                         const a = agents.find(a => String(a.id) === String(selectedAgentFilter));
                                         return (a?.full_name || a?.username || 'A')[0].toUpperCase();
@@ -1034,7 +1076,7 @@ export default function ConversationsPage() {
 
                             {isAgentMenuOpen && (
                                 <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-200">
-                                    <div 
+                                    <div
                                         className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${selectedAgentFilter === 'all' ? 'bg-violet-50 text-violet-600' : 'hover:bg-gray-50 text-gray-700'}`}
                                         onClick={() => { setSelectedAgentFilter('all'); setIsAgentMenuOpen(false); }}
                                     >
@@ -1046,9 +1088,9 @@ export default function ConversationsPage() {
                                             <div className="text-[10px] opacity-70">Show conversations from everyone</div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="h-px bg-gray-50 my-1 mx-2" />
-                                    
+
                                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                                         {agents.map(agent => (
                                             <div
@@ -1095,7 +1137,7 @@ export default function ConversationsPage() {
                     <div className="flex-1 overflow-y-auto">
                         {loading ? (
                             <div className="flex items-center justify-center py-12">
-                                <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+                                <span className="loader scale-75"></span>
                             </div>
                         ) : filteredConversations.length > 0 ? (
                             filteredConversations.map((conv) => (
@@ -1104,7 +1146,7 @@ export default function ConversationsPage() {
                                     onClick={() => {
                                         setSelectedConversation(conv);
                                         // Reset unread count in main list
-                                        setConversations(prev => prev.map(c => 
+                                        setConversations(prev => prev.map(c =>
                                             c.id === conv.id ? { ...c, unreadCount: 0, unread: false } : c
                                         ));
                                     }}
@@ -1114,23 +1156,21 @@ export default function ConversationsPage() {
                                         }`}
                                 >
                                     <div className="relative flex-shrink-0">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                                            conv.approvalStatus === 'assigned' ? 'bg-green-500' : 
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${conv.approvalStatus === 'assigned' ? 'bg-green-500' :
                                             conv.approvalStatus === 'active' ? 'bg-blue-500' : 'bg-amber-500'
                                             }`}>
                                             {conv.title.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                         </div>
                                         {/* Approval Status Icon */}
-                                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border shadow-sm ${
-                                            conv.approvalStatus === 'assigned' ? 'bg-green-100 border-green-200' :
+                                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border shadow-sm ${conv.approvalStatus === 'assigned' ? 'bg-green-100 border-green-200' :
                                             conv.approvalStatus === 'active' ? 'bg-blue-100 border-blue-200' :
-                                            conv.approvalStatus === 'closed' ? 'bg-red-100 border-red-200' :
-                                            'bg-amber-100 border-amber-200'
+                                                conv.approvalStatus === 'closed' ? 'bg-red-100 border-red-200' :
+                                                    'bg-amber-100 border-amber-200'
                                             }`}>
                                             {conv.approvalStatus === 'assigned' ? <CheckCircle size={10} className="text-green-600" /> :
-                                             conv.approvalStatus === 'active' ? <Info size={10} className="text-blue-600" /> :
-                                             conv.approvalStatus === 'closed' ? <CheckCircle size={10} className="text-red-600" /> :
-                                             <AlertCircle size={10} className="text-amber-600" />
+                                                conv.approvalStatus === 'active' ? <Info size={10} className="text-blue-600" /> :
+                                                    conv.approvalStatus === 'closed' ? <CheckCircle size={10} className="text-red-600" /> :
+                                                        <AlertCircle size={10} className="text-amber-600" />
                                             }
                                         </div>
                                     </div>
@@ -1158,15 +1198,14 @@ export default function ConversationsPage() {
                                         <div className="flex items-center gap-2 mt-2">
                                             {/* Approval Status Badge - Show for Admin */}
                                             {!isAgent && (
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                                                    conv.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${conv.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
                                                     conv.approvalStatus === 'active' ? 'bg-blue-100 text-blue-700' :
-                                                    conv.approvalStatus === 'closed' ? 'bg-red-100 text-red-700' :
-                                                    'bg-amber-100 text-amber-700'
+                                                        conv.approvalStatus === 'closed' ? 'bg-red-100 text-red-700' :
+                                                            'bg-amber-100 text-amber-700'
                                                     }`}>
-                                                    {conv.approvalStatus === 'assigned' ? 'Assigned' : 
-                                                     conv.approvalStatus === 'active' ? 'Active' : 
-                                                     conv.approvalStatus === 'closed' ? 'Closed' : 'Pending'}
+                                                    {conv.approvalStatus === 'assigned' ? 'Assigned' :
+                                                        conv.approvalStatus === 'active' ? 'Active' :
+                                                            conv.approvalStatus === 'closed' ? 'Closed' : 'Pending'}
                                                 </span>
                                             )}
 
@@ -1181,25 +1220,25 @@ export default function ConversationsPage() {
                                                 </div>
                                             )}
 
-                                           
+
                                         </div>
-                                         {/* Reopened Indicator for Lists */}
-                                            {conv.reopened_by && !isAgentEffective && (
-                                                <div className="bg-purple-50 text-purple-600 text-[10px] px-2 py-0.5 rounded-full font-medium border border-purple-100 inline-flex items-center gap-1.5" title={`Reason: ${conv.reopen_reason || 'N/A'}`}>
-                                                    <CornerUpLeft size={10} />
-                                                    <span className="truncate max-w-[120px]">Reopened details</span>
-                                                </div>
-                                            )}
+                                        {/* Reopened Indicator for Lists */}
+                                        {conv.reopened_by && !isAgentEffective && (
+                                            <div className="bg-purple-50 text-purple-600 text-[10px] px-2 py-0.5 rounded-full font-medium border border-purple-100 inline-flex items-center gap-1.5" title={`Reason: ${conv.reopen_reason || 'N/A'}`}>
+                                                <CornerUpLeft size={10} />
+                                                <span className="truncate max-w-[120px]">Reopened details</span>
+                                            </div>
+                                        )}
 
-                            </div>
+                                    </div>
 
-                            <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                <Clock size={10} />
-                                {conv.time}
-                            </span>
-                        </div>
-            ))
-        ) : (
+                                    <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                        <Clock size={10} />
+                                        {conv.time}
+                                    </span>
+                                </div>
+                            ))
+                        ) : (
                             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                                 <MessageSquare size={32} className="mb-2" />
                                 <p className="text-sm">No conversations found</p>
@@ -1230,7 +1269,7 @@ export default function ConversationsPage() {
                                         >
                                             <FileText size={16} />
                                         </button>
-                                        
+
                                         {/* Assigned Agent Button (Admin Only) */}
                                         {/* Assigned Agent Button (Admin Only) */}
                                         {!isAgentEffective && selectedConversation.assigned_agent_id && (
@@ -1248,16 +1287,16 @@ export default function ConversationsPage() {
                                             </button>
                                         )}
                                     </div>
-                                    
-                                     {/* Reported Status in Header (Full Details View) */}
-                                     {selectedConversation.isReported && (
+
+                                    {/* Reported Status in Header (Full Details View) */}
+                                    {selectedConversation.isReported && (
                                         <div className="flex items-center gap-2 relative">
                                             <div className="bg-red-50 text-red-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-100 flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                                                 <AlertCircle size={12} className="flex-shrink-0" />
                                                 <span className="truncate hidden sm:inline">Reported by {resolveAgentName(selectedConversation.reportedAgentId, selectedConversation.reportedAgentName)}</span>
                                                 <span className="truncate sm:hidden">Reported</span>
                                             </div>
-                                            
+
                                             <div className="relative" ref={reportTooltipRef}>
                                                 <button
                                                     onClick={(e) => {
@@ -1272,7 +1311,7 @@ export default function ConversationsPage() {
 
                                                 {/* Header Tooltip Model */}
                                                 {activeReportTooltipId === selectedConversation.id && (
-                                                    <div 
+                                                    <div
                                                         className="absolute top-full right-0 mt-2 w-64 bg-white shadow-xl border border-gray-200 rounded-xl overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200"
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
@@ -1294,10 +1333,10 @@ export default function ConversationsPage() {
                                                 )}
                                             </div>
                                         </div>
-                                     )}
-                                     
-                                     {/* Reopened Indicator in Header */}
-                                     {selectedConversation.reopened_by && !isAgentEffective && (
+                                    )}
+
+                                    {/* Reopened Indicator in Header */}
+                                    {selectedConversation.reopened_by && !isAgentEffective && (
                                         <div className="flex items-center gap-2 relative group ml-2">
                                             <div className="bg-purple-50 text-purple-600 text-xs px-2.5 py-1 rounded-full font-semibold border border-purple-100 flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                                                 <CornerUpLeft size={12} className="flex-shrink-0" />
@@ -1312,15 +1351,15 @@ export default function ConversationsPage() {
                                                 </div>
                                             )}
                                         </div>
-                                     )}
-                                    
-                                     {/* Assigned Agent Details - REMOVED */}
+                                    )}
+
+                                    {/* Assigned Agent Details - REMOVED */}
 
 
                                     <div className="flex  items-center gap-3 ml-auto">
                                         {/* Reopen Chat Button (Admin Only) */}
                                         {!isAgentEffective && selectedConversation.approvalStatus === 'closed' && (
-                                            <button 
+                                            <button
                                                 onClick={() => setShowReopenModal(true)}
                                                 className="px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
                                                 title="Reopen this closed conversation"
@@ -1333,13 +1372,26 @@ export default function ConversationsPage() {
 
                                         {/* End Chat Button */}
                                         {selectedConversation.approvalStatus !== 'closed' && selectedConversation.approvalStatus !== 'pending' && (
-                                            <button 
+                                            <button
                                                 onClick={handleEndChat}
                                                 className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
                                                 title="End this conversation"
                                             >
                                                 <span className="hidden sm:inline">Close / Report</span>
                                                 <span className="sm:hidden">Close</span>
+                                            </button>
+                                        )}
+
+                                        {/* Unspam Button (Shows when Reported) */}
+                                        {(selectedConversation.isReported || selectedConversation.contact_info?.is_reported) && (
+                                            <button
+                                                onClick={handleUnspamUser}
+                                                disabled={isUnspamming}
+                                                className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 border border-green-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                                title="Unspam User"
+                                            >
+                                                {isUnspamming ? <span className="loader-sm border-green-600"></span> : <CheckCircle size={14} />}
+                                                <span>Unspam</span>
                                             </button>
                                         )}
 
@@ -1362,17 +1414,39 @@ export default function ConversationsPage() {
                                         )}
                                     </div>
                                 </div>
-                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${
-                                    selectedConversation.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${selectedConversation.approvalStatus === 'assigned' ? 'bg-green-100 text-green-700' :
                                     selectedConversation.approvalStatus === 'active' ? 'bg-blue-100 text-blue-700' :
-                                    selectedConversation.approvalStatus === 'closed' ? 'bg-gray-100 text-gray-700' :
-                                    'bg-amber-100 text-amber-700'
-                                }`}>
-                                    {selectedConversation.approvalStatus === 'assigned' ? 'Assigned' : 
-                                     selectedConversation.approvalStatus === 'active' ? 'Active' : 
-                                     selectedConversation.approvalStatus === 'closed' ? 'Closed' : 'Pending'}
+                                        selectedConversation.approvalStatus === 'closed' ? 'bg-gray-100 text-gray-700' :
+                                            'bg-amber-100 text-amber-700'
+                                    }`}>
+                                    {selectedConversation.approvalStatus === 'assigned' ? 'Assigned' :
+                                        selectedConversation.approvalStatus === 'active' ? 'Active' :
+                                            selectedConversation.approvalStatus === 'closed' ? 'Closed' : 'Pending'}
                                 </span>
                             </div>
+
+                            {/* Spam Warning Banner */}
+                            {(selectedConversation.isReported || selectedConversation.contact_info?.is_reported) && (
+                                <div className="bg-red-50 border-b border-red-100 px-4 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                                    <div className="flex items-center gap-3 text-red-700">
+                                        <div className="bg-red-100 p-2 rounded-full">
+                                            <AlertCircle size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold">This user is currently reported as Spam. The AI is disabled.</p>
+                                            <p className="text-xs opacity-80">You can restore the user to resume normal operations.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleUnspamUser}
+                                        disabled={isUnspamming}
+                                        className="px-4 py-2 bg-white text-green-600 hover:bg-green-50 border border-green-200 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                                    >
+                                        {isUnspamming ? <span className="loader-sm border-green-600"></span> : <CheckCircle size={14} />}
+                                        Unspam
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Messages */}
                             <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50 scroll-smooth">
@@ -1416,12 +1490,12 @@ export default function ConversationsPage() {
                                                                         {resolveAgentName(msg.botSenderId || msg.agent_id)}
                                                                     </span>
                                                                 )}
-                                                                
+
                                                                 <div
                                                                     className={`px-4 py-3 rounded-2xl shadow-sm w-full ${msg.direction === 'in'
-                                                                         // User (Left): White style
+                                                                        // User (Left): White style
                                                                         ? 'bg-white text-gray-800 border border-gray-50 rounded-bl-sm'
-                                                                         // Agent (Right): Primary color style
+                                                                        // Agent (Right): Primary color style
                                                                         : 'bg-indigo-600 text-white rounded-br-sm'
                                                                         }`}
                                                                 >
@@ -1431,19 +1505,18 @@ export default function ConversationsPage() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            
-                                                             {/* Sender Avatar (Right side for Agent/Bot) */}
-                                                             {msg.direction === 'out' && (
-                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 shadow-sm ${
-                                                                    msg.isAgent ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-gray-100'
-                                                                }`}>
+
+                                                            {/* Sender Avatar (Right side for Agent/Bot) */}
+                                                            {msg.direction === 'out' && (
+                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 shadow-sm ${msg.isAgent ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-gray-100'
+                                                                    }`}>
                                                                     {msg.isAgent ? (
                                                                         <User size={14} className="text-indigo-600" />
                                                                     ) : (
                                                                         <Bot size={14} className="text-indigo-600" />
                                                                     )}
                                                                 </div>
-                                                             )}
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1458,7 +1531,7 @@ export default function ConversationsPage() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            {/* Message Input */ }
+                            {/* Message Input */}
                             {selectedConversation.approvalStatus === 'closed' ? (
                                 <div className="p-4 border-t border-gray-100 bg-gray-50 text-center">
                                     <p className="text-gray-500 font-medium flex items-center justify-center gap-2">
@@ -1477,7 +1550,7 @@ export default function ConversationsPage() {
                                         <AlertCircle size={18} />
                                         Please assign this chat to yourself to start messaging
                                     </p>
-                                    <button 
+                                    <button
                                         onClick={() => handleApproveClick(selectedConversation)}
                                         disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
                                         title={(!user && !localStorage.getItem('user')) ? "Loading user data..." : "Accept"}
@@ -1486,6 +1559,16 @@ export default function ConversationsPage() {
                                         <CheckCircle size={16} />
                                         {approvingId === selectedConversation.id ? 'Assigning...' : 'Assign Chat'}
                                     </button>
+                                </div>
+                            ) : (!isAgentEffective && selectedConversation.status !== 'transfer_to_agent') ? (
+                                <div className="p-4 border-t border-gray-100 bg-amber-50 flex flex-col items-center justify-center gap-1 text-center">
+                                    <p className="text-amber-700 font-medium flex items-center justify-center gap-2">
+                                        <AlertCircle size={18} />
+                                        Form Not Filled
+                                    </p>
+                                    <p className="text-amber-600 text-xs">
+                                        Admins are not allowed to send messages until the user completes the basic details form.
+                                    </p>
                                 </div>
                             ) : (
                                 <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-white">
@@ -1572,7 +1655,7 @@ export default function ConversationsPage() {
                                 >
                                     {startingConv ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span className="loader-sm border-white"></span>
                                             Sending...
                                         </>
                                     ) : (
@@ -1591,9 +1674,9 @@ export default function ConversationsPage() {
 
             {/* Lead Details Modal */}
             {showLeadModal && (
-                <LeadDetailsModal 
-                    lead={selectedLead} 
-                    onClose={() => setShowLeadModal(false)} 
+                <LeadDetailsModal
+                    lead={selectedLead}
+                    onClose={() => setShowLeadModal(false)}
                 />
             )}
 
@@ -1603,8 +1686,8 @@ export default function ConversationsPage() {
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-semibold text-gray-900">Assigned Agent</h3>
-                            <button 
-                                onClick={() => setShowAgentModal(false)} 
+                            <button
+                                onClick={() => setShowAgentModal(false)}
                                 className="text-gray-400 hover:text-gray-600"
                             >
                                 <X size={20} />
@@ -1622,7 +1705,7 @@ export default function ConversationsPage() {
                                     {assignedAgent.role?.name || assignedAgent.role || 'Agent'}
                                 </span>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 {/* <div className="p-3 bg-gray-50 rounded-lg">
                                     <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">ID</span>
@@ -1707,7 +1790,7 @@ export default function ConversationsPage() {
                                 >
                                     {isReopening ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span className="loader-sm border-white"></span>
                                             Reopening...
                                         </>
                                     ) : (
@@ -1733,7 +1816,7 @@ export default function ConversationsPage() {
             />
 
             {/* Close Chat Modal */}
-            <CloseChatModal 
+            <CloseChatModal
                 isOpen={showCloseChatModal}
                 onClose={() => setShowCloseChatModal(false)}
                 onConfirm={handleCloseChatSubmit}
@@ -1774,18 +1857,18 @@ export default function ConversationsPage() {
 // Helper to safely parse and format JSON-like strings
 function renderMessageContent(text) {
     if (!text) return '';
-    
+
     // Check if it's a lead capture message
     if (typeof text === 'string' && text.startsWith('[LEAD_CAPTURE]')) {
         try {
             // Extract the JSON-like part
             const jsonPart = text.replace('[LEAD_CAPTURE]', '').trim();
-            
+
             // Attempt to make it valid JSON (replace single quotes with double quotes)
             // Note: This is a simple heuristic and might fail on complex strings containing escaped quotes
             const validJson = jsonPart.replace(/'/g, '"');
             const data = JSON.parse(validJson);
-            
+
             return (
                 <div className="mt-1 space-y-1">
                     <div className="text-xs font-semibold opacity-75 mb-2 border-b border-white/20 pb-1">Lead Captured</div>
@@ -1814,7 +1897,7 @@ function renderMessageContent(text) {
         const preText = parts[0];
         const submissionText = parts[1];
         const lines = submissionText.trim().split('\n');
-        
+
         return (
             <div className="space-y-2 py-1">
                 {preText && <div className="text-sm">{preText}</div>}
@@ -1823,14 +1906,14 @@ function renderMessageContent(text) {
                     {lines.map((line, idx) => {
                         const colonIndex = line.indexOf(':');
                         if (colonIndex === -1) return <div key={idx} className="text-xs text-gray-500">{line}</div>;
-                        
+
                         let key = line.substring(0, colonIndex).trim();
                         let value = line.substring(colonIndex + 1).trim();
-                        
+
                         // Clean Key: screen_0_Model_1 -> Model, license_quantity -> License Quantity
                         key = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
                         if (key.toLowerCase() === 'license_quantity') key = 'License Quantity';
-                        
+
                         // Clean Value: 0_Yes -> Yes
                         value = value.replace(/^\d+_/, '');
 
@@ -1885,7 +1968,7 @@ function formatDateHeader(timestamp) {
     const date = new Date(timestamp.endsWith('Z') || /[+\-]\d{2}:?\d{2}/.test(timestamp) ? timestamp : timestamp + 'Z');
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
+
     // Check if it was yesterday
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -1893,6 +1976,6 @@ function formatDateHeader(timestamp) {
 
     if (isToday) return 'Today';
     if (isYesterday) return 'Yesterday';
-    
+
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }

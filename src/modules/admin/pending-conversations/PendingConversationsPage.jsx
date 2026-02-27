@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Check, Clock, MessageSquare, X, User, FileText, Bot } from 'lucide-react';
+import CustomSelect from '../contacts/CustomSelect';
 import { getPendingSessions, assignSessionToAgent, getLeads, getLeadByPhone } from '../../../services/api';
 import LeadDetailsModal from '../conversations/LeadDetailsModal';
 import { useSelector } from 'react-redux';
@@ -31,7 +32,7 @@ export default function PendingConversationsPage() {
     const [selectedLead, setSelectedLead] = useState(null);
 
     const handleShowLeadDetails = async (e, phone) => {
-        e.stopPropagation(); 
+        e.stopPropagation();
         try {
             const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
             if (!cleanPhone) {
@@ -62,10 +63,10 @@ export default function PendingConversationsPage() {
 
             // Fetch leads for filtering and naming (Shared Logic)
             let leadsMap = {};
-            try { 
+            try {
                 const leadsData = await getLeads(0, 100);
                 const leads = Array.isArray(leadsData) ? leadsData : [];
-                
+
                 // Extract unique products
                 const uniqueProducts = [...new Set(leads.map(l => l.product_interest).filter(Boolean))];
                 setProducts(uniqueProducts);
@@ -91,7 +92,7 @@ export default function PendingConversationsPage() {
                 const messageCount = session.conversation_count || session.conversation?.length || 0;
                 const lastMessage = session.conversation?.[session.conversation?.length - 1];
                 const waId = session.whatsapp || session.wa_id;
-                
+
                 // Resolve Name: Lead Name > Session Name > WA ID
                 const cleanWaId = waId ? waId.replace(/\D/g, '') : '';
                 const lead = leadsMap[cleanWaId];
@@ -115,11 +116,11 @@ export default function PendingConversationsPage() {
                         // Handle Turn-based structures (user prompt + bot response)
                         if (msg.bot || msg.user) {
                             const turns = [];
-                            
+
                             // Check if this 'user' prompt is a duplicate of a previously handled message
                             const prevMsg = idx > 0 ? arr[idx - 1] : null;
                             const isDuplicateUser = msg.user && prevMsg && (
-                                (prevMsg.text === msg.user) || 
+                                (prevMsg.text === msg.user) ||
                                 (prevMsg.role === 'user' && prevMsg.text === msg.user)
                             );
 
@@ -130,7 +131,7 @@ export default function PendingConversationsPage() {
                                     time: formatTime(msg.userTimestamp || msg.timestamp),
                                 });
                             }
-                            
+
                             if (msg.bot) {
                                 turns.push({
                                     text: msg.bot,
@@ -181,7 +182,7 @@ export default function PendingConversationsPage() {
     const filteredConversations = conversations.filter(conv => {
         const matchesSearch = conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             conv.preview.toLowerCase().includes(searchQuery.toLowerCase());
-        
+
         const matchesProduct = selectedProduct === 'all' || conv.productInterest === selectedProduct;
 
         return matchesSearch && matchesProduct;
@@ -189,21 +190,21 @@ export default function PendingConversationsPage() {
 
     const handleApproveClick = (conv) => {
         setConversationToApprove(conv);
-        
+
         let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
-        
+
         // Admin warning for premature acceptance
         if (isAdmin && conv.status !== 'transfer_to_agent') {
             message = "The user has not filled the basic details so accepting this chat leads to not capturing the information. Are you sure you want to accept this chat?";
         }
-        
+
         setConfirmMessage(message);
         setShowConfirmModal(true);
     };
 
     const handleConfirmApprove = async () => {
         if (!conversationToApprove) return;
-        
+
         const conv = conversationToApprove;
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userId = currentUser?.id || currentUser?.userId;
@@ -242,6 +243,15 @@ export default function PendingConversationsPage() {
         return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     };
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Monitoring conversations...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden">
             {/* Header */}
@@ -265,20 +275,18 @@ export default function PendingConversationsPage() {
                             />
                         </div>
 
-                        
+
                         {/* Product Filter Dropdown */}
-                        <div className="relative">
-                           <select
+                        <div className="z-10">
+                            <CustomSelect
                                 value={selectedProduct}
-                                onChange={(e) => setSelectedProduct(e.target.value)}
-                                className="appearance-none bg-white border border-gray-200 text-gray-700 py-2 pl-4 pr-8 rounded-lg text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#1E1B4B] cursor-pointer hover:bg-gray-50"
-                            >
-                                <option value="all">All Products</option>
-                                {products.map((p, i) => (
-                                    <option key={i} value={p}>{p}</option>
-                                ))}
-                            </select>
-                             <Filter size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                onChange={(val) => setSelectedProduct(val)}
+                                className="h-10 px-4 min-w-[150px] bg-white border border-gray-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-[#1E1B4B]"
+                                options={[
+                                    { value: 'all', label: 'All Products' },
+                                    ...products.map(p => ({ value: p, label: p }))
+                                ]}
+                            />
                         </div>
                     </div>
                 </div>
@@ -286,11 +294,7 @@ export default function PendingConversationsPage() {
 
             {/* Grid Content */}
             <div className="flex-1 overflow-y-auto p-6">
-                {loading ? (
-                    <div className="flex justify-center items-center h-48">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E1B4B]" />
-                    </div>
-                ) : filteredConversations.length > 0 ? (
+                {filteredConversations.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredConversations.map((conv) => (
                             <div key={conv.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative">
@@ -314,7 +318,7 @@ export default function PendingConversationsPage() {
                                         {conv.time}
                                     </p>
                                 </div>
-                                
+
                                 <button
                                     onClick={(e) => handleShowLeadDetails(e, conv.wa_id)}
                                     className="absolute top-5 right-14 text-gray-400 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-blue-50"
@@ -509,9 +513,9 @@ export default function PendingConversationsPage() {
 
             {/* Lead Details Modal */}
             {showLeadModal && (
-                <LeadDetailsModal 
-                    lead={selectedLead} 
-                    onClose={() => setShowLeadModal(false)} 
+                <LeadDetailsModal
+                    lead={selectedLead}
+                    onClose={() => setShowLeadModal(false)}
                 />
             )}
         </div>
@@ -547,18 +551,18 @@ function formatTimeAgo(dateString) {
 // Helper to safely parse and format JSON-like strings
 function renderMessageContent(text) {
     if (!text) return '';
-    
+
     // Check if it's a lead capture message
     if (typeof text === 'string' && text.startsWith('[LEAD_CAPTURE]')) {
         try {
             // Extract the JSON-like part
             const jsonPart = text.replace('[LEAD_CAPTURE]', '').trim();
-            
+
             // Attempt to make it valid JSON (replace single quotes with double quotes)
             // Note: This is a simple heuristic and might fail on complex strings containing escaped quotes
             const validJson = jsonPart.replace(/'/g, '"');
             const data = JSON.parse(validJson);
-            
+
             return (
                 <div className="mt-1 space-y-1">
                     <div className="text-xs font-semibold opacity-75 mb-2 border-b border-white/20 pb-1">Lead Captured</div>
@@ -587,7 +591,7 @@ function renderMessageContent(text) {
         const preText = parts[0];
         const submissionText = parts[1];
         const lines = submissionText.trim().split('\n');
-        
+
         return (
             <div className="space-y-2 py-1">
                 {preText && <div className="text-sm">{preText}</div>}
@@ -596,14 +600,14 @@ function renderMessageContent(text) {
                     {lines.map((line, idx) => {
                         const colonIndex = line.indexOf(':');
                         if (colonIndex === -1) return <div key={idx} className="text-xs text-gray-500">{line}</div>;
-                        
+
                         let key = line.substring(0, colonIndex).trim();
                         let value = line.substring(colonIndex + 1).trim();
-                        
+
                         // Clean Key: screen_0_Model_1 -> Model, license_quantity -> License Quantity
                         key = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
                         if (key.toLowerCase() === 'license_quantity') key = 'License Quantity';
-                        
+
                         // Clean Value: 0_Yes -> Yes
                         value = value.replace(/^\d+_/, '');
 

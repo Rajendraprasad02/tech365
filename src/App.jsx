@@ -15,6 +15,7 @@ import KnowledgeBasePage from '@/modules/admin/knowledge-base/KnowledgeBasePage'
 import ContactsPage from '@/modules/admin/contacts/ContactsPage';
 import TemplatesPage from '@/modules/admin/templates/TemplatesPage';
 import UsersPage from '@/modules/admin/users/UsersPage';
+import ProfilePage from '@/modules/admin/profile/ProfilePage';
 
 import RoleManagementPage from '@/modules/superadmin/RoleManagementPage';
 import MenuBuilderPage from '@/modules/superadmin/MenuBuilderPage';
@@ -78,6 +79,7 @@ function App() {
                 <Route element={<PermissionRoute requiredScreen="users" />}>
                   <Route path="users" element={<UsersPage />} />
                 </Route>
+                <Route path="profile" element={<ProfilePage />} />
               </Route>
             </Route>
 

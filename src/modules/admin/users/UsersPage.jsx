@@ -5,7 +5,8 @@ import CreateUserModal from './CreateUserModal';
 import { useToast } from '@/context/ToastContext';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '@/store/slices/authSlice';
- 
+import Pagination from '@/components/ui/Pagination';
+
 const UsersPage = () => {
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]); // Filtered roles for modal
@@ -20,11 +21,11 @@ const UsersPage = () => {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [pageSize, setPageSize] = useState(10);
 
     // Filtered & Paginated Users
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const indexOfLastItem = currentPage * pageSize;
+    const indexOfFirstItem = indexOfLastItem - pageSize;
     const currentUsers = users.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(users.length / itemsPerPage);
 
@@ -177,6 +178,15 @@ const UsersPage = () => {
 
 
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Syncing user database...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 space-y-6 bg-gray-50/50 min-h-screen">
             {/* Header */}
@@ -201,154 +211,128 @@ const UsersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* Optional: Add search/filters here later */}
 
-                {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                ) : (
-                    <div className="overflow-visible min-h-[400px]">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50/50">
+                <div className="overflow-visible min-h-[400px]">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50/50">
+                            <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Name
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Role
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {users.length === 0 ? (
                                 <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Name
-                                    </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Email
-                                    </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Role
-                                    </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Actions
-                                    </th>
+                                    <td colSpan="4" className="px-6 py-12 text-center text-sm text-gray-500">
+                                        <div className="flex flex-col items-center justify-center space-y-2">
+                                            <User className="h-8 w-8 text-gray-300" />
+                                            <p>No users found. Create one to get started.</p>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {users.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-12 text-center text-sm text-gray-500">
-                                            <div className="flex flex-col items-center justify-center space-y-2">
-                                                <User className="h-8 w-8 text-gray-300" />
-                                                <p>No users found. Create one to get started.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    currentUsers.map((user, index) => {
-                                        const isLastItems = index >= currentUsers.length - 2;
-                                        return (
-                                            <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="flex-shrink-0 h-10 w-10">
-                                                            <div className="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-white shadow-sm border border-primary-100">
-                                                                {(user.username || user.full_name || 'U').charAt(0).toUpperCase()}
-                                                            </div>
-                                                        </div>
-                                                        <div className="ml-4">
-                                                            <div className="text-sm font-medium text-gray-900">{user.username || user.full_name || 'N/A'}</div>
+                            ) : (
+                                currentUsers.map((user, index) => {
+                                    const isLastItems = index >= currentUsers.length - 2;
+                                    return (
+                                        <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-10 w-10">
+                                                        <div className="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-white shadow-sm border border-primary-100">
+                                                            {(user.username || user.full_name || 'U').charAt(0).toUpperCase()}
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center text-sm text-gray-500">
-                                                        <Mail className="mr-2 h-3.5 w-3.5 text-gray-400" />
-                                                        {user.email}
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-gray-900">{user.username || user.full_name || 'N/A'}</div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                        {getRoleName(user.roleId || user.role?.id || user.role)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
-                                                    <button
-                                                        onClick={() => setActiveActionId(activeActionId === user.id ? null : user.id)}
-                                                        className="text-gray-400 hover:text-primary transition-colors p-1 rounded-full hover:bg-primary-50 focus:outline-none"
-                                                    >
-                                                        <MoreVertical size={16} />
-                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center text-sm text-gray-500">
+                                                    <Mail className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                                                    {user.email}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                    {getRoleName(user.roleId || user.role?.id || user.role)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+                                                <button
+                                                    onClick={() => setActiveActionId(activeActionId === user.id ? null : user.id)}
+                                                    className="text-gray-400 hover:text-primary transition-colors p-1 rounded-full hover:bg-primary-50 focus:outline-none"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
 
-                                                    {/* Actions Dropdown */}
-                                                    {activeActionId === user.id && (
-                                                        <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-100 animate-in fade-in zoom-in duration-200 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'mt-2 origin-top-right'}`}>
-                                                            <div className="py-1">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        handleEditUser(user);
-                                                                        setActiveActionId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
-                                                                >
-                                                                    <Edit size={14} className="mr-2" />
-                                                                    Edit User
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                                                                            handleDeleteUser(user.id);
-                                                                        }
-                                                                        setActiveActionId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                                                >
-                                                                    <Trash2 size={14} className="mr-2" />
-                                                                    Delete User
-                                                                </button>
-                                                            </div>
+                                                {/* Actions Dropdown */}
+                                                {activeActionId === user.id && (
+                                                    <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-100 animate-in fade-in zoom-in duration-200 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'mt-2 origin-top-right'}`}>
+                                                        <div className="py-1">
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleEditUser(user);
+                                                                    setActiveActionId(null);
+                                                                }}
+                                                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+                                                            >
+                                                                <Edit size={14} className="mr-2" />
+                                                                Edit User
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                                                                        handleDeleteUser(user.id);
+                                                                    }
+                                                                    setActiveActionId(null);
+                                                                }}
+                                                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                            >
+                                                                <Trash2 size={14} className="mr-2" />
+                                                                Delete User
+                                                            </button>
                                                         </div>
-                                                    )}
+                                                    </div>
+                                                )}
 
-                                                    {/* Overlay to close dropdown when clicking outside */}
-                                                    {activeActionId === user.id && (
-                                                        <div
-                                                            className="fixed inset-0 z-40 bg-transparent"
-                                                            onClick={() => setActiveActionId(null)}
-                                                        />
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                                {/* Overlay to close dropdown when clicking outside */}
+                                                {activeActionId === user.id && (
+                                                    <div
+                                                        className="fixed inset-0 z-40 bg-transparent"
+                                                        onClick={() => setActiveActionId(null)}
+                                                    />
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
                 {/* Pagination */}
-                {users.length > itemsPerPage && (
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                        <div className="text-sm text-gray-500">
-                            Showing <span className="font-medium text-gray-900">{indexOfFirstItem + 1}</span> to <span className="font-medium text-gray-900">{Math.min(indexOfLastItem, users.length)}</span> of <span className="font-medium text-gray-900">{users.length}</span> results
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => paginate(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Previous
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => (
-                                <button
-                                    key={i + 1}
-                                    onClick={() => paginate(i + 1)}
-                                    className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === i + 1 ? 'bg-primary text-white border-primary' : 'text-gray-700 hover:bg-gray-50'}`}
-                                >
-                                    {i + 1}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => paginate(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    </div>
+                {users.length > 0 && (
+                    <Pagination
+                        page={currentPage - 1}
+                        pageSize={pageSize}
+                        total={users.length}
+                        onPageChange={(p) => setCurrentPage(p + 1)}
+                        onPageSizeChange={(s) => {
+                            setPageSize(s);
+                            setCurrentPage(1);
+                        }}
+                    />
                 )}
             </div>
 
@@ -363,7 +347,7 @@ const UsersPage = () => {
                 roles={roles}
                 user={editingUser}
             />
-        </div>
+        </div >
     );
 };
 

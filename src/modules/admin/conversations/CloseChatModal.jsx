@@ -23,7 +23,7 @@ const CloseChatModal = ({ isOpen, onClose, onConfirm, loading }) => {
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                     <h3 className="text-lg font-bold text-gray-900">Close Conversation</h3>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
                         disabled={loading}
@@ -77,11 +77,10 @@ const CloseChatModal = ({ isOpen, onClose, onConfirm, loading }) => {
                                                 key={reason}
                                                 type="button"
                                                 onClick={() => setReportReason(reason)}
-                                                className={`px-3 py-2 text-sm border rounded-lg transition-all text-left ${
-                                                    reportReason === reason
+                                                className={`px-3 py-2 text-sm border rounded-lg transition-all text-left ${reportReason === reason
                                                         ? 'bg-red-50 border-red-200 text-red-700 font-medium ring-1 ring-red-200'
                                                         : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 {reason}
                                             </button>
@@ -108,13 +107,12 @@ const CloseChatModal = ({ isOpen, onClose, onConfirm, loading }) => {
                         type="button"
                         onClick={handleSubmit}
                         disabled={loading || (reportUser && !reportReason)}
-                        className={`flex-1 rounded-xl h-11 text-white shadow-lg transition-all active:scale-95 ${
-                            reportUser ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                        }`}
+                        className={`flex-1 rounded-xl h-11 text-white shadow-lg transition-all active:scale-95 ${reportUser ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
                     >
                         {loading ? (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="loader-sm border-white"></span>
                                 <span>Processing...</span>
                             </div>
                         ) : (reportUser ? 'Report & Close' : 'Close Chat')}

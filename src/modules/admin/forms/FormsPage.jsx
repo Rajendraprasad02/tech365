@@ -4,6 +4,7 @@ import {
     Filter, ArrowUpDown, Calendar, ChevronRight,
     Eye, Edit, Trash2, Send, Code
 } from 'lucide-react';
+import CustomSelect from '../contacts/CustomSelect';
 import { useNavigate } from 'react-router-dom';
 import { getForms } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,15 @@ export default function FormsPage() {
             return 0;
         });
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Syncing form builder...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
             {/* Header Section */}
@@ -81,35 +91,31 @@ export default function FormsPage() {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <select
-                        className="h-11 px-4 bg-gray-50 border-transparent rounded-xl text-sm font-medium focus:ring-0 cursor-pointer"
+                    <CustomSelect
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                        <option value="all">All Status</option>
-                        <option value="published">Published</option>
-                        <option value="draft">Drafts</option>
-                    </select>
-                    <select
-                        className="h-11 px-4 bg-gray-50 border-transparent rounded-xl text-sm font-medium focus:ring-0 cursor-pointer"
+                        onChange={(val) => setStatusFilter(val)}
+                        className="h-11 px-4 min-w-[140px] border-transparent bg-gray-50 rounded-xl"
+                        options={[
+                            { value: 'all', label: 'All Status' },
+                            { value: 'published', label: 'Published' },
+                            { value: 'draft', label: 'Drafts' },
+                        ]}
+                    />
+                    <CustomSelect
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                    >
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="name">Alphabetical</option>
-                    </select>
+                        onChange={(val) => setSortBy(val)}
+                        className="h-11 px-4 min-w-[150px] border-transparent bg-gray-50 rounded-xl"
+                        options={[
+                            { value: 'newest', label: 'Newest First' },
+                            { value: 'oldest', label: 'Oldest First' },
+                            { value: 'name', label: 'Alphabetical' },
+                        ]}
+                    />
                 </div>
             </div>
 
             {/* Content Section */}
-            {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
-                    ))}
-                </div>
-            ) : filteredForms.length > 0 ? (
+            {filteredForms.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredForms.map((form) => (
                         <div

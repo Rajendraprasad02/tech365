@@ -11,6 +11,7 @@ import {
     updateKnowledgeGroup
 } from '../../../services/api';
 import KnowledgeDrawer from './KnowledgeDrawer';
+import Pagination from '@/components/ui/Pagination';
 
 export default function KnowledgeBasePage() {
     // State
@@ -22,7 +23,7 @@ export default function KnowledgeBasePage() {
     const [totalGroups, setTotalGroups] = useState(0);
     const [sortOrder, setSortOrder] = useState('newest');
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 9;
+    const [pageSize, setPageSize] = useState(9);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -80,12 +81,12 @@ export default function KnowledgeBasePage() {
 
     // Filter by search
     const filteredGroups = groups.filter(group => {
-        const matchesSearch = !searchQuery || 
+        const matchesSearch = !searchQuery ||
             group.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             group.content_preview?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             group.url?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory ? group.category === selectedCategory : true;
-        
+
         return matchesSearch && matchesCategory;
     });
 
@@ -103,10 +104,10 @@ export default function KnowledgeBasePage() {
         return 0;
     });
 
-    const totalPages = Math.ceil(sortedGroups.length / itemsPerPage);
+    const totalPages = Math.ceil(sortedGroups.length / pageSize);
     const paginatedGroups = sortedGroups.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
     );
 
     // Show delete confirmation
@@ -298,6 +299,15 @@ export default function KnowledgeBasePage() {
         );
     };
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Scanning knowledge base...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
@@ -354,11 +364,10 @@ export default function KnowledgeBasePage() {
                                             <button
                                                 key={cat}
                                                 onClick={() => setSelectedCategory(val)}
-                                                className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                                    selectedCategory === val 
-                                                        ? 'bg-violet-50 text-violet-700 font-medium' 
-                                                        : 'text-gray-600 hover:bg-gray-50'
-                                                }`}
+                                                className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedCategory === val
+                                                    ? 'bg-violet-50 text-violet-700 font-medium'
+                                                    : 'text-gray-600 hover:bg-gray-50'
+                                                    }`}
                                             >
                                                 {cat.replace('_', ' ')}
                                             </button>
@@ -379,7 +388,7 @@ export default function KnowledgeBasePage() {
                                     { val: 'priority_desc', label: 'Low Priority' }
                                 ].find(opt => opt.val === sortOrder)?.label}</span>
                             </div>
-                            
+
                             <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 transform origin-top-right">
                                 <div className="p-1.5 flex flex-col">
                                     {[
@@ -391,11 +400,10 @@ export default function KnowledgeBasePage() {
                                         <button
                                             key={option.val}
                                             onClick={() => setSortOrder(option.val)}
-                                            className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                                sortOrder === option.val 
-                                                    ? 'bg-violet-50 text-violet-700 font-medium' 
-                                                    : 'text-gray-600 hover:bg-gray-50'
-                                            }`}
+                                            className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${sortOrder === option.val
+                                                ? 'bg-violet-50 text-violet-700 font-medium'
+                                                : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
                                         >
                                             {option.label}
                                         </button>
@@ -410,147 +418,106 @@ export default function KnowledgeBasePage() {
                         Showing {sortedGroups.length} items
                     </div>
 
-                    {/* Grid Layout */}
                     <div className="flex-1 overflow-y-auto pr-2">
-                        {loading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="animate-spin h-8 w-8 text-violet-500" />
-                                <span className="ml-3 text-gray-500">Loading content...</span>
-                            </div>
-                        ) : sortedGroups.length > 0 ? (
+                        {sortedGroups.length > 0 ? (
                             <div className="flex flex-col h-full">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
-                                {paginatedGroups.map((item) => {
-                                    const catStyle = getCategoryStyle(item.category);
-                                    const CatIcon = catStyle.icon;
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
+                                    {paginatedGroups.map((item) => {
+                                        const catStyle = getCategoryStyle(item.category);
+                                        const CatIcon = catStyle.icon;
 
-                                    return (
-                                        <div
-                                            key={item.group_id}
-                                            className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all flex flex-col h-full cursor-pointer"
-                                            onClick={() => handleCardClick(item)}
-                                        >
-                                            <div className="p-5 flex flex-col h-full">
-                                                {/* Card Top: Category, Priority, Date, Delete */}
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        {item.category && (
-                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${catStyle.lightBg} ${catStyle.textColor}`}>
-                                                                <CatIcon size={12} />
-                                                                {item.category}
+                                        return (
+                                            <div
+                                                key={item.group_id}
+                                                className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all flex flex-col h-full cursor-pointer"
+                                                onClick={() => handleCardClick(item)}
+                                            >
+                                                <div className="p-5 flex flex-col h-full">
+                                                    {/* Card Top: Category, Priority, Date, Delete */}
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            {item.category && (
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${catStyle.lightBg} ${catStyle.textColor}`}>
+                                                                    <CatIcon size={12} />
+                                                                    {item.category}
+                                                                </span>
+                                                            )}
+                                                            {getPriorityBadge(item.priority)}
+                                                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                                                                <Calendar size={12} />
+                                                                {formatDate(item.created_at)}
                                                             </span>
-                                                        )}
-                                                        {getPriorityBadge(item.priority)}
-                                                        <span className="flex items-center gap-1 text-xs text-gray-400">
-                                                            <Calendar size={12} />
-                                                            {formatDate(item.created_at)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
-                                                            className="text-gray-400 hover:text-violet-600 p-1 rounded-md hover:bg-violet-50 transition-colors"
-                                                            title="Edit Item"
-                                                        >
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(item); }}
-                                                            className="text-gray-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 transition-colors"
-                                                            title="Delete Item"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* URL */}
-                                                {item.url && (
-                                                    isValidUrl(item.url) ? (
-                                                        <a
-                                                            href={getSafeUrl(item.url)}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-600 mb-2 truncate transition-colors w-fit"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <Globe size={12} />
-                                                            <span className="truncate max-w-[200px]">{getHostname(item.url)}</span>
-                                                            <ExternalLink size={10} />
-                                                        </a>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2 truncate w-fit">
-                                                            <Globe size={12} />
-                                                            <span className="truncate max-w-[200px]">{item.url}</span>
                                                         </div>
-                                                    )
-                                                )}
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
+                                                                className="text-gray-400 hover:text-violet-600 p-1 rounded-md hover:bg-violet-50 transition-colors"
+                                                                title="Edit Item"
+                                                            >
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteClick(item); }}
+                                                                className="text-gray-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 transition-colors"
+                                                                title="Delete Item"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
 
-                                                {/* Title */}
-                                                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2" title={item.title}>
-                                                    {item.title || 'Untitled'}
-                                                </h3>
+                                                    {/* URL */}
+                                                    {item.url && (
+                                                        isValidUrl(item.url) ? (
+                                                            <a
+                                                                href={getSafeUrl(item.url)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-600 mb-2 truncate transition-colors w-fit"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <Globe size={12} />
+                                                                <span className="truncate max-w-[200px]">{getHostname(item.url)}</span>
+                                                                <ExternalLink size={10} />
+                                                            </a>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2 truncate w-fit">
+                                                                <Globe size={12} />
+                                                                <span className="truncate max-w-[200px]">{item.url}</span>
+                                                            </div>
+                                                        )
+                                                    )}
 
-                                                {/* Content Preview */}
-                                                <p className="text-sm text-gray-500 leading-relaxed line-clamp-4 flex-1">
-                                                    {item.content_preview}
-                                                </p>
+                                                    {/* Title */}
+                                                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2" title={item.title}>
+                                                        {item.title || 'Untitled'}
+                                                    </h3>
+
+                                                    {/* Content Preview */}
+                                                    <p className="text-sm text-gray-500 leading-relaxed line-clamp-4 flex-1">
+                                                        {item.content_preview}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Pagination Controls */}
-                            {totalPages > 1 && (
-                                <div className="flex justify-center items-center gap-2 mt-8 pt-4 pb-8">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <ChevronLeft size={20} />
-                                    </button>
-                                    
-                                    <div className="flex items-center gap-1">
-                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                                            if (
-                                                page === 1 ||
-                                                page === totalPages ||
-                                                (page >= currentPage - 1 && page <= currentPage + 1)
-                                            ) {
-                                                return (
-                                                    <button
-                                                        key={page}
-                                                        onClick={() => setCurrentPage(page)}
-                                                        className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
-                                                            currentPage === page
-                                                                ? 'bg-violet-600 text-white shadow-md shadow-violet-200'
-                                                                : 'text-gray-600 hover:bg-gray-100'
-                                                        }`}
-                                                    >
-                                                        {page}
-                                                    </button>
-                                                );
-                                            } else if (
-                                                page === currentPage - 2 ||
-                                                page === currentPage + 2
-                                            ) {
-                                                return <span key={page} className="text-gray-400 px-1">...</span>;
-                                            }
-                                            return null;
-                                        })}
-                                    </div>
-
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <ChevronRight size={20} />
-                                    </button>
+                                        );
+                                    })}
                                 </div>
-                            )}
+
+                                {/* Pagination Controls */}
+                                {sortedGroups.length > 0 && (
+                                    <Pagination
+                                        page={currentPage - 1}
+                                        pageSize={pageSize}
+                                        total={sortedGroups.length}
+                                        onPageChange={(p) => setCurrentPage(p + 1)}
+                                        onPageSizeChange={(s) => {
+                                            setPageSize(s);
+                                            setCurrentPage(1);
+                                        }}
+                                        pageSizeOptions={[9, 18, 36, 90]}
+                                        className="mt-8 pt-4 pb-8"
+                                    />
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -648,11 +615,10 @@ export default function KnowledgeBasePage() {
                                             key={p.val}
                                             type="button"
                                             onClick={() => setAddForm({ ...addForm, priority: p.val })}
-                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${
-                                                addForm.priority === p.val 
-                                                    ? p.activeClass
-                                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
-                                            }`}
+                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${addForm.priority === p.val
+                                                ? p.activeClass
+                                                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                                                }`}
                                         >
                                             <span className={`font-bold text-sm ${addForm.priority === p.val ? '' : 'text-gray-600'}`}>
                                                 {p.label}
@@ -678,7 +644,7 @@ export default function KnowledgeBasePage() {
                                 disabled={addLoading}
                                 className="px-5 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {addLoading && <Loader2 size={16} className="animate-spin" />}
+                                {addLoading && <span className="loader-sm"></span>}
                                 {addLoading ? 'Adding...' : 'Save Entry'}
                             </button>
                         </div>
@@ -771,11 +737,10 @@ export default function KnowledgeBasePage() {
                                             key={p.val}
                                             type="button"
                                             onClick={() => setEditForm({ ...editForm, priority: p.val })}
-                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${
-                                                editForm.priority === p.val 
-                                                    ? p.activeClass
-                                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
-                                            }`}
+                                            className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all duration-200 ${editForm.priority === p.val
+                                                ? p.activeClass
+                                                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                                                }`}
                                         >
                                             <span className={`font-bold text-sm ${editForm.priority === p.val ? '' : 'text-gray-600'}`}>
                                                 {p.label}
@@ -801,7 +766,7 @@ export default function KnowledgeBasePage() {
                                 disabled={editLoading}
                                 className="px-5 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {editLoading && <Loader2 size={16} className="animate-spin" />}
+                                {editLoading && <span className="loader-sm"></span>}
                                 {editLoading ? 'Updating...' : 'Update Entry'}
                             </button>
                         </div>
@@ -841,7 +806,7 @@ export default function KnowledgeBasePage() {
                                 disabled={deleteLoading}
                                 className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                             >
-                                {deleteLoading && <Loader2 size={16} className="animate-spin" />}
+                                {deleteLoading && <span className="loader-sm"></span>}
                                 {deleteLoading ? 'Deleting...' : 'Delete'}
                             </button>
                         </div>

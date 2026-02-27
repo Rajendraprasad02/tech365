@@ -91,7 +91,9 @@ export default function Layout() {
 
                 <div className="flex-1 overflow-auto p-0">
                     {loading ? (
-                        <div className="flex items-center justify-center h-full">Loading...</div>
+                        <div className="loader-wrapper">
+                            <span className="loader"></span>
+                        </div>
                     ) : (
                         <Outlet context={{ allowedRoutes }} />
                     )}

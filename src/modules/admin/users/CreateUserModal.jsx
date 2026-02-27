@@ -205,7 +205,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                             disabled={loading}
                             className="min-w-[120px]"
                         >
-                            {loading ? 'Saving...' : (user ? 'Update User' : 'Create User')}
+                            {loading ? <span className="loader-sm"></span> : (user ? 'Update User' : 'Create User')}
                         </Button>
                     </div>
                 </form>

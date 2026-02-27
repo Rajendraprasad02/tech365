@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, CheckCircle } from 'lucide-react';
 
-export default function CustomSelect({ value, options, onChange, icon: Icon, placeholder = "Select..." }) {
+export default function CustomSelect({ value, options, onChange, icon: Icon, placeholder = "Select...", className = "", wrapperClassName = "" }) {
     const [isOpen, setIsOpen] = useState(false);
     const ref = useRef(null);
 
@@ -18,16 +18,17 @@ export default function CustomSelect({ value, options, onChange, icon: Icon, pla
     const selectedOption = options.find(o => o.value === value);
 
     return (
-        <div className="relative" ref={ref}>
+        <div className={`relative ${wrapperClassName}`} ref={ref}>
             <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-4 py-2.5 bg-white border rounded-lg shadow-sm transition-all duration-200 hover:border-violet-300 ${isOpen ? 'border-violet-500 ring-2 ring-violet-50/50' : 'border-gray-200'}`}
+                className={`flex items-center gap-2 bg-white border shadow-sm transition-all duration-200 hover:border-violet-300 ${isOpen ? 'border-violet-500 ring-2 ring-violet-50/50' : 'border-gray-200'} ${className || 'px-4 py-2.5 rounded-lg'}`}
             >
                 {Icon && <Icon size={16} className={`text-gray-400 ${isOpen ? 'text-violet-500' : ''}`} />}
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 truncate min-w-0">
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
-                <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ml-auto ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (

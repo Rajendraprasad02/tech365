@@ -142,7 +142,7 @@ export default function ChunkEditModal({
                         >
                             {isLoading ? (
                                 <>
-                                    <Loader2 size={16} className="animate-spin" />
+                                    <span className="loader-sm border-white"></span>
                                     <span>Re-embedding...</span>
                                 </>
                             ) : (

@@ -3,7 +3,8 @@ import {
     Users, Upload, FolderOpen, Clock, AlertCircle, Search,
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
     FileText, CheckCircle, XCircle, Download, Edit3, X, UserCheck,
-    ChevronDown, Filter, Tag, ArrowUpDown
+    ChevronDown, Filter, Tag, ArrowUpDown, Settings, Check,
+    ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
@@ -12,6 +13,7 @@ import { CircleFlag } from 'react-circle-flags';
 import parsePhoneNumber from 'libphonenumber-js';
 import api, { createContact } from '@/services/api';
 import CustomSelect from './CustomSelect';
+import Pagination from '@/components/ui/Pagination';
 
 // API base URL - still kept just in case of fallback, but api.js handles it
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -110,6 +112,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
     const [newContact, setNewContact] = useState({ phone_number: '', name: '' });
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [showPageSizeMenu, setShowPageSizeMenu] = useState(false);
 
     const fetchContacts = useCallback(async () => {
         try {
@@ -225,6 +228,15 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         );
     };
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading contacts...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-xl border border-gray-200 h-full flex flex-col">
             {/* Search & Filters */}
@@ -284,155 +296,112 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
 
             {/* Table */}
             <div className="flex-1 overflow-auto min-h-[530px] custom-scrollbar">
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
-                    </div>
-                ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 sticky top-0">
-                            <tr className="text-left text-xs font-medium text-gray-500 uppercase">
-                                <th className="px-6 py-3 text-left">Phone Number</th>
-                                <th className="px-6 py-3 text-left">Name</th>
-                                <th className="px-6 py-3 text-center">Status</th>
-                                <th className="px-6 py-3 text-center">Source</th>
-                                <th className="px-6 py-3 text-center">Product</th>
-                                <th className="px-6 py-3 text-center">Created</th>
-                                <th className="px-6 py-3 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {contacts.length > 0 ? contacts.map((contact) => {
-                                // Derive country code (ISO alpha-2) from phone number for CircleFlag
-                                const getCountryCode = (phoneNumber) => {
-                                    try {
-                                        const parsed = parsePhoneNumber(phoneNumber);
-                                        if (parsed && parsed.country) return parsed.country.toLowerCase();
-                                    } catch (e) { /* ignore */ }
-                                    return null;
-                                };
-                                const countryIso = getCountryCode(contact.phone_number);
-                                return (
-                                    <tr key={contact.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium text-gray-600">
-                                                    <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
-                                                        {countryIso ? (
-                                                            <CircleFlag countryCode={countryIso} height={16} />
-                                                        ) : (
-                                                            <Globe size={16} className="text-gray-400" />
-                                                        )}
-                                                    </div>
-                                                    {contact.country_code && <span>{contact.country_code}</span>}
+                <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                        <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-left">Phone Number</th>
+                            <th className="px-6 py-3 text-left">Name</th>
+                            <th className="px-6 py-3 text-center">Status</th>
+                            <th className="px-6 py-3 text-center">Source</th>
+                            <th className="px-6 py-3 text-center">Product</th>
+                            <th className="px-6 py-3 text-center">Created</th>
+                            <th className="px-6 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {contacts.length > 0 ? contacts.map((contact) => {
+                            // Derive country code (ISO alpha-2) from phone number for CircleFlag
+                            const getCountryCode = (phoneNumber) => {
+                                try {
+                                    const parsed = parsePhoneNumber(phoneNumber);
+                                    if (parsed && parsed.country) return parsed.country.toLowerCase();
+                                } catch (e) { /* ignore */ }
+                                return null;
+                            };
+                            const countryIso = getCountryCode(contact.phone_number);
+                            return (
+                                <tr key={contact.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium text-gray-600">
+                                                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                    {countryIso ? (
+                                                        <CircleFlag countryCode={countryIso} height={16} />
+                                                    ) : (
+                                                        <Globe size={16} className="text-gray-400" />
+                                                    )}
                                                 </div>
-                                                <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number}</span>
+                                                {contact.country_code && <span>{contact.country_code}</span>}
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
-                                        <td className="px-6 py-3 text-center">
-                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
-                                                contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
-                                                    contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-orange-100 text-orange-700'
-                                                }`}>
-                                                {contact.status}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-center">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${(contact.source && contact.source.toLowerCase().includes('lead'))
-                                                ? 'bg-blue-100 text-blue-700'
-                                                : 'text-gray-500 bg-gray-50'
-                                                }`}>
-                                                <FileText size={12} />
-                                                {contact.source || 'Manual'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-center text-gray-600 font-medium">
-                                            {contact.product || '-'}
-                                        </td>
-                                        <td className="px-6 py-3 text-gray-500 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <Calendar size={13} />
-                                                {formatDate(contact.created_at)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-center">
-                                            <button
-                                                onClick={() => confirmDelete(contact)}
-                                                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
-                                                title="Delete Contact"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            }) : (
-                                <tr>
-                                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                                        No contacts found
+                                            <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
+                                    <td className="px-6 py-3 text-center">
+                                        <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                            contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-orange-100 text-orange-700'
+                                            }`}>
+                                            {contact.status}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-3 text-center">
+                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${(contact.source && contact.source.toLowerCase().includes('lead'))
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-500 bg-gray-50'
+                                            }`}>
+                                            <FileText size={12} />
+                                            {contact.source || 'Manual'}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-3 text-center text-gray-600 font-medium">
+                                        {contact.product || '-'}
+                                    </td>
+                                    <td className="px-6 py-3 text-gray-500 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <Calendar size={13} />
+                                            {formatDate(contact.created_at)}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-3 text-center">
+                                        <button
+                                            onClick={() => confirmDelete(contact)}
+                                            className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                            title="Delete Contact"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                )}
+                            );
+                        }) : (
+                            <tr>
+                                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                    No contacts found
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
-            {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
-                    <span className="flex items-center gap-2">
-                        Show
-                        <select
-                            value={pageSize}
-                            onChange={(e) => setPageSize(Number(e.target.value))}
-                            className="bg-white border border-gray-200 rounded px-2 py-1 outline-none focus:border-violet-300 transition-colors"
-                        >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                        </select>
-                        per page
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span>
-                        Showing {Math.min(stats.total, page * pageSize + 1)} - {Math.min(stats.total, (page + 1) * pageSize)} of {stats.total}
-                    </span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => setPage(p => Math.max(0, p - 1))}
-                        disabled={page === 0}
-                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                        <ChevronDown size={20} className="rotate-90" />
-                    </button>
-
-                    <div className="flex items-center px-4">
-                        <span className="text-sm font-bold text-gray-700">Page {page + 1}</span>
-                        <span className="text-gray-300 mx-2">/</span>
-                        <span className="text-sm text-gray-400 font-medium">{Math.ceil(stats.total / pageSize) || 1}</span>
-                    </div>
-
-                    <button
-                        onClick={() => setPage(p => p + 1)}
-                        disabled={contacts.length < pageSize || (page + 1) * pageSize >= stats.total}
-                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                        <ChevronDown size={20} className="-rotate-90" />
-                    </button>
-                </div>
-            </div>
+            {/* Pagination Component - Enterprise Grade */}
+            <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={stats.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(0);
+                }}
+            />
 
             {/* Add Contact Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-[420px] shadow-xl">
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] p-8 w-full max-w-[440px] shadow-2xl shadow-black/20 animate-in zoom-in-95 duration-300">
                         <div className="flex justify-between items-center mb-5">
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900">Add New Contact</h3>
@@ -520,10 +489,12 @@ function UploadTab() {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
+    const [duplicateStrategy, setDuplicateStrategy] = useState('skip');
+    const [error, setError] = useState(null);
 
     const steps = [
         { num: 1, label: 'Upload File' },
-        { num: 2, label: 'Map Columns' },
+        { num: 2, label: 'Settings' },
         { num: 3, label: 'Validation' },
         { num: 4, label: 'Confirm' },
     ];
@@ -534,67 +505,123 @@ function UploadTab() {
         e.preventDefault();
         setIsDragging(false);
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile && (droppedFile.name.endsWith('.csv') || droppedFile.name.endsWith('.xlsx'))) {
-            setFile(droppedFile);
-            setCurrentStep(2);
-        }
+        validateAndSetFile(droppedFile);
     };
     const handleFileSelect = (e) => {
         const selectedFile = e.target.files[0];
-        if (selectedFile) { setFile(selectedFile); setCurrentStep(2); }
+        validateAndSetFile(selectedFile);
+    };
+
+    const validateAndSetFile = (selectedFile) => {
+        if (!selectedFile) return;
+
+        setError(null);
+        const fileName = selectedFile.name.toLowerCase();
+
+        // 1. File Type Validation
+        if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx')) {
+            setError("Only .csv and .xlsx files are allowed.");
+            return;
+        }
+
+        // 2. File Size Validation (5MB)
+        if (selectedFile.size > 5 * 1024 * 1024) {
+            setError("File size exceeds 5MB limit.");
+            return;
+        }
+
+        setFile(selectedFile);
+        setCurrentStep(2);
     };
 
     const handleUpload = async () => {
         if (!file) return;
         setIsUploading(true);
+        setError(null);
         try {
             const formData = new FormData();
             formData.append('file', file);
-            // Send uploader identity from localStorage
+            formData.append('duplicate_strategy', duplicateStrategy);
+
             const userName = localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'admin';
             formData.append('uploaded_by', userName);
+
             const result = await api.bulkImportContacts(formData);
-            setUploadResult(result);
-            setCurrentStep(4);
+
+            if (result.success === false) {
+                setError(result.message);
+                setCurrentStep(3); // Stay/Go back to validation step to show error
+            } else {
+                setUploadResult(result);
+                setCurrentStep(4);
+            }
         } catch (error) {
             console.error('Upload error:', error);
+            setError(error.message || "Failed to upload file");
         } finally {
             setIsUploading(false);
         }
     };
 
-    const resetUpload = () => { setFile(null); setCurrentStep(1); setUploadResult(null); };
+    const resetUpload = () => {
+        setFile(null);
+        setCurrentStep(1);
+        setUploadResult(null);
+        setError(null);
+    };
+
+    const handleDownloadErrorReport = () => {
+        if (!uploadResult?.import_id) return;
+        const baseUrl = (import.meta.env.VITE_DATA_API_URL || '').replace(/\/+$/, '');
+        window.location.href = `${baseUrl}/contacts/import-history/${uploadResult.import_id}/download`;
+    };
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Upload Contacts</h2>
-            <p className="text-gray-500 mb-8">Bulk upload phone numbers via CSV or Excel files</p>
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-1">Upload Contacts</h2>
+                    <p className="text-gray-500">Bulk upload phone numbers via CSV or Excel files</p>
+                </div>
+                {currentStep === 1 && (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => api.downloadContactTemplate('csv')}
+                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <Download size={14} /> Download CSV Template
+                        </button>
+                        <button
+                            onClick={() => api.downloadContactTemplate('xlsx')}
+                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <Download size={14} /> Download Excel Template
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Steps Indicator */}
-            <div className="flex items-start mb-8 px-4">
+            <div className="flex items-start mb-8 px-4 max-w-2xl mx-auto">
                 {steps.map((step, idx) => (
                     <div key={step.num} className="flex-1 flex flex-col">
                         <div className="flex items-center">
-                            {/* Circle */}
                             <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${currentStep >= step.num
-                                    ? 'bg-violet-100 text-violet-600 border-2 border-violet-300'
-                                    : 'bg-white text-gray-400 border-2 border-gray-200'
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 transition-colors ${currentStep >= step.num
+                                    ? 'bg-violet-600 text-white'
+                                    : 'bg-gray-100 text-gray-400 border border-gray-200'
                                     }`}
                             >
                                 {step.num}
                             </div>
-                            {/* Line (except for last step) */}
                             {idx < steps.length - 1 && (
                                 <div
-                                    className={`flex-1 ml-2 shrink-0 ${currentStep > step.num ? 'bg-violet-300' : 'bg-gray-200'
+                                    className={`flex-1 ml-2 shrink-0 h-[2px] ${currentStep > step.num ? 'bg-violet-600' : 'bg-gray-100'
                                         }`}
-                                    style={{ height: '1px', minWidth: '20px' }}
                                 />
                             )}
                         </div>
-                        {/* Label */}
-                        <span className={`text-xs mt-2 font-medium ${currentStep >= step.num ? 'text-gray-700' : 'text-gray-400'
+                        <span className={`text-[10px] uppercase tracking-wider mt-2 font-bold ${currentStep >= step.num ? 'text-violet-600' : 'text-gray-400'
                             }`}>
                             {step.label}
                         </span>
@@ -604,90 +631,280 @@ function UploadTab() {
 
             {currentStep === 1 && (
                 <div
-                    className="bg-white rounded-xl p-8 mx-auto"
-                    style={{ border: '1px solid #e5e7eb', maxWidth: '550px' }}
+                    className="bg-white rounded-2xl p-10 mx-auto"
+                    style={{ border: '1px solid #f1f3f5', maxWidth: '600px', boxShadow: '0 10px 30px -15px rgba(0,0,0,0.05)' }}
                 >
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">Upload Your File</h3>
-                    <p className="text-gray-400 text-sm mb-8">Drag and drop or click to select a CSV or Excel file</p>
+                    <div className="text-center mb-8">
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">Upload Your File</h3>
+                        <p className="text-gray-400 text-sm italic">Please use our system template for successful import</p>
+                    </div>
+
                     <div
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        className={`rounded-lg transition-colors cursor-pointer ${isDragging ? 'bg-violet-50' : 'bg-white'
+                        onClick={() => document.getElementById('file-upload').click()}
+                        className={`rounded-2xl transition-all cursor-pointer group flex flex-col items-center justify-center text-center p-12 ${isDragging ? 'bg-violet-50 border-violet-400 scale-[0.99]' : 'bg-gray-50/50 border-gray-200 hover:bg-gray-50 hover:border-violet-300'
                             }`}
-                        style={{
-                            border: isDragging ? '2px dashed #a78bfa' : '2px dashed #d1d5db',
-                            borderRadius: '8px',
-                            padding: '48px 24px'
-                        }}
+                        style={{ border: '2px dashed #e2e8f0' }}
                     >
-                        <div className="flex flex-col items-center justify-center text-center">
-                            <Upload size={36} className="text-gray-400 mb-5" strokeWidth={1.5} />
-                            <p className="text-lg font-bold text-gray-700 mb-2">Drop your file here</p>
-                            <p className="text-gray-400 text-sm mb-6">
-                                or <label className="text-violet-500 cursor-pointer hover:underline">
-                                    click to browse
-                                    <input type="file" accept=".csv,.xlsx" onChange={handleFileSelect} className="hidden" />
-                                </label>
-                            </p>
-                            <div className="flex items-center gap-6 text-sm text-gray-400">
-                                <div className="flex items-center gap-2">
-                                    <FileText size={16} /> CSV
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <FileText size={16} /> XLSX
-                                </div>
+                        <input id="file-upload" type="file" accept=".csv,.xlsx" onChange={handleFileSelect} className="hidden" />
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-colors ${isDragging ? 'bg-violet-200 text-violet-700' : 'bg-white text-gray-400 group-hover:text-violet-500 shadow-sm'}`}>
+                            <Upload size={32} strokeWidth={1.5} />
+                        </div>
+                        <p className="text-lg font-bold text-gray-700 mb-1">Click to browse or drop file here</p>
+                        <p className="text-gray-400 text-sm mb-6 max-w-[240px]">Support CSV and XLSX files. Max file size 5MB.</p>
+
+                        <div className="flex items-center gap-8 py-3 px-6 bg-white rounded-full shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                <div className="w-2 h-2 rounded-full bg-green-400"></div> .CSV
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                <div className="w-2 h-2 rounded-full bg-blue-400"></div> .XLSX
                             </div>
                         </div>
                     </div>
+
+                    {error && (
+                        <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle size={18} className="shrink-0" />
+                            <p className="font-medium">{error}</p>
+                        </div>
+                    )}
                 </div>
             )}
 
             {currentStep === 2 && (
-                <div className="space-y-6">
-                    <div className="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <FileText size={24} className="text-gray-400" />
-                            <div><p className="font-medium">{file?.name}</p><p className="text-sm text-gray-500">{(file?.size / 1024).toFixed(1)} KB</p></div>
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm text-violet-500">
+                                <FileText size={24} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900">{file?.name}</p>
+                                <p className="text-sm text-gray-500 font-medium">{(file?.size / 1024).toFixed(1)} KB • {file?.name.split('.').pop().toUpperCase()}</p>
+                            </div>
                         </div>
-                        <button onClick={resetUpload} className="text-red-500 text-sm">Remove</button>
+                        <button onClick={resetUpload} className="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors">Discard</button>
                     </div>
 
-                    <div className="flex justify-end gap-3">
-                        <button onClick={resetUpload} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-                        <button onClick={() => setCurrentStep(3)} className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600">Continue</button>
-                    </div>
-                </div>
-            )}
+                    <div className="bg-white p-8 rounded-2xl border border-gray-100 space-y-6">
+                        <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <Settings size={20} className="text-violet-500" /> Import Settings
+                        </h4>
 
-            {currentStep === 3 && (
-                <div className="space-y-6">
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-green-700"><CheckCircle size={20} /><p className="font-medium">File validated successfully</p></div>
-                        <p className="text-sm text-green-600 mt-1">Ready to import contacts from {file?.name}</p>
+                        <div className="space-y-4">
+                            <label className="block">
+                                <span className="text-sm font-bold text-gray-700 block mb-2">Duplicate Handling Strategy</span>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['skip', 'update', 'reject'].map(strategy => (
+                                        <button
+                                            key={strategy}
+                                            onClick={() => setDuplicateStrategy(strategy)}
+                                            className={`py-3 px-4 rounded-xl border text-sm font-bold capitalize transition-all ${duplicateStrategy === strategy
+                                                ? 'bg-violet-50 border-violet-500 text-violet-600'
+                                                : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                        >
+                                            {strategy}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-3 italic">
+                                    {duplicateStrategy === 'skip' && '• Ignore existing contacts and only import new ones.'}
+                                    {duplicateStrategy === 'update' && '• Update existing contact details if phone number matches.'}
+                                    {duplicateStrategy === 'reject' && '• Reject the entire row if contact already exists.'}
+                                </p>
+                            </label>
+                        </div>
                     </div>
-                    <div className="flex justify-end gap-3">
-                        <button onClick={() => setCurrentStep(2)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Back</button>
-                        <button onClick={handleUpload} disabled={isUploading} className="px-6 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50">
-                            {isUploading ? 'Importing...' : 'Start Import'}
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button onClick={resetUpload} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                        <button
+                            onClick={async () => {
+                                setIsUploading(true);
+                                setError(null);
+                                try {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    formData.append('duplicate_strategy', duplicateStrategy);
+                                    formData.append('dry_run', 'true');
+
+                                    const result = await api.bulkImportContacts(formData);
+                                    if (result.success && result.failed_count === 0) {
+                                        setCurrentStep(3);
+                                    } else if (result.success && result.failed_count > 0) {
+                                        setError(`File contains ${result.failed_count} invalid records. Please fix them.`);
+                                        setUploadResult(result);
+                                        setCurrentStep(3);
+                                    } else {
+                                        setError(result.message || "Template validation failed");
+                                        setCurrentStep(3);
+                                    }
+                                } catch (err) {
+                                    setError(err.message || "Connection error during validation");
+                                    setCurrentStep(3);
+                                } finally {
+                                    setIsUploading(false);
+                                }
+                            }}
+                            disabled={isUploading}
+                            className="px-8 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 shadow-lg shadow-violet-200 transition-all active:scale-95 flex items-center gap-2"
+                        >
+                            {isUploading && <span className="loader-sm"></span>}
+                            {isUploading ? 'Validating...' : 'Continue'}
                         </button>
                     </div>
                 </div>
             )}
 
+            {currentStep === 3 && (
+                <div className="max-w-2xl mx-auto space-y-6">
+                    {error ? (
+                        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl text-center space-y-4 animate-in zoom-in duration-300">
+                            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <AlertCircle size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-red-800">Validation Failed</h3>
+                            <p className="text-red-600 font-medium">{error}</p>
+
+                            {uploadResult?.errors && uploadResult.errors.length > 0 && (
+                                <div className="mt-4 p-4 bg-white/50 rounded-xl text-left border border-red-100 max-h-48 overflow-auto">
+                                    <p className="text-xs font-bold text-red-800 uppercase mb-2">Detailed Errors:</p>
+                                    <ul className="space-y-1">
+                                        {uploadResult.errors.map((err, i) => (
+                                            <li key={i} className="text-xs text-red-700">
+                                                <strong>Row {err.row}:</strong> {err.error}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            <div className="pt-4 flex justify-center gap-4">
+                                <button onClick={() => { setError(null); setCurrentStep(1); }} className="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors">Re-upload File</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-8 bg-green-50 border border-green-200 rounded-3xl text-center space-y-4 animate-in zoom-in duration-300">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <CheckCircle size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-green-800">Ready to Import</h3>
+                            <p className="text-green-600 font-medium">Your file has passed basic checks. Click below to start the final import process.</p>
+
+                            <div className="flex flex-col items-center gap-2 pt-6">
+                                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Selected Mode</div>
+                                <div className="px-4 py-1.5 bg-white border border-green-200 rounded-full text-sm font-black text-green-700 shadow-sm uppercase">
+                                    Strategy: {duplicateStrategy}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!error && (
+                        <div className="flex justify-end gap-3 pt-4">
+                            <button onClick={() => setCurrentStep(2)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Back</button>
+                            <button
+                                onClick={handleUpload}
+                                disabled={isUploading}
+                                className="px-10 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 shadow-lg shadow-violet-200 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2"
+                            >
+                                {isUploading && <span className="loader-sm"></span>}
+                                {isUploading ? 'Processing...' : 'Run Import Now'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {currentStep === 4 && uploadResult && (
-                <div className="space-y-6">
-                    <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
-                        <CheckCircle size={48} className="text-green-500 mx-auto mb-3" />
-                        <h3 className="text-xl font-semibold text-green-700 mb-2">Import Completed!</h3>
-                        <div className="flex items-center justify-center gap-6 text-sm">
-                            <div className="text-green-600">✓ {uploadResult.success} imported</div>
-                            <div className="text-orange-500">⚠ {uploadResult.duplicates} duplicates</div>
-                            <div className="text-red-500">✗ {uploadResult.invalid} failed</div>
+                <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
+                    <div className="bg-gradient-to-br from-violet-600 to-indigo-700 p-10 rounded-[2rem] text-white shadow-2xl shadow-violet-200 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-400/20 rounded-full -ml-32 -mb-32 blur-3xl"></div>
+
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center mb-6 border border-white/30">
+                                <CheckCircle size={40} className="text-white" />
+                            </div>
+                            <h3 className="text-3xl font-black mb-2">Import Finished!</h3>
+                            <p className="text-violet-100 font-medium mb-8">Summary of your contact bulk import</p>
+
+                            <div className="grid grid-cols-4 gap-4 w-full">
+                                {[
+                                    { label: 'Total', value: uploadResult.total, color: 'text-white' },
+                                    { label: 'Success', value: uploadResult.success_count, color: 'text-green-300' },
+                                    { label: 'Duplicates', value: uploadResult.duplicate_count, color: 'text-orange-200' },
+                                    { label: 'Failed', value: uploadResult.failed_count, color: 'text-red-300' }
+                                ].map(stat => (
+                                    <div key={stat.label} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                                        <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
+                                        <div className="text-[10px] uppercase font-bold text-white/60 tracking-widest mt-1">{stat.label}</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <div className="flex justify-center">
-                        <button onClick={resetUpload} className="px-6 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600">Upload Another</button>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h4 className="text-lg font-bold text-gray-800">Detailed Report</h4>
+                            {uploadResult.failed_count > 0 && (
+                                <button
+                                    onClick={handleDownloadErrorReport}
+                                    className="flex items-center gap-2 text-violet-600 font-bold text-sm hover:underline"
+                                >
+                                    <Download size={16} /> Download Full Error Log
+                                </button>
+                            )}
+                        </div>
+
+                        {uploadResult.errors && uploadResult.errors.length > 0 ? (
+                            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50/50">
+                                        <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400">
+                                            <th className="py-3 px-6">Row</th>
+                                            <th className="py-3 px-6">Item</th>
+                                            <th className="py-3 px-6">Reason for Failure</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {uploadResult.errors.map((err, i) => (
+                                            <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="py-4 px-6 text-sm font-bold text-gray-400">#{err.row}</td>
+                                                <td className="py-4 px-6 text-sm font-bold text-gray-700">{err.phone || err.email || 'Data'}</td>
+                                                <td className="py-4 px-6 text-sm font-medium text-red-500">{err.error}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {uploadResult.failed_count > uploadResult.errors.length && (
+                                    <div className="p-4 text-center bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        + {uploadResult.failed_count - uploadResult.errors.length} more errors in the full report
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
+                                <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Check size={24} />
+                                </div>
+                                <p className="font-bold text-gray-700">Perfect Import!</p>
+                                <p className="text-sm text-gray-400 max-w-[200px] mx-auto">No validation errors were found in your file.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-center pt-4">
+                        <button
+                            onClick={resetUpload}
+                            className="px-10 py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-black transition-all shadow-xl shadow-gray-200 active:scale-95"
+                        >
+                            Upload Another File
+                        </button>
                     </div>
                 </div>
             )}
@@ -889,7 +1106,7 @@ function ListsGroupsTab() {
 
                 {/* Contacts Table */}
                 {listLoading ? (
-                    <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>
+                    <div className="loader-wrapper"><span className="loader"></span></div>
                 ) : listContacts.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -912,44 +1129,45 @@ function ListsGroupsTab() {
                                         } catch (e) { return null; }
                                     })();
                                     return (
-                                    <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                                        <td className="py-3 px-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs">
-                                                    {(contact.name || 'U')[0].toUpperCase()}
+                                        <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-3 px-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs">
+                                                        {(contact.name || 'U')[0].toUpperCase()}
+                                                    </div>
+                                                    <span className="font-medium text-gray-900 text-sm">{contact.name || 'Unknown'}</span>
                                                 </div>
-                                                <span className="font-medium text-gray-900 text-sm">{contact.name || 'Unknown'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-3 text-sm text-gray-600 font-mono">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
-                                                    {parsedCountry ? (
-                                                        <CircleFlag countryCode={parsedCountry} height={16} />
-                                                    ) : (
-                                                        <Globe size={16} className="text-gray-400" />
-                                                    )}
+                                            </td>
+                                            <td className="py-3 px-3 text-sm text-gray-600 font-mono">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
+                                                        {parsedCountry ? (
+                                                            <CircleFlag countryCode={parsedCountry} height={16} />
+                                                        ) : (
+                                                            <Globe size={16} className="text-gray-400" />
+                                                        )}
+                                                    </div>
+                                                    {contact.phone_number}
                                                 </div>
-                                                {contact.phone_number}
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-3">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
-                                                contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
-                                                    'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {contact.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-3 text-sm text-gray-500 capitalize">{contact.source}</td>
-                                        <td className="py-3 px-3 text-sm text-gray-400">{contact.created_at ? new Date(contact.created_at).toLocaleDateString() : '-'}</td>
-                                        <td className="py-3 px-3 text-right">
-                                            <button onClick={() => handleRemoveContact(contact.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50" title="Remove from list">
-                                                <X size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )})}
+                                            </td>
+                                            <td className="py-3 px-3">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                                    contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
+                                                        'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {contact.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-3 text-sm text-gray-500 capitalize">{contact.source}</td>
+                                            <td className="py-3 px-3 text-sm text-gray-400">{contact.created_at ? new Date(contact.created_at).toLocaleDateString() : '-'}</td>
+                                            <td className="py-3 px-3 text-right">
+                                                <button onClick={() => handleRemoveContact(contact.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50" title="Remove from list">
+                                                    <X size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -1008,27 +1226,28 @@ function ListsGroupsTab() {
                                         } catch (e) { return null; }
                                     })();
                                     return (
-                                    <label key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
-                                        <input type="checkbox" checked={selectedContactIds.includes(c.id)} onChange={() => toggleContactSelection(c.id)}
-                                            className="rounded border-gray-300 text-violet-500 focus:ring-violet-500" />
-                                        <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs flex-shrink-0">
-                                            {(c.name || 'U')[0].toUpperCase()}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm text-gray-900 truncate">{c.name || 'Unknown'}</div>
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                <div className="w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0">
-                                                    {parsedCountry ? (
-                                                        <CircleFlag countryCode={parsedCountry} height={14} />
-                                                    ) : (
-                                                        <Globe size={14} className="text-gray-400" />
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-gray-500 font-mono">{c.phone_number}</div>
+                                        <label key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
+                                            <input type="checkbox" checked={selectedContactIds.includes(c.id)} onChange={() => toggleContactSelection(c.id)}
+                                                className="rounded border-gray-300 text-violet-500 focus:ring-violet-500" />
+                                            <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-medium text-xs flex-shrink-0">
+                                                {(c.name || 'U')[0].toUpperCase()}
                                             </div>
-                                        </div>
-                                    </label>
-                                )}) : (
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm text-gray-900 truncate">{c.name || 'Unknown'}</div>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <div className="w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0">
+                                                        {parsedCountry ? (
+                                                            <CircleFlag countryCode={parsedCountry} height={14} />
+                                                        ) : (
+                                                            <Globe size={14} className="text-gray-400" />
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 font-mono">{c.phone_number}</div>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    )
+                                }) : (
                                     <div className="text-center py-8 text-gray-400 text-sm">No contacts available to add</div>
                                 )}
                             </div>
@@ -1065,6 +1284,15 @@ function ListsGroupsTab() {
         );
     }
 
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading lists...</p>
+            </div>
+        );
+    }
+
     // ---- List Grid View (default) ----
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -1078,9 +1306,7 @@ function ListsGroupsTab() {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>
-            ) : lists.length > 0 ? (
+            {lists.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {lists.map((list) => (
                         <div key={list.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer group"
@@ -1254,7 +1480,7 @@ function ImportHistoryTab() {
             )}
 
             {loading ? (
-                <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>
+                <div className="loader-wrapper"><span className="loader"></span></div>
             ) : (
                 <table className="w-full">
                     <thead className="bg-gray-50">
@@ -1343,7 +1569,7 @@ function InvalidFailedTab() {
             <p className="text-gray-500 mb-6">Review and manage contacts that failed validation</p>
 
             {loading ? (
-                <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>
+                <div className="loader-wrapper"><span className="loader"></span></div>
             ) : contacts.length > 0 ? (
                 <table className="w-full">
                     <thead className="bg-gray-50">

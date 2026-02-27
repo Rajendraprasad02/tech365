@@ -2,13 +2,13 @@ import React from 'react';
 import { X, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { Button } from './button';
 
-const ConfirmationModal = ({ 
-    isOpen, 
-    onClose, 
-    onConfirm, 
-    title = 'Confirm Action', 
-    message = 'Are you sure you want to proceed?', 
-    confirmText = 'Confirm', 
+const ConfirmationModal = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    title = 'Confirm Action',
+    message = 'Are you sure you want to proceed?',
+    confirmText = 'Confirm',
     cancelText = 'Cancel',
     type = 'info', // 'info', 'success', 'warning', 'danger'
     loading = false,
@@ -57,7 +57,7 @@ const ConfirmationModal = ({
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
                         disabled={loading}
@@ -103,8 +103,8 @@ const ConfirmationModal = ({
                         className={`flex-1 rounded-xl h-11 text-white shadow-lg ${styles.button} transition-all active:scale-95`}
                     >
                         {loading ? (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="loader-sm border-white"></span>
                                 <span>Processing...</span>
                             </div>
                         ) : confirmText}

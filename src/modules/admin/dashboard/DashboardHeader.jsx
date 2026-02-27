@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Bell, ChevronDown, Building2, Plus, User, Users, CreditCard, LogOut, BarChart3, PieChart, TrendingUp, Clock, MessageCircle, Send, X } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 // Dashboard sections that can be searched
 const dashboardSections = [
@@ -14,6 +16,8 @@ const dashboardSections = [
 ];
 
 export default function DashboardHeader({ onNavigate, onScrollToSection }) {
+    const { user, logout, role } = useAuth();
+    const navigate = useNavigate();
     // Workspaces state (local - no API available)
     const [workspacesList, setWorkspacesList] = useState([
         { id: 1, name: 'Default Workspace', icon: '🏢' }
@@ -27,11 +31,12 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
     const [notificationsList, setNotificationsList] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
 
-    // User state (no API - using localStorage or default)
-    const [currentUser] = useState(() => {
-        const stored = localStorage.getItem('currentUser');
-        return stored ? JSON.parse(stored) : { name: 'User', initials: 'U', role: 'Admin' };
-    });
+    // User state (using useAuth user)
+    const currentUser = {
+        name: user?.username || 'User',
+        initials: (user?.username || 'U').charAt(0).toUpperCase(),
+        role: role?.name || 'Admin'
+    };
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     // Search state
@@ -142,11 +147,10 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
         setShowUserMenu(false);
         switch (action) {
             case 'profile':
-            case 'team':
-            case 'billing':
+                navigate('/profile');
                 break;
             case 'signout':
-                localStorage.removeItem('currentUser');
+                logout();
                 break;
             default:
                 break;
@@ -316,9 +320,10 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
                         <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
                             <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">My Account</div>
                             <div className="py-1">
-                                <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 text-gray-700" onClick={() => handleMenuAction('profile')}><User size={16} className="text-gray-500" /><span className="text-sm">Profile</span></div>
-                                <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 text-gray-700" onClick={() => handleMenuAction('team')}><Users size={16} className="text-gray-500" /><span className="text-sm">Team Members</span></div>
-                                <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 text-gray-700" onClick={() => handleMenuAction('billing')}><CreditCard size={16} className="text-gray-500" /><span className="text-sm">Billing</span></div>
+                                <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 text-gray-700 font-medium" onClick={() => handleMenuAction('profile')}>
+                                    <User size={16} className="text-gray-500" />
+                                    <span className="text-sm">Profile</span>
+                                </div>
                             </div>
                             <div className="border-t border-gray-100 mt-1 pt-1">
                                 <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-red-50 text-red-500" onClick={() => handleMenuAction('signout')}><LogOut size={16} /><span className="text-sm">Sign out</span></div>

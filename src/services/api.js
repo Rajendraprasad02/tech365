@@ -24,7 +24,7 @@ const handleResponse = async (response, isNestJS = false) => {
         if (response.status === 401) {
             localStorage.removeItem('token');
             if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
+                window.location.href = '/#/login';
             }
             throw new Error('Unauthorized - logging out');
         }
@@ -175,9 +175,17 @@ export async function closeConversation(sessionId, data) {
 
 // Reopen a closed session
 export async function reopenConversation(sessionId, data) {
-    return fetchDataApi(`/session/${sessionId}/reopen`, {
+    return fetchDataApi(`/conversations/${sessionId}/reopen`, {
         method: 'POST',
         body: JSON.stringify(data)
+    });
+}
+
+// Unspam a reported user/session
+export async function unspamUser(sessionId, agentId) {
+    return fetchDataApi(`/conversations/${sessionId}/unspam`, {
+        method: 'POST',
+        body: JSON.stringify({ agent_id: agentId })
     });
 }
 
@@ -490,6 +498,13 @@ export async function bulkImportContacts(formData) {
     });
 }
 
+// Download Import Template
+export async function downloadContactTemplate(format = 'csv') {
+    const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
+    const url = `${baseUrl}/contacts/template?format=${format}`;
+    window.location.href = url;
+}
+
 // Get Contact Lists
 export async function getContactLists() {
     return fetchDataApi('/contacts/lists');
@@ -633,6 +648,14 @@ export async function updateUser(userId, data) {
     });
 }
 
+// Update user password
+export async function updateOnlyPassword(data) {
+    return fetchApi('/auth/user-data/update-only-password', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+}
+
 // Delete user
 export async function deleteUser(userId) {
     return fetchApi(`/users/${userId}`, {
@@ -697,7 +720,7 @@ export async function getLeadByPhone(phone) {
     if (formattedPhone && !formattedPhone.startsWith('+')) {
         formattedPhone = '+' + formattedPhone;
     }
-    
+
     // Explicitly public call (no default headers with token)
     const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
     const response = await fetch(`${baseUrl}/leads/phone/${encodeURIComponent(formattedPhone)}`, {
@@ -796,6 +819,7 @@ export default {
     deleteContact,
     updateContactStatus,
     bulkImportContacts,
+    downloadContactTemplate,
     getContactLists,
     getContactListDetails,
     createContactList,
@@ -813,14 +837,18 @@ export default {
     deleteRole,
     getMenuCreator,
     updateMenuCreator,
+    // User APIs
     getUsers,
     createUser,
+    updateUser,
+    deleteUser,
+    updateOnlyPassword,
     getUserRoles,
+    getUserDetails,
 
     // Lead APIs
     getLeadByPhone,
     getLeads,
-    getUserDetails,
 
     // Forms APIs
     getForms,
@@ -830,6 +858,7 @@ export default {
     updateForm,
     publishForm,
     submitForm,
+    unspamUser,
 
     // --- Auth APIs ---
     loginUsername: async (username, password) => {

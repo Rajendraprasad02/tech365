@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-    getWhatsAppTemplates 
+import {
+    getWhatsAppTemplates
 } from '../../../services/api';
-import { 
-    Search, Filter, RefreshCw, MessageSquare, CheckCircle, XCircle, 
-    Clock, Globe, Tag, Smartphone, ExternalLink, Image as ImageIcon, 
-    FileText, Video, MoreVertical, Phone, ChevronLeft, ChevronRight
+import {
+    Search, Filter, RefreshCw, MessageSquare, CheckCircle, XCircle,
+    Clock, Globe, Tag, Smartphone, ExternalLink, Image as ImageIcon,
+    FileText, Video, Phone, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import Pagination from '@/components/ui/Pagination';
 
 // Status badge component
 const StatusBadge = ({ status }) => {
@@ -40,7 +41,7 @@ const WhatsAppPreview = ({ template }) => {
         <div className="bg-[#e5ddd5] p-3 rounded-xl border border-gray-200 relative overflow-hidden">
             {/* Background Pattern (Subtle) */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")' }}></div>
-            
+
             <div className="relative z-10 w-full max-w-[280px]">
                 <div className="bg-white rounded-lg rounded-tl-none p-2.5 shadow-sm text-sm text-gray-800">
                     {/* Header */}
@@ -122,7 +123,7 @@ export default function TemplatesPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 12;
+    const [pageSize, setPageSize] = useState(12);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -162,21 +163,16 @@ export default function TemplatesPage() {
         });
     }, [templates, searchQuery, categoryFilter]);
 
-    const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredTemplates.length / pageSize);
     const paginatedTemplates = filteredTemplates.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
     );
 
     if (loading) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <RefreshCw size={24} className="text-violet-600 animate-pulse" />
-                    </div>
-                </div>
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
                 <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Syncing with Meta...</p>
             </div>
         );
@@ -190,7 +186,7 @@ export default function TemplatesPage() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Failed to Connect</h3>
                 <p className="text-gray-500 text-sm mb-6 max-w-md text-center">{error}</p>
-                <button 
+                <button
                     onClick={fetchTemplates}
                     className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold shadow-lg shadow-violet-100 hover:bg-violet-700 active:scale-95 transition-all text-sm"
                 >
@@ -213,15 +209,15 @@ export default function TemplatesPage() {
                             <h1 className="text-3xl font-black text-gray-900 tracking-tight">Template Library</h1>
                         </div>
                         <p className="text-gray-400 font-medium text-sm flex items-center gap-2">
-                             <Globe size={14} className="text-violet-500" />
-                             Managed WhatsApp message templates from Meta Dashboard
+                            <Globe size={14} className="text-violet-500" />
+                            Managed WhatsApp message templates from Meta Dashboard
                         </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="relative flex-1 md:flex-none md:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Search template name..."
                                 value={searchQuery}
@@ -229,7 +225,7 @@ export default function TemplatesPage() {
                                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:bg-white outline-none transition-all placeholder:text-gray-300"
                             />
                         </div>
-                        
+
                         <div className="flex items-center bg-gray-50 border border-gray-100 rounded-xl p-1 gap-1">
                             {categories.slice(0, 4).map(cat => (
                                 <button
@@ -242,7 +238,7 @@ export default function TemplatesPage() {
                             ))}
                         </div>
 
-                        <button 
+                        <button
                             onClick={fetchTemplates}
                             className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-all active:scale-95 shadow-sm"
                             title="Refresh Sync"
@@ -257,105 +253,55 @@ export default function TemplatesPage() {
             <div className="flex-1 overflow-auto p-8 custom-scrollbar">
                 {filteredTemplates.length > 0 ? (
                     <div className="flex flex-col h-full">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-8 flex-1">
-                        {paginatedTemplates.map((template) => (
-                            <div 
-                                key={template.name} 
-                                className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4"
-                            >
-                                {/* Card Header */}
-                                <div className="px-6 py-5 border-b border-gray-50 bg-white group-hover:bg-gray-50/30 transition-colors">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <StatusBadge status={template.status} />
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-lg text-[10px] font-bold text-gray-500">
-                                            <Globe size={11} />
-                                            {template.language?.code || template.language}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-8 flex-1">
+                            {paginatedTemplates.map((template) => (
+                                <div
+                                    key={template.name}
+                                    className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4"
+                                >
+                                    {/* Card Header */}
+                                    <div className="px-6 py-5 border-b border-gray-50 bg-white group-hover:bg-gray-50/30 transition-colors">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <StatusBadge status={template.status} />
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-lg text-[10px] font-bold text-gray-500">
+                                                <Globe size={11} />
+                                                {template.language?.code || template.language}
+                                            </div>
+                                        </div>
+                                        <h3 className="text-lg font-black text-gray-900 group-hover:text-violet-600 transition-colors truncate mb-1" title={template.name}>
+                                            {template.name}
+                                        </h3>
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            <Tag size={10} className="text-violet-400" />
+                                            {template.category}
                                         </div>
                                     </div>
-                                    <h3 className="text-lg font-black text-gray-900 group-hover:text-violet-600 transition-colors truncate mb-1" title={template.name}>
-                                        {template.name}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <Tag size={10} className="text-violet-400" />
-                                        {template.category}
+
+                                    {/* Preview Section */}
+                                    <div className="flex-1 p-6 bg-gray-50/50 flex items-center justify-center min-h-[300px]">
+                                        <WhatsAppPreview template={template} />
                                     </div>
+
+
                                 </div>
-
-                                {/* Preview Section */}
-                                <div className="flex-1 p-6 bg-gray-50/50 flex items-center justify-center min-h-[300px]">
-                                    <WhatsAppPreview template={template} />
-                                </div>
-
-                                {/* Card Footer */}
-                                <div className="px-6 py-4 border-t border-gray-50 bg-white flex items-center justify-between">
-                                    <div className="flex -space-x-1.5">
-                                        {template.components?.map((c, i) => (
-                                            <div key={i} className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center z-[1] shadow-sm" title={c.type}>
-                                                {c.type === 'HEADER' && <ImageIcon size={10} className="text-blue-500" />}
-                                                {c.type === 'BODY' && <MessageSquare size={10} className="text-green-500" />}
-                                                {c.type === 'FOOTER' && <FileText size={10} className="text-gray-400" />}
-                                                {c.type === 'BUTTONS' && <ExternalLink size={10} className="text-purple-500" />}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
-                                        <MoreVertical size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-8 pt-4">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-                            
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                                    if (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
-                                    ) {
-                                        return (
-                                            <button
-                                                key={page}
-                                                onClick={() => setCurrentPage(page)}
-                                                className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
-                                                    currentPage === page
-                                                        ? 'bg-violet-600 text-white shadow-md shadow-violet-200'
-                                                        : 'text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        );
-                                    } else if (
-                                        page === currentPage - 2 ||
-                                        page === currentPage + 2
-                                    ) {
-                                        return <span key={page} className="text-gray-400 px-1">...</span>;
-                                    }
-                                    return null;
-                                })}
-                            </div>
-
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
+                            ))}
                         </div>
-                    )}
+
+                        {/* Pagination Controls */}
+                        {filteredTemplates.length > 0 && (
+                            <Pagination
+                                page={currentPage - 1}
+                                pageSize={pageSize}
+                                total={filteredTemplates.length}
+                                onPageChange={(p) => setCurrentPage(p + 1)}
+                                onPageSizeChange={(s) => {
+                                    setPageSize(s);
+                                    setCurrentPage(1);
+                                }}
+                                pageSizeOptions={[12, 24, 48, 96]}
+                                className="mt-8 pt-4"
+                            />
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -369,7 +315,7 @@ export default function TemplatesPage() {
                     </div>
                 )}
             </div>
-            
+
             {/* Styles for custom scrollbar */}
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar {

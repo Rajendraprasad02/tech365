@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import CustomSelect from '../contacts/CustomSelect';
 import { CircleFlag } from 'react-circle-flags';
+import Pagination from '@/components/ui/Pagination';
 import parsePhoneNumber from 'libphonenumber-js';
 import {
     getCampaigns,
@@ -48,7 +49,7 @@ const StatusBadge = ({ status }) => {
     const Icon = icons[status] || Clock;
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${styles[status] || styles.draft}`}>
-            <Icon size={10} className={status === 'sending' ? 'animate-spin' : ''} />
+            {status === 'sending' ? <span className="loader-xs mr-1"></span> : <Icon size={10} />}
             {status?.charAt(0).toUpperCase() + status?.slice(1) || 'Draft'}
         </span>
     );
@@ -134,14 +135,14 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
     const [statusOptions, setStatusOptions] = useState([{ value: 'all', label: 'All Status' }]);
     const [sourceFilter, setSourceFilter] = useState('all');
     const [sourceOptions, setSourceOptions] = useState([{ value: 'all', label: 'All Sources' }]);
-    
-    const [sortBy, setSortBy] = useState('desc'); 
+
+    const [sortBy, setSortBy] = useState('desc');
 
     // Fetch dynamic status/source options on mount
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const response = await getContacts(0, 100); 
+                const response = await getContacts(0, 100);
                 if (response && response.contacts) {
                     const uniqueStatuses = [...new Set(response.contacts.map(c => c.status).filter(Boolean))];
                     setStatusOptions([
@@ -248,8 +249,8 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
             {/* Contacts Table */}
             <div className="flex-1 overflow-y-auto p-0">
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="animate-spin text-violet-500" size={24} />
+                    <div className="loader-wrapper">
+                        <span className="loader"></span>
                     </div>
                 ) : contacts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -316,12 +317,11 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-3">
-                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
-                                                contact.status === 'valid' ? 'bg-green-100 text-green-700' :
+                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${contact.status === 'valid' ? 'bg-green-100 text-green-700' :
                                                 contact.status === 'invalid' ? 'bg-red-100 text-red-700' :
-                                                contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-orange-100 text-orange-700'
-                                            }`}>
+                                                    contact.status === 'reported' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-orange-100 text-orange-700'
+                                                }`}>
                                                 {contact.status}
                                             </div>
                                         </td>
@@ -358,18 +358,19 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
                     >
                         Next
                     </button>
-                    
+
                     <div className="ml-2">
-                        <select 
-                            value={limit} 
-                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(0); }}
-                            className="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg block w-full p-1.5"
-                        >
-                            <option value={5}>5 / page</option>
-                            <option value={10}>10 / page</option>
-                            <option value={50}>50 / page</option>
-                            <option value={100}>100 / page</option>
-                        </select>
+                        <CustomSelect
+                            value={limit.toString()}
+                            onChange={(val) => { setLimit(Number(val)); setPage(0); }}
+                            className="px-3 py-1.5 rounded-lg text-xs w-[110px]"
+                            options={[
+                                { value: '5', label: '5 / page' },
+                                { value: '10', label: '10 / page' },
+                                { value: '50', label: '50 / page' },
+                                { value: '100', label: '100 / page' },
+                            ]}
+                        />
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -393,11 +394,11 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
     const [view, setView] = useState('form'); // 'form' | 'contacts'
     const [selectedContacts, setSelectedContacts] = useState(new Map()); // Map<id, contact>
     const [name, setName] = useState('');
-    
+
     // Scheduling State
     const [isScheduled, setIsScheduled] = useState(false);
     const [scheduledAt, setScheduledAt] = useState('');
-    
+
     // Template & Message State
     const [templates, setTemplates] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -406,7 +407,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
     const [uploadingMedia, setUploadingMedia] = useState(false);
     const [headerMediaId, setHeaderMediaId] = useState('');
     const [mediaPreviewUrl, setMediaPreviewUrl] = useState('');
-    
+
     // Auto-fill {{1}} with dynamic name logic
     useEffect(() => {
         if (selectedTemplate) {
@@ -415,21 +416,21 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
             if (bodyComp && bodyComp.text.includes('{{1}}')) {
                 // Set default value for preview only, user can override if they want a static name
                 if (!variableValues['1']) {
-                     setVariableValues(prev => ({ ...prev, '1': '[Contact Name]' }));
+                    setVariableValues(prev => ({ ...prev, '1': '[Contact Name]' }));
                 }
             }
         }
     }, [selectedTemplate]);
-    
+
     // UI State
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [fetchingTemplates, setFetchingTemplates] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    
+
     // Alert Modal State
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
-    
+
     const triggerAlert = (title, message, type = 'info') => {
         setAlertConfig({ isOpen: true, title, message, type });
     };
@@ -492,9 +493,9 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                         const num = m.replace(/{{|}}/g, '');
                         if (!vars.find(v => v.key === num)) {
                             const isNameVar = num === '1';
-                            vars.push({ 
-                                key: num, 
-                                type: 'body', 
+                            vars.push({
+                                key: num,
+                                type: 'body',
                                 label: isNameVar ? `Variable {{${num}}} (Name)` : `Variable {{${num}}}`,
                                 placeholder: isNameVar ? 'Will use Contact Name' : 'Enter value'
                             });
@@ -504,15 +505,15 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
             }
             if (comp.type === 'HEADER') {
                 if (comp.format === 'IMAGE' || comp.format === 'VIDEO' || comp.format === 'DOCUMENT') {
-                    vars.push({ 
-                        key: 'header_url', 
-                        type: 'header', 
-                        format: comp.format, 
-                        label: `Header ${comp.format} (URL or Upload)` 
+                    vars.push({
+                        key: 'header_url',
+                        type: 'header',
+                        format: comp.format,
+                        label: `Header ${comp.format} (URL or Upload)`
                     });
                 }
                 if (comp.format === 'TEXT' && comp.text && comp.text.includes('{{1}}')) {
-                     vars.push({ key: 'header_name', type: 'header_text', label: 'Header Variable' });
+                    vars.push({ key: 'header_name', type: 'header_text', label: 'Header Variable' });
                 }
             }
         });
@@ -549,15 +550,15 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
     };
 
     const getPreviewText = (template) => {
-         if (!template) return '';
-         let body = template.components.find(c => c.type === 'BODY')?.text || '';
-         Object.keys(variableValues).forEach(key => {
-             if (key !== 'header_url' && key !== 'header_name') {
-                 // If the value is [Contact Name], we keep it as is for preview
-                 body = body.replace(new RegExp(`{{${key}}}`, 'g'), variableValues[key] || `{{${key}}}`);
-             }
-         });
-         return body;
+        if (!template) return '';
+        let body = template.components.find(c => c.type === 'BODY')?.text || '';
+        Object.keys(variableValues).forEach(key => {
+            if (key !== 'header_url' && key !== 'header_name') {
+                // If the value is [Contact Name], we keep it as is for preview
+                body = body.replace(new RegExp(`{{${key}}}`, 'g'), variableValues[key] || `{{${key}}}`);
+            }
+        });
+        return body;
     };
 
     const renderButtons = (template) => {
@@ -576,110 +577,110 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                 ))}
             </div>
         );
-     };
- 
+    };
 
-     // Save & Send Now - Uses new quick-send-by-phone endpoint with personalization
+
+    // Save & Send Now - Uses new quick-send-by-phone endpoint with personalization
     const handleSendNow = async () => {
-         if (!validateForm()) return;
-         
-         setSending(true);
-         try {
-             // Check if template has a FLOW button
-             const hasFlow = selectedTemplate.components.some(c => 
-                 c.type === 'BUTTONS' && c.buttons && c.buttons.some(b => b.type === 'FLOW')
-             );
+        if (!validateForm()) return;
 
-             // 1. Build Recipients Array with Personalization
-             const recipients = Array.from(selectedContacts.values()).map(contact => {
-                 const recipientVars = {};
-                 
-                 // Generic Dynamic Variable Resolution
-                 Object.entries(variableValues).forEach(([key, value]) => {
-                     if (typeof value === 'string') {
-                         // Check for {{contact.field}} pattern
-                         const match = value.match(/{{contact\.(.*?)}}/);
-                         if (match) {
-                             const field = match[1];
-                             recipientVars[key] = contact[field] || ''; 
-                         } else if (key === '1' && value === '[Contact Name]') {
-                             // Legacy/Default fallback
-                             recipientVars[key] = contact.name || 'Valued Customer';
-                         }
-                     }
-                 });
+        setSending(true);
+        try {
+            // Check if template has a FLOW button
+            const hasFlow = selectedTemplate.components.some(c =>
+                c.type === 'BUTTONS' && c.buttons && c.buttons.some(b => b.type === 'FLOW')
+            );
 
-                 // Add Flow Token if template is a Flow
-                 if (hasFlow) {
-                     recipientVars['flow_token'] = contact.id || 'unknown_id';
-                 }
-                 
-                 return {
-                     phone_number: contact.phone_number,
-                     variables: recipientVars 
-                 };
-             });
+            // 1. Build Recipients Array with Personalization
+            const recipients = Array.from(selectedContacts.values()).map(contact => {
+                const recipientVars = {};
 
-             // 2. Build Global Template Variables (Shared/Fallback)
-             const globalVars = { ...variableValues };
-             
-             // Remove dynamic keys from global so we don't send unparsed tokens
-             Object.keys(globalVars).forEach(key => {
-                 if (typeof globalVars[key] === 'string' && globalVars[key].includes('{{contact.')) {
-                     delete globalVars[key];
-                 }
-                 // Remove legacy default if handled
-                 if (key === '1' && globalVars[key] === '[Contact Name]') {
-                     delete globalVars[key];
-                 }
-             });
-             
-             // Check for header type and add to global vars
-             const headerComp = selectedTemplate.components.find(c => c.type === 'HEADER');
-             if (headerComp && (headerComp.format === 'IMAGE' || headerComp.format === 'VIDEO' || headerComp.format === 'DOCUMENT')) {
-                 globalVars.header_type = headerComp.format.toLowerCase();
-                 
-                 // If we have a media ID from upload, use it instead of the URL
-                 if (headerMediaId) {
-                     globalVars.header_media_id = headerMediaId;
-                     delete globalVars.header_url; 
-                 }
-             }
+                // Generic Dynamic Variable Resolution
+                Object.entries(variableValues).forEach(([key, value]) => {
+                    if (typeof value === 'string') {
+                        // Check for {{contact.field}} pattern
+                        const match = value.match(/{{contact\.(.*?)}}/);
+                        if (match) {
+                            const field = match[1];
+                            recipientVars[key] = contact[field] || '';
+                        } else if (key === '1' && value === '[Contact Name]') {
+                            // Legacy/Default fallback
+                            recipientVars[key] = contact.name || 'Valued Customer';
+                        }
+                    }
+                });
 
-             // 3. Construct Payload
-             const payload = {
-                 name: name || `Quick Campaign ${new Date().toLocaleString()}`,
-                 recipients: recipients,
-                 contact_ids: Array.from(selectedContacts.keys()),
-                 template_name: selectedTemplate.name,
-                 category: selectedTemplate.category || 'utility',
-                 template_variables: globalVars,
-                 scheduled_at: isScheduled && scheduledAt ? new Date(scheduledAt).toISOString() : null
-             };
-             
-             console.log('Sending Personalized Payload:', payload);
+                // Add Flow Token if template is a Flow
+                if (hasFlow) {
+                    recipientVars['flow_token'] = contact.id || 'unknown_id';
+                }
 
-             const result = await quickSendByPhone(payload);
+                return {
+                    phone_number: contact.phone_number,
+                    variables: recipientVars
+                };
+            });
 
-             const count = result.stats ? result.stats.sent : recipients.length;
-             const successMsg = isScheduled 
-                ? `Message has been scheduled at ${new Date(scheduledAt).toLocaleString()}` 
+            // 2. Build Global Template Variables (Shared/Fallback)
+            const globalVars = { ...variableValues };
+
+            // Remove dynamic keys from global so we don't send unparsed tokens
+            Object.keys(globalVars).forEach(key => {
+                if (typeof globalVars[key] === 'string' && globalVars[key].includes('{{contact.')) {
+                    delete globalVars[key];
+                }
+                // Remove legacy default if handled
+                if (key === '1' && globalVars[key] === '[Contact Name]') {
+                    delete globalVars[key];
+                }
+            });
+
+            // Check for header type and add to global vars
+            const headerComp = selectedTemplate.components.find(c => c.type === 'HEADER');
+            if (headerComp && (headerComp.format === 'IMAGE' || headerComp.format === 'VIDEO' || headerComp.format === 'DOCUMENT')) {
+                globalVars.header_type = headerComp.format.toLowerCase();
+
+                // If we have a media ID from upload, use it instead of the URL
+                if (headerMediaId) {
+                    globalVars.header_media_id = headerMediaId;
+                    delete globalVars.header_url;
+                }
+            }
+
+            // 3. Construct Payload
+            const payload = {
+                name: name || `Quick Campaign ${new Date().toLocaleString()}`,
+                recipients: recipients,
+                contact_ids: Array.from(selectedContacts.keys()),
+                template_name: selectedTemplate.name,
+                category: selectedTemplate.category || 'utility',
+                template_variables: globalVars,
+                scheduled_at: isScheduled && scheduledAt ? new Date(scheduledAt).toISOString() : null
+            };
+
+            console.log('Sending Personalized Payload:', payload);
+
+            const result = await quickSendByPhone(payload);
+
+            const count = result.stats ? result.stats.sent : recipients.length;
+            const successMsg = isScheduled
+                ? `Message has been scheduled at ${new Date(scheduledAt).toLocaleString()}`
                 : `Campaign sent! ${count} messages queued.`;
-             
-             triggerAlert('Success', successMsg, 'success');
-             onCreated(result); 
-             
-         } catch (error) {
-             console.error('Error sending campaign:', error);
-             triggerAlert('Error', 'Failed to send campaign: ' + (error.message || 'Unknown error'), 'danger');
-         } finally {
-             setSending(false);
-             setShowConfirm(false);
-         }
+
+            triggerAlert('Success', successMsg, 'success');
+            onCreated(result);
+
+        } catch (error) {
+            console.error('Error sending campaign:', error);
+            triggerAlert('Error', 'Failed to send campaign: ' + (error.message || 'Unknown error'), 'danger');
+        } finally {
+            setSending(false);
+            setShowConfirm(false);
+        }
     };
 
     // Filter templates
-    const filteredTemplates = templates.filter(t => 
+    const filteredTemplates = templates.filter(t =>
         t.name.toLowerCase().includes(templateSearch.toLowerCase())
     );
 
@@ -708,7 +709,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
 
     return (
         <div className="flex flex-col h-full bg-white relative">
-             {/* Confirmation Modal */}
+            {/* Confirmation Modal */}
             {showConfirm && (
                 <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
@@ -739,7 +740,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                     </p>
                                 </div>
                             )}
-                            
+
                             <div className="mb-4">
                                 <p className="text-sm text-gray-500 mb-1">Template</p>
                                 <div className="border rounded-lg p-3 bg-gray-50">
@@ -749,17 +750,17 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                         {/* Header Preview */}
                                         {selectedTemplate?.components.find(c => c.type === 'HEADER' && c.format === 'IMAGE') && (
                                             <div className="mb-2 h-32 bg-gray-200 rounded flex items-center justify-center overflow-hidden">
-                                                 {mediaPreviewUrl || variableValues.header_url ? (
-                                                     <img src={mediaPreviewUrl || variableValues.header_url} alt="Header" className="w-full h-full object-cover" />
-                                                 ) : (
-                                                     <span className="text-xs text-gray-500">Image Header</span>
-                                                 )}
+                                                {mediaPreviewUrl || variableValues.header_url ? (
+                                                    <img src={mediaPreviewUrl || variableValues.header_url} alt="Header" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-xs text-gray-500">Image Header</span>
+                                                )}
                                             </div>
                                         )}
                                         {selectedTemplate?.components.find(c => c.type === 'HEADER' && c.format === 'DOCUMENT') && (
                                             <div className="mb-2 w-full h-12 bg-gray-200 rounded flex items-center justify-center gap-2 border border-black/5">
-                                               <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center"><div className="text-[10px] font-bold text-red-500">PDF</div></div>
-                                               <span className="text-[10px] text-gray-600 truncate">{variableValues.header_url || 'Document.pdf'}</span>
+                                                <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center"><div className="text-[10px] font-bold text-red-500">PDF</div></div>
+                                                <span className="text-[10px] text-gray-600 truncate">{variableValues.header_url || 'Document.pdf'}</span>
                                             </div>
                                         )}
                                         <div className="whitespace-pre-wrap">{getPreviewText(selectedTemplate)}</div>
@@ -772,7 +773,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                         <div className="p-4 border-t flex gap-2 justify-end">
                             <button onClick={() => setShowConfirm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg">Cancel</button>
                             <button onClick={handleSendNow} disabled={sending} className="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg flex items-center gap-2">
-                                {sending && <Loader2 size={16} className="animate-spin" />}
+                                {sending && <span className="loader-sm"></span>}
                                 {isScheduled ? 'Confirm & Schedule' : 'Confirm & Send'}
                             </button>
                         </div>
@@ -790,7 +791,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Contacts Selection */}
                 <div>
-                     <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-semibold text-gray-700">Recipients *</label>
                         {hasSelectedContacts && <span className="text-xs text-violet-600 font-medium">{selectedContacts.size} Selected</span>}
                     </div>
@@ -800,10 +801,10 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                         className="w-full px-4 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-xl text-sm transition-all flex items-center justify-between border border-gray-200 shadow-sm"
                     >
                         <div className="flex items-center gap-2">
-                             <div className="p-2 bg-violet-100 text-violet-600 rounded-lg">
+                            <div className="p-2 bg-violet-100 text-violet-600 rounded-lg">
                                 <Users size={18} />
-                             </div>
-                             <span>Select Contacts</span>
+                            </div>
+                            <span>Select Contacts</span>
                         </div>
                         <ArrowUpDown size={16} className="text-gray-400 rotate-90" />
                     </button>
@@ -812,12 +813,12 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                     {hasSelectedContacts && (
                         <div className="mt-3 flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
                             {Array.from(selectedContacts.values()).map((contact) => (
-                                <div 
+                                <div
                                     key={contact.id}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 border border-violet-100 rounded-full text-xs font-medium group transition-all hover:bg-violet-100"
                                 >
                                     <span>{contact.name || contact.phone_number}</span>
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             const newSelected = new Map(selectedContacts);
@@ -831,7 +832,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                 </div>
                             ))}
                             {selectedContacts.size > 0 && (
-                                <button 
+                                <button
                                     onClick={() => setSelectedContacts(new Map())}
                                     className="text-[10px] text-gray-400 hover:text-red-500 uppercase tracking-wider font-bold ml-1 transition-colors"
                                 >
@@ -862,11 +863,11 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                             <span className="text-sm font-semibold text-gray-700">Schedule message</span>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 checked={isScheduled}
                                 onChange={(e) => setIsScheduled(e.target.checked)}
-                                className="sr-only peer" 
+                                className="sr-only peer"
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
                         </label>
@@ -891,17 +892,17 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                 {/* Template Selection */}
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Select Template *</label>
-                    
+
                     {fetchingTemplates ? (
-                         <div className="flex items-center justify-center py-8 bg-gray-50 rounded-lg border border-dashed">
-                            <Loader2 size={20} className="animate-spin text-gray-400" />
+                        <div className="flex items-center justify-center py-8 bg-gray-50 rounded-lg border border-dashed">
+                            <span className="loader-sm border-gray-400"></span>
                         </div>
                     ) : (
                         <div className="border border-gray-200 rounded-xl overflow-hidden">
                             {/* Search */}
                             <div className="p-2 border-b bg-gray-50 flex items-center gap-2">
                                 <Search size={16} className="text-gray-400 ml-2" />
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="Search templates..."
                                     value={templateSearch}
@@ -909,14 +910,14 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                     className="flex-1 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-gray-400"
                                 />
                             </div>
-                            
+
                             {/* List */}
                             <div className="max-h-48 overflow-y-auto bg-white">
                                 {filteredTemplates.length === 0 ? (
                                     <p className="text-center text-xs text-gray-400 py-4">No templates found</p>
                                 ) : (
                                     filteredTemplates.map(t => (
-                                        <div 
+                                        <div
                                             key={t.name}
                                             onClick={() => {
                                                 setSelectedTemplate(t);
@@ -940,7 +941,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                 {selectedTemplate && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Message Preview</label>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Variables Inputs */}
                             <div className="space-y-4">
@@ -948,7 +949,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                     getTemplateVariables(selectedTemplate).map(variable => (
                                         <div key={variable.key}>
                                             <label className="block text-xs font-medium text-gray-500 mb-1">{variable.label}</label>
-                                            
+
                                             {variable.type === 'header' ? (
                                                 <div className="space-y-2">
                                                     <div className="flex h-10 shadow-sm">
@@ -957,20 +958,20 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                                             value={variableValues[variable.key] || ''}
                                                             onChange={(e) => {
                                                                 handleVariableChange(variable.key, e.target.value);
-                                                                if(headerMediaId) setHeaderMediaId(''); // Clear ID if user types a URL
-                                                                if(mediaPreviewUrl) setMediaPreviewUrl(''); // Clear local preview if user types a URL
+                                                                if (headerMediaId) setHeaderMediaId(''); // Clear ID if user types a URL
+                                                                if (mediaPreviewUrl) setMediaPreviewUrl(''); // Clear local preview if user types a URL
                                                             }}
                                                             placeholder={`Enter ${variable.format} URL...`}
                                                             className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-l-lg focus:ring-1 focus:ring-violet-500 outline-none focus:border-violet-500"
                                                         />
                                                         <label className={`px-4 py-2 border border-l-0 rounded-r-lg bg-gray-50 text-gray-700 hover:bg-gray-100 cursor-pointer flex items-center gap-1.5 transition-colors text-[11px] font-bold ${uploadingMedia ? 'opacity-50 pointer-events-none' : ''}`}>
-                                                            {uploadingMedia ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} className="text-gray-400" />}
+                                                            {uploadingMedia ? <span className="loader-sm border-gray-400"></span> : <Plus size={14} className="text-gray-400" />}
                                                             <span>UPLOAD</span>
-                                                            <input 
-                                                                type="file" 
-                                                                className="hidden" 
-                                                                onChange={handleMediaUpload} 
-                                                                accept={variable.format === 'IMAGE' ? "image/*" : variable.format === 'VIDEO' ? "video/*" : ".pdf,.doc,.docx"} 
+                                                            <input
+                                                                type="file"
+                                                                className="hidden"
+                                                                onChange={handleMediaUpload}
+                                                                accept={variable.format === 'IMAGE' ? "image/*" : variable.format === 'VIDEO' ? "video/*" : ".pdf,.doc,.docx"}
                                                             />
                                                         </label>
                                                     </div>
@@ -1022,7 +1023,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                             <p className="text-[10px] text-gray-500">Preview</p>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="bg-[#e7fce3] p-3 rounded-lg rounded-tl-none inline-block max-w-full text-sm text-gray-800 relative">
                                         {selectedTemplate.components.some(c => c.type === 'HEADER' && c.format === 'IMAGE') && (
                                             <div className="mb-2 w-full h-32 bg-gray-300 rounded overflow-hidden flex items-center justify-center">
@@ -1035,14 +1036,14 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                                         )}
                                         {selectedTemplate.components.some(c => c.type === 'HEADER' && c.format === 'DOCUMENT') && (
                                             <div className="mb-2 w-full h-12 bg-gray-200 rounded flex items-center justify-center gap-2">
-                                               <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center"><div className="text-[10px] font-bold text-red-500">PDF</div></div>
-                                               <span className="text-xs text-gray-600 truncate">{variableValues.header_url || 'Document.pdf'}</span>
+                                                <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center"><div className="text-[10px] font-bold text-red-500">PDF</div></div>
+                                                <span className="text-xs text-gray-600 truncate">{variableValues.header_url || 'Document.pdf'}</span>
                                             </div>
                                         )}
-                                        
-                                        
+
+
                                         <p className="whitespace-pre-wrap leading-relaxed">{getPreviewText(selectedTemplate)}</p>
-                                        
+
                                         {renderButtons(selectedTemplate)}
 
                                         <div className="flex justify-end mt-1">
@@ -1085,7 +1086,7 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
             </div>
 
             {/* Alert Modal */}
-            <ConfirmationModal 
+            <ConfirmationModal
                 isOpen={alertConfig.isOpen}
                 onClose={() => {
                     setAlertConfig(prev => ({ ...prev, isOpen: false }));
@@ -1127,7 +1128,7 @@ const RecipientRow = ({ recipient, statusStyles }) => {
 
     return (
         <div className="border-b border-gray-50 last:border-0">
-            <div 
+            <div
                 className={`flex items-center justify-between p-4 transition-colors group ${hasDetails ? 'cursor-pointer hover:bg-gray-50/80' : ''}`}
                 onClick={() => hasDetails && setIsExpanded(!isExpanded)}
             >
@@ -1191,7 +1192,7 @@ const RecipientRow = ({ recipient, statusStyles }) => {
                                         const cleanKey = key.split('_').filter(s => isNaN(s) && s !== 'screen').join(' ');
                                         // Clean up value: 0_Excellent -> Excellent
                                         const cleanValue = typeof value === 'string' ? value.split('_').slice(1).join('_') || value : value;
-                                        
+
                                         return (
                                             <div key={key} className="flex flex-col gap-0.5 bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
                                                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{cleanKey}</span>
@@ -1220,12 +1221,12 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
     const [details, setDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [modalConfig, setModalConfig] = useState({ 
-        isOpen: false, 
-        title: '', 
-        message: '', 
+    const [modalConfig, setModalConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
         type: 'info',
-        onConfirm: null 
+        onConfirm: null
     });
 
     useEffect(() => {
@@ -1312,8 +1313,8 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
                             Template: <span className="text-violet-600 uppercase tracking-wider">{details?.template_name || campaign?.template_name}</span>
                         </p>
                     </div>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="p-2 hover:bg-gray-100 rounded-full transition-all group active:scale-95"
                     >
                         <X size={20} className="text-gray-400 group-hover:text-gray-600" />
@@ -1321,9 +1322,9 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
                 </div>
 
                 {loading ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="loader-wrapper py-20 gap-4">
                         <div className="relative">
-                            <div className="w-12 h-12 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin"></div>
+                            <span className="loader"></span>
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <MessageSquare size={16} className="text-violet-600" />
                             </div>
@@ -1412,15 +1413,15 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
                                         {details?.recipients?.length || 0} Total
                                     </span>
                                 </h3>
-                                
+
                                 <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
                                     {details?.recipients?.length > 0 ? (
                                         <div>
                                             {details.recipients.map((r, idx) => (
-                                                <RecipientRow 
-                                                    key={idx} 
-                                                    recipient={r} 
-                                                    statusStyles={recipientStatusStyles} 
+                                                <RecipientRow
+                                                    key={idx}
+                                                    recipient={r}
+                                                    statusStyles={recipientStatusStyles}
                                                 />
                                             ))}
                                         </div>
@@ -1447,20 +1448,20 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
                                     disabled={sending || !details?.recipients_count}
                                     className="px-6 py-2.5 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-violet-100 transition-all w-full sm:w-auto"
                                 >
-                                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                    {sending ? <span className="loader-sm"></span> : <Send size={16} />}
                                     Launch Campaign
                                 </button>
                             </div>
                         )}
                         {campaign?.status === 'completed' && (
-                             <div className="px-6 py-4 border-t bg-gray-50 text-right">
-                                <button 
+                            <div className="px-6 py-4 border-t bg-gray-50 text-right">
+                                <button
                                     onClick={onClose}
                                     className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 active:scale-95 rounded-xl transition-all shadow-sm"
                                 >
                                     Close Details
                                 </button>
-                             </div>
+                            </div>
                         )}
                     </>
                 )}
@@ -1561,7 +1562,7 @@ const RescheduleModal = ({ isOpen, onClose, onReschedule, campaign }) => {
                         disabled={loading || !selectedDate}
                         className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-violet-100 disabled:opacity-50 flex items-center gap-2 transition-all"
                     >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
+                        {loading ? <span className="loader-sm"></span> : <Calendar size={16} />}
                         Save Schedule
                     </button>
                 </div>
@@ -1576,12 +1577,12 @@ export default function CampaignsPage() {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [modalConfig, setModalConfig] = useState({ 
-        isOpen: false, 
-        title: '', 
-        message: '', 
+    const [modalConfig, setModalConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
         type: 'info',
-        onConfirm: null 
+        onConfirm: null
     });
     const [statusFilter, setStatusFilter] = useState('');
     const [sortOrder, setSortOrder] = useState('newest');
@@ -1744,18 +1745,20 @@ export default function CampaignsPage() {
                                 className="flex-1 bg-transparent outline-none text-sm"
                             />
                         </div>
-                        <select
+                        <CustomSelect
                             value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full sm:w-32 px-2 py-1.5 bg-gray-50 rounded-lg border text-sm outline-none focus:border-violet-300"
-                        >
-                            <option value="">All Status</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="sent">Sent</option>
-                            <option value="sending">Sending</option>
-                            <option value="completed">Completed</option>
-                            <option value="failed">Failed</option>
-                        </select>
+                            onChange={(val) => setStatusFilter(val)}
+                            className="w-full sm:w-36 px-3 py-1.5 rounded-lg text-sm"
+                            options={[
+                                { value: '', label: 'All Status' },
+                                { value: 'scheduled', label: 'Scheduled' },
+                                { value: 'sent', label: 'Sent' },
+                                { value: 'sending', label: 'Sending' },
+                                { value: 'completed', label: 'Completed' },
+                                { value: 'failed', label: 'Failed' },
+                            ]}
+                            placeholder="All Status"
+                        />
                     </div>
 
                     {/* Campaigns Table or Create Form */}
@@ -1767,10 +1770,6 @@ export default function CampaignsPage() {
                                 onClose={() => setShowCreateModal(false)}
                                 onCreated={handleCampaignCreated}
                             />
-                        ) : loading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="animate-spin text-violet-500" size={24} />
-                            </div>
                         ) : sortedCampaigns.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400">
                                 <Mail size={32} className="mb-2 opacity-50" />
@@ -1780,130 +1779,92 @@ export default function CampaignsPage() {
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm min-w-[600px] sm:min-w-0">
-                                <thead className="bg-gray-50 border-b sticky top-0">
-                                    <tr>
-                                        <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                                        <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recip.</th>
-                                        {/* <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th> */}
-                                        <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {paginatedCampaigns.map(campaign => (
-                                        <tr key={campaign.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-3">
-                                                <p className="font-medium text-gray-900">{campaign.name}</p>
-                                                <div className="flex flex-col gap-0.5 mt-1">
-                                                    {campaign.scheduled_at && (
-                                                        <p className="text-[10px] text-purple-600 font-bold flex items-center gap-1">
-                                                            <Calendar size={10} /> Scheduled at: {new Date(campaign.scheduled_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    )}
-                                                    {campaign.status === 'completed' && campaign.completed_at ? (
-                                                        <p className="text-[10px] text-green-600 font-bold flex items-center gap-1">
-                                                            <CheckCircle size={10} /> Completed at: {new Date(campaign.completed_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    ) : !campaign.scheduled_at && (
-                                                        <p className="text-[10px] text-gray-400 font-medium">{formatDate(campaign.created_at)}</p>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <StatusBadge status={campaign.status} />
-                                            </td>
-                                            <td className="px-6 py-3 text-center text-gray-600">
-                                                {campaign.recipients_count || campaign.recipient_count || campaign.total_recipients || 0}
-                                            </td>
-                                            {/* <td className="px-6 py-3 text-center">
+                                    <thead className="bg-gray-50 border-b sticky top-0">
+                                        <tr>
+                                            <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                                            <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recip.</th>
+                                            {/* <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th> */}
+                                            <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {paginatedCampaigns.map(campaign => (
+                                            <tr key={campaign.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-3">
+                                                    <p className="font-medium text-gray-900">{campaign.name}</p>
+                                                    <div className="flex flex-col gap-0.5 mt-1">
+                                                        {campaign.scheduled_at && (
+                                                            <p className="text-[10px] text-purple-600 font-bold flex items-center gap-1">
+                                                                <Calendar size={10} /> Scheduled at: {new Date(campaign.scheduled_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        )}
+                                                        {campaign.status === 'completed' && campaign.completed_at ? (
+                                                            <p className="text-[10px] text-green-600 font-bold flex items-center gap-1">
+                                                                <CheckCircle size={10} /> Completed at: {new Date(campaign.completed_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        ) : !campaign.scheduled_at && (
+                                                            <p className="text-[10px] text-gray-400 font-medium">{formatDate(campaign.created_at)}</p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3">
+                                                    <StatusBadge status={campaign.status} />
+                                                </td>
+                                                <td className="px-6 py-3 text-center text-gray-600">
+                                                    {campaign.recipients_count || campaign.recipient_count || campaign.total_recipients || 0}
+                                                </td>
+                                                {/* <td className="px-6 py-3 text-center">
                                                 <span className="text-green-600 font-medium">{campaign.delivered_count || campaign.delivered || 0}</span>
                                                 <span className="text-gray-300 mx-1">/</span>
                                                 <span className="text-gray-600">{campaign.sent_count || campaign.sent || campaign.total_sent || campaign.recipients_count || campaign.recipient_count || 0}</span>
                                             </td> */}
-                                            <td className="px-6 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleViewDetails(campaign)}
-                                                        className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                                                        title="View"
-                                                    >
-                                                        <Eye size={16} />
-                                                    </button>
-                                                    {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                                                <td className="px-6 py-3 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => handleReschedule(campaign)}
-                                                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                                            title="Reschedule"
+                                                            onClick={() => handleViewDetails(campaign)}
+                                                            className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                                                            title="View"
                                                         >
-                                                            <Calendar size={16} />
+                                                            <Eye size={16} />
                                                         </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleDelete(campaign.id)}
-                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                        {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                                                            <button
+                                                                onClick={() => handleReschedule(campaign)}
+                                                                className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                                                title="Reschedule"
+                                                            >
+                                                                <Calendar size={16} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDelete(campaign.id)}
+                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
 
                     {/* Pagination Footer */}
                     {!showCreateModal && !loading && sortedCampaigns.length > 0 && (
-                        <div className="px-6 py-4 border-t bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
-                                <span className="flex items-center gap-2">
-                                    Show
-                                    <select 
-                                        value={pageSize}
-                                        onChange={(e) => setPageSize(Number(e.target.value))}
-                                        className="bg-white border border-gray-200 rounded px-2 py-1 outline-none focus:border-violet-300 transition-colors"
-                                    >
-                                        <option value={5}>5</option>
-                                        <option value={10}>10</option>
-                                        <option value={20}>20</option>
-                                        <option value={50}>50</option>
-                                        <option value={100}>100</option>
-                                    </select>
-                                    per page
-                                </span>
-                                <span className="text-gray-300">|</span>
-                                <span>
-                                    Showing {Math.min(sortedCampaigns.length, page * pageSize + 1)} - {Math.min(sortedCampaigns.length, (page + 1) * pageSize)} of {sortedCampaigns.length}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                                <button 
-                                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                                    disabled={page === 0}
-                                    className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                                >
-                                    <ChevronDown size={20} className="rotate-90" />
-                                </button>
-                                
-                                <div className="flex items-center px-4">
-                                    <span className="text-sm font-bold text-gray-700">Page {page + 1}</span>
-                                    <span className="text-gray-300 mx-2">/</span>
-                                    <span className="text-sm text-gray-400 font-medium">{totalPages || 1}</span>
-                                </div>
-
-                                <button 
-                                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                                    disabled={page >= totalPages - 1}
-                                    className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                                >
-                                    <ChevronDown size={20} className="-rotate-90" />
-                                </button>
-                            </div>
-                        </div>
+                        <Pagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={sortedCampaigns.length}
+                            onPageChange={setPage}
+                            onPageSizeChange={setPageSize}
+                            pageSizeOptions={[5, 10, 20, 50, 100]}
+                            className="border-none"
+                        />
                     )}
                 </div>
             </div>
