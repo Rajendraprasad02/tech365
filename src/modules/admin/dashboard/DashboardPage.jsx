@@ -81,12 +81,14 @@ export default function DashboardPage() {
 
                 {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                    <div id="conversation-volume" className={`lg:col-span-2 rounded-xl ${getHighlightClass('conversation-volume')}`}>
+                    <div id="conversation-volume" className={`lg:col-span-3 rounded-xl ${getHighlightClass('conversation-volume')}`}>
                         <ConversationVolumeChart data={data.conversationVolumeData} />
                     </div>
+                    {/* 
                     <div id="resolution-breakdown" className={`rounded-xl ${getHighlightClass('resolution-breakdown')}`}>
                         <ResolutionBreakdownChart />
                     </div>
+                    */}
                 </div>
 
                 {/* Message Delivery Overview */}
@@ -106,9 +108,11 @@ export default function DashboardPage() {
                         <div id="hourly-activity" className={`rounded-xl ${getHighlightClass('hourly-activity')}`}>
                             <HourlyActivityChart data={data.hourlyActivityData} />
                         </div>
+                        {/* 
                         <div id="template-performance" className={`rounded-xl ${getHighlightClass('template-performance')}`}>
                             <TemplatePerformance />
                         </div>
+                        */}
                     </div>
                 </div>
             </div>

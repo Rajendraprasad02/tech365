@@ -35,7 +35,7 @@ export default function LeadDetailsModal({ lead, onClose }) {
     return (
         <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                
+
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                     <div className="flex items-center gap-3">
@@ -47,7 +47,7 @@ export default function LeadDetailsModal({ lead, onClose }) {
                             <p className="text-xs text-gray-500 font-medium">Lead Details</p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
                     >
@@ -57,11 +57,11 @@ export default function LeadDetailsModal({ lead, onClose }) {
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    
+
                     {/* Primary Info Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <InfoCard icon={Mail} label="Email" value={lead.email} />
-                        <InfoCard icon={Phone} label="Phone" value={lead.phone_number} />
+                        <InfoCard icon={Phone} label="Phone" value={lead.phone_number ? '+' + String(lead.phone_number).replace(/^\+/, '') : ''} />
                         <InfoCard icon={Building} label="Company" value={lead.company_name} />
                         <InfoCard icon={Activity} label="Status" value={lead.status} badge />
                     </div>
@@ -99,8 +99,8 @@ export default function LeadDetailsModal({ lead, onClose }) {
                         </div>
                     )}
 
-                     {/* Metadata */}
-                     <div className="flex items-center gap-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
+                    {/* Metadata */}
+                    <div className="flex items-center gap-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
                         <div className="flex items-center gap-1.5">
                             <Calendar size={12} />
                             <span>Created: {formatDate(lead.created_at)}</span>
@@ -119,7 +119,7 @@ export default function LeadDetailsModal({ lead, onClose }) {
 
 function InfoCard({ icon: Icon, label, value, badge }) {
     if (!value) return null;
-    
+
     return (
         <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">

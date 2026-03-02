@@ -307,7 +307,9 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
                                                         <Globe size={16} className="text-gray-400" />
                                                     )}
                                                 </div>
-                                                <span className="font-medium text-gray-900 font-mono tracking-tight text-sm">{contact.phone_number}</span>
+                                                <span className="font-medium text-gray-900 font-mono tracking-tight text-sm">
+                                                    {contact.phone_number ? '+' + String(contact.phone_number).replace(/^\+/, '') : ''}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-3">
@@ -1141,7 +1143,7 @@ const RecipientRow = ({ recipient, statusStyles }) => {
                             {r.name || 'Private Contact'}
                         </span>
                         <span className="text-[11px] text-gray-400 font-medium flex items-center gap-1">
-                            <Phone size={10} /> {r.phone_number || r.phone}
+                            <Phone size={10} /> {(r.phone_number || r.phone) ? '+' + String(r.phone_number || r.phone).replace(/^\+/, '') : ''}
                         </span>
                     </div>
                 </div>

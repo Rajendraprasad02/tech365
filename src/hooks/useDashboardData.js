@@ -105,7 +105,7 @@ function calculateAvgResponseTime(sessions) {
         if (session.assigned_at && (session.closed_at || session.status === 'closed' || session.status === 'resolved')) {
             const startTime = new Date(session.assigned_at);
             const endTime = session.closed_at ? new Date(session.closed_at) : new Date(); // Fallback if not strictly closed_at but status is closed
-            
+
             const diffMs = endTime - startTime;
 
             // Only count valid positive differences
@@ -253,30 +253,30 @@ export function useDashboardData() {
             // Calculate Agent Performance
             const agents = users.filter(u => u.role?.name === 'Agent' || u.role_id === 3 || (u.role && typeof u.role === 'string' && u.role.toLowerCase().includes('agent')));
             const agentCount = agents.length;
-            
+
             // Stats for ALL agents combined
             let totalAgentChatsTaken = 0;
             let totalAgentChatsClosed = 0;
             let totalAgentChatsActive = 0;
 
             if (agentCount > 0) {
-                 // Create a set of agent IDs for fast lookup
-                 const agentIds = new Set(agents.map(a => a.id));
-                 
-                 sessions.forEach(session => {
-                     // Check assignment
-                     if (session.assigned_agent_id && agentIds.has(parseInt(session.assigned_agent_id))) {
-                         totalAgentChatsTaken++;
-                         
-                         const isClosed = session.status === 'closed' || session.status === 'resolved' || !!session.closed_at;
-                         
-                         if (isClosed) {
-                             totalAgentChatsClosed++;
-                         } else {
-                             totalAgentChatsActive++;
-                         }
-                     }
-                 });
+                // Create a set of agent IDs for fast lookup
+                const agentIds = new Set(agents.map(a => a.id));
+
+                sessions.forEach(session => {
+                    // Check assignment
+                    if (session.assigned_agent_id && agentIds.has(parseInt(session.assigned_agent_id))) {
+                        totalAgentChatsTaken++;
+
+                        const isClosed = session.status === 'closed' || session.status === 'resolved' || !!session.closed_at;
+
+                        if (isClosed) {
+                            totalAgentChatsClosed++;
+                        } else {
+                            totalAgentChatsActive++;
+                        }
+                    }
+                });
             }
 
             // Handle contacts count and breakdown
@@ -285,7 +285,7 @@ export function useDashboardData() {
             let manualCount = 0;
             if (contactsRes.status === 'fulfilled' && contactsRes.value) {
                 totalContactsCount = contactsRes.value.total || (Array.isArray(contactsRes.value.contacts) ? contactsRes.value.contacts.length : 0);
-                
+
                 const contactsList = contactsRes.value.contacts || [];
                 contactsList.forEach(c => {
                     if (c.source && (c.source.toLowerCase().includes('lead'))) {
@@ -339,14 +339,22 @@ export function useDashboardData() {
             const recentConversations = sessions
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .slice(0, 4)
-                .map((session, index) => ({
-                    name: session.name || session.whatsapp || session.email || `Unknown`,
-                    status: session.status || 'active',
-                    message: session.conversation?.[session.conversation.length - 1]?.text || 'No messages',
-                    time: formatTimeAgo(session.created_at),
-                    count: `${session.conversation?.length || 0} messages`,
-                    color: ['#10b981', '#f59e0b', '#6366f1', '#ec4899'][index % 4],
-                }));
+                .map((session, index) => {
+                    let displayName = session.name || session.whatsapp || session.email || `Unknown`;
+                    if (session.whatsapp && !session.name) {
+                        displayName = '+' + String(session.whatsapp).replace(/^\+/, '');
+                    } else if (/^\d{10,15}$/.test(displayName)) {
+                        displayName = '+' + displayName;
+                    }
+                    return {
+                        name: displayName,
+                        status: session.status || 'active',
+                        message: session.conversation?.[session.conversation.length - 1]?.text || 'No messages',
+                        time: formatTimeAgo(session.created_at),
+                        count: `${session.conversation?.length || 0} messages`,
+                        color: ['#10b981', '#f59e0b', '#6366f1', '#ec4899'][index % 4],
+                    };
+                });
 
             // Process delivery stats and costs from API
             let deliveryStats = {
@@ -444,7 +452,7 @@ export function useDashboardData() {
                 humanHandledConversations: {
                     value: totalAgentChatsTaken.toString(),
                     comparison: `${totalAgentChatsActive} active • ${totalAgentChatsClosed} closed`,
-                    trend: '+8.4%', 
+                    trend: '+8.4%',
                     trendUp: true,
                 },
                 costPerConversation: {

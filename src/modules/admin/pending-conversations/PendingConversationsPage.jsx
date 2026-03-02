@@ -96,7 +96,10 @@ export default function PendingConversationsPage() {
                 // Resolve Name: Lead Name > Session Name > WA ID
                 const cleanWaId = waId ? waId.replace(/\D/g, '') : '';
                 const lead = leadsMap[cleanWaId];
-                const displayName = lead?.name || session.name || waId || session.email || `Contact #${index + 1}`;
+                let displayName = lead?.name || session.name || (waId ? '+' + String(waId).replace(/^\+/, '') : '') || session.email || `Contact #${index + 1}`;
+                if (/^\d{10,15}$/.test(displayName)) {
+                    displayName = '+' + displayName;
+                }
 
                 return {
                     id: session.id || index,

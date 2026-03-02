@@ -426,7 +426,11 @@ export default function ConversationsPage() {
                 // Resolve display name: Lead Name > Session Name > WhatsApp > Email
                 const waId = session.whatsapp ? session.whatsapp.replace(/\D/g, '') : '';
                 const lead = leadsMap[waId];
-                const displayName = lead?.name || session.name || session.whatsapp || session.email || `Conversation #${index + 1}`;
+                const formattedWhatsapp = session.whatsapp ? '+' + String(session.whatsapp).replace(/^\+/, '') : '';
+                let displayName = lead?.name || session.name || formattedWhatsapp || session.email || `Conversation #${index + 1}`;
+                if (/^\d{10,15}$/.test(displayName)) {
+                    displayName = '+' + displayName;
+                }
 
                 const lastMsg = session.conversation?.[session.conversation.length - 1];
 
@@ -1544,7 +1548,7 @@ export default function ConversationsPage() {
                                         </p>
                                     )} */}
                                 </div>
-                            ) : selectedConversation.approvalStatus === 'pending' ? (
+                            ) : (selectedConversation.approvalStatus === 'pending' || (selectedConversation.approvalStatus === 'active' && !selectedConversation.assigned_agent_id)) ? (
                                 <div className="p-4 border-t border-gray-100 bg-amber-50 flex flex-col items-center justify-center gap-2 text-center">
                                     <p className="text-amber-700 font-medium flex items-center justify-center gap-2">
                                         <AlertCircle size={18} />
@@ -1559,16 +1563,6 @@ export default function ConversationsPage() {
                                         <CheckCircle size={16} />
                                         {approvingId === selectedConversation.id ? 'Assigning...' : 'Assign Chat'}
                                     </button>
-                                </div>
-                            ) : (!isAgentEffective && selectedConversation.status !== 'transfer_to_agent') ? (
-                                <div className="p-4 border-t border-gray-100 bg-amber-50 flex flex-col items-center justify-center gap-1 text-center">
-                                    <p className="text-amber-700 font-medium flex items-center justify-center gap-2">
-                                        <AlertCircle size={18} />
-                                        Form Not Filled
-                                    </p>
-                                    <p className="text-amber-600 text-xs">
-                                        Admins are not allowed to send messages until the user completes the basic details form.
-                                    </p>
                                 </div>
                             ) : (
                                 <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-white">
@@ -1717,7 +1711,11 @@ export default function ConversationsPage() {
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <span className="text-xs text-gray-400 uppercase tracking-wide block mb-0.5">Phone</span>
-                                    <p className="font-medium text-gray-900 text-sm truncate">{assignedAgent.mobile || assignedAgent.phone_number || assignedAgent.phone || 'N/A'}</p>
+                                    <p className="font-medium text-gray-900 text-sm truncate">
+                                        {(assignedAgent.mobile || assignedAgent.phone_number || assignedAgent.phone)
+                                            ? '+' + String(assignedAgent.mobile || assignedAgent.phone_number || assignedAgent.phone).replace(/^\+/, '')
+                                            : 'N/A'}
+                                    </p>
                                 </div>
                             </div>
 

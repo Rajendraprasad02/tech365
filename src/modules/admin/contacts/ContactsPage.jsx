@@ -333,7 +333,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                                 </div>
                                                 {contact.country_code && <span>{contact.country_code}</span>}
                                             </div>
-                                            <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number}</span>
+                                            <span className="font-medium text-gray-900 font-mono tracking-tight">{contact.phone_number ? '+' + String(contact.phone_number).replace(/^\+/, '') : ''}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-3 text-gray-600 font-medium text-left">{contact.name || '-'}</td>
@@ -1147,7 +1147,7 @@ function ListsGroupsTab() {
                                                             <Globe size={16} className="text-gray-400" />
                                                         )}
                                                     </div>
-                                                    {contact.phone_number}
+                                                    {contact.phone_number ? '+' + String(contact.phone_number).replace(/^\+/, '') : ''}
                                                 </div>
                                             </td>
                                             <td className="py-3 px-3">
@@ -1242,7 +1242,9 @@ function ListsGroupsTab() {
                                                             <Globe size={14} className="text-gray-400" />
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500 font-mono">{c.phone_number}</div>
+                                                    <div className="text-xs text-gray-500 font-mono">
+                                                        {c.phone_number ? '+' + String(c.phone_number).replace(/^\+/, '') : ''}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </label>
@@ -1585,7 +1587,7 @@ function InvalidFailedTab() {
                         {contacts.map((c) => (
                             <tr key={c.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2"><XCircle size={14} className="text-red-400" /><span>{c.phone_number}</span></div>
+                                    <div className="flex items-center gap-2"><XCircle size={14} className="text-red-400" /><span>{c.phone_number ? '+' + String(c.phone_number).replace(/^\+/, '') : ''}</span></div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{c.name || '-'}</td>
                                 <td className="px-6 py-4 text-center">

@@ -27,7 +27,7 @@ const UsersPage = () => {
     const indexOfLastItem = currentPage * pageSize;
     const indexOfFirstItem = indexOfLastItem - pageSize;
     const currentUsers = users.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(users.length / itemsPerPage);
+    const totalPages = Math.ceil(users.length / pageSize);
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
