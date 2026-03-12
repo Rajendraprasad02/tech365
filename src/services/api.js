@@ -193,10 +193,9 @@ export async function reopenConversation(sessionId, data) {
 }
 
 // Unspam a reported user/session
-export async function unspamUser(sessionId, agentId) {
+export async function unspamUser(sessionId) {
     return fetchDataApi(`/conversations/${sessionId}/unspam`, {
-        method: 'POST',
-        body: JSON.stringify({ agent_id: agentId })
+        method: 'POST'
     });
 }
 

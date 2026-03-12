@@ -29,7 +29,7 @@ export default function Layout() {
                 // For now, assuming API returns list of modules
                 let items = Array.isArray(data) ? [...data] : [...(data.modules || [])];
 
-                // For Super Admin, inject System Monitor and distinguish from Business Dashboard
+                // For Super Admin, inject System Monitor and distinguish from Dashboard
                 if (isSuperAdmin) {
                     const systemMonitorScreen = {
                         id: 'system-monitor',
@@ -41,8 +41,8 @@ export default function Layout() {
                     };
 
                     // Find "System Configuration" or "Setup" module to put it in
-                    let sysConfigModule = items.find(m => 
-                        (m.label || m.name || '').toLowerCase().includes('system') || 
+                    let sysConfigModule = items.find(m =>
+                        (m.label || m.name || '').toLowerCase().includes('system') ||
                         (m.label || m.name || '').toLowerCase().includes('config')
                     );
 
@@ -60,12 +60,12 @@ export default function Layout() {
                         });
                     }
 
-                    // Rename existing "Dashboard" to "Business Dashboard" if it exists
+                    // Rename existing "Dashboard" to "Dashboard" if it exists
                     items.forEach(m => {
                         m.screens?.forEach(s => {
                             const label = (s.label || s.name || '').toLowerCase();
                             if (label === 'dashboard') {
-                                s.label = 'Business Dashboard';
+                                s.label = 'Dashboard';
                             }
                         });
                     });
@@ -105,11 +105,11 @@ export default function Layout() {
                     })
                 })).filter(module => module.screens.length > 0);
 
-                // Rename existing "Dashboard" to "Business Dashboard" for transparency
+                // Rename existing "Dashboard" to "Dashboard" for transparency
                 filteredItems.forEach(m => {
                     m.screens?.forEach(s => {
                         const label = (s.label || s.name || '').toLowerCase();
-                        if (label === 'dashboard') s.label = 'Business Dashboard';
+                        if (label === 'dashboard') s.label = 'Dashboard';
                     });
                 });
 
@@ -123,8 +123,8 @@ export default function Layout() {
                     oversightScreens.forEach(screen => {
                         const exists = filteredItems.some(m => m.screens.some(s => s.id === screen.id || s.key === screen.key));
                         if (!exists) {
-                            let sysConfigModule = filteredItems.find(m => 
-                                (m.label || m.name || '').toLowerCase().includes('system') || 
+                            let sysConfigModule = filteredItems.find(m =>
+                                (m.label || m.name || '').toLowerCase().includes('system') ||
                                 (m.label || m.name || '').toLowerCase().includes('config')
                             );
 
