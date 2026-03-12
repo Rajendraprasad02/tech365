@@ -919,3 +919,339 @@ function UploadTab() {
 }
 
 
+// ============ Lists / Groups Tab ============
+function ListsGroupsTab() {
+    const [lists, setLists] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newList, setNewList] = useState({ name: '', description: '' });
+
+    const fetchLists = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await api.getContactLists();
+            setLists(data || []);
+        } catch (error) {
+            console.error('Error fetching lists:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLists();
+    }, [fetchLists]);
+
+    const handleCreateList = async () => {
+        if (!newList.name) return;
+        try {
+            await api.createContactList(newList.name, newList.description);
+            setNewList({ name: '', description: '' });
+            setShowAddModal(false);
+            fetchLists();
+        } catch (error) {
+            console.error('Error creating list:', error);
+        }
+    };
+
+    const handleDeleteList = async (id) => {
+        if (!confirm('Are you sure you want to delete this list?')) return;
+        try {
+            await api.deleteContactList(id);
+            fetchLists();
+        } catch (error) {
+            console.error('Error deleting list:', error);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading lists...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 h-full flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Contact Lists & Groups</h3>
+                <button onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors">
+                    <Plus size={16} /> Create List
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {lists.length > 0 ? lists.map((list) => (
+                        <div key={list.id} className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow group relative">
+                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleDeleteList(list.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                            <div className="w-12 h-12 bg-violet-50 text-violet-500 rounded-xl flex items-center justify-center mb-4">
+                                <FolderOpen size={24} />
+                            </div>
+                            <h4 className="font-bold text-gray-900 mb-1">{list.name}</h4>
+                            <p className="text-sm text-gray-500 line-clamp-2 mb-4 h-10">{list.description || 'No description provided'}</p>
+                            <div className="flex items-center justify-between pt-4 border-t border-gray-50 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                <div className="flex items-center gap-1.5">
+                                    <Users size={14} />
+                                    {list.contacts_count || 0} Contacts
+                                </div>
+                                <button className="text-violet-500 hover:underline">View Details</button>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="col-span-full py-20 text-center text-gray-400">
+                           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                               <FolderOpen size={32} />
+                           </div>
+                           <p>No contact lists found. Create your first list!</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Add List Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-gray-900">Create New List</h3>
+                            <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">List Name *</label>
+                                <input type="text" placeholder="e.g. VIP Customers"
+                                    value={newList.name}
+                                    onChange={(e) => setNewList({ ...newList, name: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Description (Optional)</label>
+                                <textarea placeholder="Describe the purpose of this list..." rows="3"
+                                    value={newList.description}
+                                    onChange={(e) => setNewList({ ...newList, description: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setShowAddModal(false)}
+                                className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
+                            <button onClick={handleCreateList}
+                                className="px-8 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 shadow-lg shadow-violet-200 transition-all">Create List</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============ Import History Tab ============
+function ImportHistoryTab() {
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchHistory = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await api.getImportHistory();
+            setHistory(data || []);
+        } catch (error) {
+            console.error('Error fetching import history:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
+
+    const handleClearHistory = async () => {
+        if (!confirm('Are you sure you want to clear all import history?')) return;
+        try {
+            await api.clearImportHistory();
+            fetchHistory();
+        } catch (error) {
+            console.error('Error clearing history:', error);
+        }
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading history...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 h-full flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Bulk Import History</h3>
+                {history.length > 0 && (
+                    <button onClick={handleClearHistory}
+                        className="text-red-500 hover:text-red-600 text-sm font-bold flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
+                        <Trash2 size={16} /> Clear All History
+                    </button>
+                )}
+            </div>
+
+            <div className="flex-1 overflow-auto">
+                <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                        <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400">
+                            <th className="px-6 py-4 text-left">Date & Time</th>
+                            <th className="px-6 py-4 text-left">File Name</th>
+                            <th className="px-6 py-4 text-center">Total</th>
+                            <th className="px-6 py-4 text-center text-green-600">Success</th>
+                            <th className="px-6 py-4 text-center text-orange-500">Duplicates</th>
+                            <th className="px-6 py-4 text-center text-red-500">Failed</th>
+                            <th className="px-6 py-4 text-center">By</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {history.length > 0 ? history.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4 font-medium text-gray-600 whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <FileText size={16} className="text-gray-400" />
+                                        <span className="font-bold text-gray-900">{item.filename || 'Unknown File'}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-center font-black text-gray-700">{item.total || 0}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className="px-2 py-1 bg-green-50 text-green-700 rounded-md font-bold">{item.success_count || 0}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center text-gray-500">{item.duplicate_count || 0}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className={`px-2 py-1 rounded-md font-bold ${item.failed_count > 0 ? 'bg-red-50 text-red-700' : 'text-gray-400'}`}>
+                                        {item.failed_count || 0}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-center text-gray-500 font-medium">{item.uploaded_by || 'Admin'}</td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-20 text-center text-gray-400">
+                                    No import history found
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ============ Invalid / Failed Tab ============
+function InvalidFailedTab() {
+    const [contacts, setContacts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchInvalid = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await api.getInvalidContacts();
+            setContacts(data || []);
+        } catch (error) {
+            console.error('Error fetching invalid contacts:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchInvalid();
+    }, [fetchInvalid]);
+
+    if (loading) {
+        return (
+            <div className="loader-wrapper bg-gray-50/50">
+                <span className="loader mb-4"></span>
+                <p className="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading invalid records...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 h-full flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Invalid / Failed Contacts</h3>
+                    <p className="text-xs text-gray-500">Contact records that failed validation during import</p>
+                </div>
+                <div className="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-bold border border-red-100">
+                    Total: {contacts.length}
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+                <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                        <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400">
+                            <th className="px-6 py-4 text-left">Phone Number</th>
+                            <th className="px-6 py-4 text-left">Name</th>
+                            <th className="px-6 py-4 text-left">Error Reason</th>
+                            <th className="px-6 py-4 text-center">Batch ID</th>
+                            <th className="px-6 py-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {contacts.length > 0 ? contacts.map((contact, idx) => (
+                            <tr key={contact.id || idx} className="hover:bg-red-50/30 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <XCircle size={16} className="text-red-500" />
+                                        <span className="font-mono font-bold text-gray-900 tracking-tighter">{contact.phone_number}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-gray-600 font-medium">{contact.name || '-'}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1 rounded-full w-fit text-xs">
+                                        <AlertCircle size={12} />
+                                        {contact.error_reason || 'Invalid format'}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-center text-gray-400 font-mono text-xs">
+                                    {contact.import_id ? `#${contact.import_id.substring(0, 8)}` : '-'}
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <button className="text-violet-600 hover:text-violet-700 font-bold hover:underline">Fix & Retry</button>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan="5" className="px-6 py-20 text-center text-gray-400">
+                                    Excellent! No invalid contacts found.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+
+
