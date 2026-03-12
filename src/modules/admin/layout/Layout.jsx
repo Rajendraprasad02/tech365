@@ -154,14 +154,15 @@ export default function Layout() {
                         const routeKey = screen.key || (screen.path || screen.route)?.replace(/^\//, '') || screen.label?.toLowerCase() || screen.id;
 
                         // Map actions to true/false for UI check consistency
+                        // Action IDs: 1=view, 2=create, 3=edit, 4=delete, 13=approve/manage
                         const actions = (screen.actions || []).map(a => String(a).toLowerCase());
                         derivedPermissions[routeKey] = {
-                            view: actions.some(a => ['view', 'read', 'viewing'].includes(a)),
-                            create: actions.some(a => ['create', 'add'].includes(a)),
-                            edit: actions.some(a => ['edit', 'update', 'modify'].includes(a)),
-                            delete: actions.some(a => ['delete', 'remove'].includes(a)),
-                            manage: actions.some(a => ['manage', 'admin', 'configure'].includes(a)),
-                            configure: actions.some(a => ['configure', 'settings', 'manage'].includes(a))
+                            view: actions.some(a => ['view', 'read', 'viewing', '1'].includes(a)),
+                            create: actions.some(a => ['create', 'add', '2'].includes(a)),
+                            edit: actions.some(a => ['edit', 'update', 'modify', '3'].includes(a)),
+                            delete: actions.some(a => ['delete', 'remove', '4'].includes(a)),
+                            manage: actions.some(a => ['manage', 'admin', 'configure', '13'].includes(a)),
+                            configure: actions.some(a => ['configure', 'settings', 'manage', '13'].includes(a))
                         };
                     });
                 });

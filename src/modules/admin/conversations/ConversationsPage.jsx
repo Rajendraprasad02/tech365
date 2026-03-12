@@ -16,12 +16,9 @@ export default function ConversationsPage() {
     const { toast } = useToast();
     const { user, permissions } = useSelector(selectAuth);
 
-    // Permission-Based UI Enforcement
-    // If user has 'manage' or 'configure' on conversations, they see the Admin view.
-    // Otherwise, they are treated as an Agent (Assigned-only view).
+    const isAgent = useSelector(selectIsAgent);
     const conversationPerms = permissions?.['conversations'] || {};
-    const isAgentEffective = !conversationPerms.manage && !conversationPerms.configure;
-    const isAgent = isAgentEffective; // Alias for backward compatibility and to prevent ReferenceErrors
+    const isAgentEffective = isAgent && !conversationPerms.manage && !conversationPerms.configure;
 
 
     const [conversations, setConversations] = useState([]);
@@ -29,7 +26,16 @@ export default function ConversationsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [messageInput, setMessageInput] = useState('');
-    const [statusFilter, setStatusFilter] = useState(isAgentEffective ? 'assigned' : 'all'); // 'all', 'pending', 'approved'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'approved'
+
+    // Synchronize default filter when permissions/role are loaded
+    useEffect(() => {
+        if (isAgentEffective) {
+            setStatusFilter('assigned');
+        } else {
+            setStatusFilter('all');
+        }
+    }, [isAgentEffective]);
 
     // Agent Filter State for Admins
     const [agents, setAgents] = useState([]);
