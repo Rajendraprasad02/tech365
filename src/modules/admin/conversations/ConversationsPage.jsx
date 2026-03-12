@@ -1219,25 +1219,25 @@ export default function ConversationsPage() {
                                             }
                                         </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="font-bold text-gray-800 text-xs truncate">
+                                                <span className="font-bold text-gray-900 text-[13px] truncate leading-tight">
                                                     {conv.title}
                                                 </span>
                                                 <button
                                                     onClick={(e) => handleShowLeadDetails(e, conv.wa_id || conv.title)}
-                                                    className="text-gray-300 hover:text-blue-600 transition-colors p-0.5 rounded-full hover:bg-blue-50"
+                                                    className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded-full hover:bg-blue-50"
                                                     title="View Lead Details"
                                                 >
                                                     <FileText size={12} />
                                                 </button>
                                             </div>
-                                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                            <span className="text-[10px] text-gray-400 whitespace-nowrap font-medium ml-auto">
                                                 {conv.time}
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-gray-500 truncate mt-1">
+                                        <p className="text-[11px] text-gray-500 truncate mt-0.5 leading-normal">
                                             {typingSessions[conv.wa_id?.replace(/\D/g, '')] ? (
                                                 <span className="text-blue-600 font-medium italic animate-pulse flex items-center gap-1">
                                                     <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></span>
@@ -1267,10 +1267,7 @@ export default function ConversationsPage() {
                                         </div>
                                     </div>
 
-                                    <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                        <Clock size={10} />
-                                        {conv.time}
-                                    </span>
+
                                 </div>
                             ))
                         ) : (
@@ -1299,13 +1296,30 @@ export default function ConversationsPage() {
                                         <div className="flex flex-col min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <h2 className="font-semibold text-gray-900 truncate">{selectedConversation.title}</h2>
-                                                <button
-                                                    onClick={(e) => handleShowLeadDetails(e, selectedConversation.wa_id || selectedConversation.title)}
-                                                    className="text-gray-400 hover:text-blue-600 transition-colors"
-                                                    title="View Lead Details"
-                                                >
-                                                    <FileText size={16} />
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={(e) => handleShowLeadDetails(e, selectedConversation.wa_id || selectedConversation.title)}
+                                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                        title="View Lead Details"
+                                                    >
+                                                        <FileText size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setShowNotesModal(true)}
+                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all flex items-center gap-1.5"
+                                                        title="View Agent Notes"
+                                                    >
+                                                        <MessageSquare size={16} />
+                                                        {selectedConversation?.contact_info?.agent_notes?.length > 0 && (
+                                                            <div className="flex flex-col items-start">
+                                                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tight leading-none">Agent Notes</span>
+                                                                <span className="text-[11px] text-gray-500 font-medium truncate max-w-[150px]">
+                                                                    {selectedConversation.contact_info.agent_notes[selectedConversation.contact_info.agent_notes.length - 1].note}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                             {typingSessions[selectedConversation.wa_id?.replace(/\D/g, '')] ? (
                                                 <span className="text-[10px] text-blue-600 font-medium animate-pulse flex items-center gap-1 mt-0.5">
@@ -1371,9 +1385,8 @@ export default function ConversationsPage() {
                                         )}
 
                                         {/* Cost Badge - Last */}
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
-                                            <DollarSign size={14} className="opacity-70" />
-                                            <span className="text-sm font-bold">₹ {selectedConversation.cost}</span>
+                                        <div className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
+                                            <span className="text-sm font-bold leading-none">{selectedConversation.cost}</span>
                                         </div>
                                     </div>
                                 </div>

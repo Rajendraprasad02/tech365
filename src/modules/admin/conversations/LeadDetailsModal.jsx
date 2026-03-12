@@ -99,17 +99,7 @@ export default function LeadDetailsModal({ lead, onClose }) {
                         </div>
                     )}
 
-                    {/* Metadata */}
-                    <div className="flex items-center gap-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
-                        <div className="flex items-center gap-1.5">
-                            <Calendar size={12} />
-                            <span>Created: {formatDate(lead.created_at)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <Calendar size={12} />
-                            <span>Updated: {formatDate(lead.updated_at)}</span>
-                        </div>
-                    </div>
+
 
                 </div>
             </div>

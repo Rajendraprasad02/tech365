@@ -1072,4 +1072,11 @@ export default {
             body: JSON.stringify({ email, otp, password: newPassword }),
         });
     },
+
+    verifyOtp: async (email, otp) => {
+        return fetchApi('/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ email, otp }),
+        });
+    },
 };

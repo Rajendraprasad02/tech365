@@ -76,6 +76,7 @@ export default function RoleManagementPage() {
             const processedActions = (actionsData || [])
                 .filter(a => {
                     const name = a.name.toLowerCase();
+                    if (name === 'manage' || name === 'configure') return false;
                     if (seenActions.has(name)) return false;
                     seenActions.add(name);
                     return true;

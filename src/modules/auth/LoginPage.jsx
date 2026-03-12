@@ -11,6 +11,7 @@ import {
     Loader2
 } from 'lucide-react';
 import api from '@/services/api';
+import { useToast } from '@/context/ToastContext';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -33,7 +34,8 @@ export default function LoginPage() {
         otp: ''
     });
 
-    const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'forgot-password' | 'verify-otp'
+    const [authMode, setAuthMode] = useState('login'); // 'login' | 'forgot-password' | 'enter-otp' | 'reset-password'
+    const { toast } = useToast();
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -57,38 +59,28 @@ export default function LoginPage() {
                 } else {
                     setError('Invalid email or password');
                 }
-            } else if (authMode === 'register') {
-                // Register Flow
-                if (formData.password !== formData.confirmPassword) {
-                    throw new Error("Passwords do not match");
-                }
-                if (!formData.agreeToTerms) {
-                    throw new Error("You must agree to the Terms of Service");
-                }
-
-                await api.createAppUser({
-                    username: formData.email.split('@')[0], // Generate simplistic username
-                    email: formData.email,
-                    password: formData.password
-                });
-
-                // On success, switch to login or auto-login
-                alert("Account created successfully! Please sign in.");
-                setAuthMode('login');
             } else if (authMode === 'forgot-password') {
                 await api.forgotPassword(formData.email);
-                alert("If your email is registered, we have sent a 6-digit OTP.");
-                setAuthMode('verify-otp');
-            } else if (authMode === 'verify-otp') {
+                toast({ title: "OTP Sent", description: "If your email is registered, we have sent a 6-digit OTP.", variant: "success" });
+                setAuthMode('enter-otp');
+                setFormData(prev => ({ ...prev, password: '', confirmPassword: '', otp: '' }));
+            } else if (authMode === 'enter-otp') {
+                await api.verifyOtp(formData.email, formData.otp);
+                toast({ title: "Verified", description: "OTP verified successfully. Please set your new password.", variant: "success" });
+                setAuthMode('reset-password');
+                setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+            } else if (authMode === 'reset-password') {
                 if (formData.password !== formData.confirmPassword) {
                     throw new Error("Passwords do not match");
                 }
                 await api.resetPassword(formData.email, formData.otp, formData.password);
-                alert("Password reset successful! Please log in with your new password.");
+                toast({ title: "Success", description: "Password reset successful! Please log in with your new password.", variant: "success" });
                 setAuthMode('login');
+                setFormData(prev => ({ ...prev, password: '', confirmPassword: '', otp: '' }));
             }
         } catch (err) {
             setError(err.message || 'Authentication failed');
+            toast({ title: "Error", description: err.message || 'Authentication failed', variant: "destructive" });
         } finally {
             setLoading(false);
         }
@@ -173,35 +165,19 @@ export default function LoginPage() {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">
                             {authMode === 'login' && 'Welcome back'}
-                            {authMode === 'register' && 'Create an account'}
                             {authMode === 'forgot-password' && 'Reset Password'}
-                            {authMode === 'verify-otp' && 'Verify OTP'}
+                            {authMode === 'enter-otp' && 'Verify OTP'}
+                            {authMode === 'reset-password' && 'New Password'}
                         </h2>
                         <p className="mt-2 text-sm text-gray-500">
                             {authMode === 'login' && 'Enter your credentials to access your account'}
-                            {authMode === 'register' && 'Get started with your WhatsApp Business integration'}
                             {authMode === 'forgot-password' && 'Enter your email to receive a password reset OTP'}
-                            {authMode === 'verify-otp' && 'Enter the OTP sent to your email and your new password'}
+                            {authMode === 'enter-otp' && 'Enter the 6-digit code sent to your email'}
+                            {authMode === 'reset-password' && 'Create a new secure password for your account'}
                         </p>
                     </div>
 
                     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-                        {/* Registration Extra Fields */}
-                        {authMode === 'register' && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                                <input
-                                    name="fullName"
-                                    type="text"
-                                    autoComplete="name"
-                                    required={authMode === 'register'}
-                                    value={formData.fullName}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
-                                    placeholder="John Doe"
-                                />
-                            </div>
-                        )}
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Work Email</label>
@@ -210,23 +186,27 @@ export default function LoginPage() {
                                 type="email"
                                 autoComplete="email"
                                 required
+                                disabled={authMode === 'enter-otp' || authMode === 'reset-password'}
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                className={`w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none ${ (authMode === 'enter-otp' || authMode === 'reset-password') ? 'opacity-50 cursor-not-allowed' : '' }`}
                                 placeholder="john@company.com"
                             />
                         </div>
 
-                        {authMode !== 'forgot-password' && (
-                            <div>
+                        {(authMode === 'login' || authMode === 'reset-password') && (
+                            <div className="animate-in slide-in-from-top-2">
                                 <div className="flex justify-between items-center mb-1">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        {authMode === 'verify-otp' ? 'New Password' : 'Password'}
+                                        {authMode === 'reset-password' ? 'New Password' : 'Password'}
                                     </label>
                                     {authMode === 'login' && (
                                         <button 
                                             type="button" 
-                                            onClick={() => setAuthMode('forgot-password')}
+                                            onClick={() => {
+                                                setAuthMode('forgot-password');
+                                                setFormData(prev => ({ ...prev, password: '', confirmPassword: '', otp: '' }));
+                                            }}
                                             className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                                         >
                                             Forgot password?
@@ -238,11 +218,11 @@ export default function LoginPage() {
                                         name="password"
                                         type={showPassword ? "text" : "password"}
                                         autoComplete={authMode === 'login' ? "current-password" : "new-password"}
-                                        required={authMode !== 'forgot-password'}
+                                        required
                                         value={formData.password}
                                         onChange={handleChange}
                                         className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
-                                        placeholder={authMode === 'register' ? "Create a strong password" : (authMode === 'verify-otp' ? "Enter new password" : "Enter your password")}
+                                        placeholder={authMode === 'reset-password' ? "Enter new password" : "Enter your password"}
                                     />
                                     <button
                                         type="button"
@@ -255,13 +235,13 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        {authMode === 'verify-otp' && (
+                        {authMode === 'enter-otp' && (
                             <div className="animate-in slide-in-from-top-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">OTP Code</label>
                                 <input
                                     name="otp"
                                     type="text"
-                                    required={authMode === 'verify-otp'}
+                                    required
                                     value={formData.otp}
                                     onChange={handleChange}
                                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none text-center font-bold tracking-[0.5em] text-lg"
@@ -272,57 +252,7 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        {(authMode === 'register' || authMode === 'verify-otp') && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {authMode === 'verify-otp' ? 'Confirm New Password' : 'Confirm Password'}
-                                </label>
-                                <input
-                                    name="confirmPassword"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    required={authMode === 'register' || authMode === 'verify-otp'}
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
-                                    placeholder="Confirm your password"
-                                />
-                            </div>
-                        )}
 
-                        {/* Terms / Remember Me */}
-                        <div className="flex items-center">
-                            {authMode === 'login' ? (
-                                <>
-                                    <input
-                                        key="remember-me"
-                                        id="remember-me"
-                                        name="remember-me"
-                                        type="checkbox"
-                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-500">
-                                        Remember me for 30 days
-                                    </label>
-                                </>
-                            ) : authMode === 'register' ? (
-                                <>
-                                    <input
-                                        key="agree-terms"
-                                        id="agree-terms"
-                                        name="agreeToTerms"
-                                        type="checkbox"
-                                        required
-                                        checked={formData.agreeToTerms}
-                                        onChange={handleChange}
-                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-500">
-                                        I agree to the <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
-                                    </label>
-                                </>
-                            ) : null}
-                        </div>
 
                         {error && (
                             <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center font-medium animate-in fade-in">
@@ -336,27 +266,29 @@ export default function LoginPage() {
                             className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
                         >
                             {loading ? (
-                                <span className="loader-sm"></span>
+                                <Loader2 className="animate-spin" size={20} />
                             ) : (
-                                authMode === 'login' ? 'Sign In' : (authMode === 'register' ? 'Create Account' : (authMode === 'forgot-password' ? 'Send OTP' : 'Reset Password'))
+                                authMode === 'login' ? 'Sign In' : (authMode === 'forgot-password' ? 'Send OTP' : (authMode === 'enter-otp' ? 'Verify OTP' : 'Reset Password'))
                             )}
                         </button>
                     </form>
 
                     <div className="text-center mt-6">
                         <p className="text-sm text-gray-500">
-                            {authMode === 'login' ? "Don't have an account?" : "Back to"}{' '}
-                            <button
-                                onClick={() => {
-                                    if (authMode === 'login') setAuthMode('register');
-                                    else setAuthMode('login');
-                                    setError('');
-                                    setFormData(prev => ({ ...prev, password: '', confirmPassword: '', otp: '' })); 
-                                }}
-                                className="font-medium text-blue-600 hover:text-blue-500 hover:underline transition-colors"
-                            >
-                                {authMode === 'login' ? 'Create an account' : 'Sign in'}
-                            </button>
+                            {authMode !== 'login' ? (
+                                <button
+                                    onClick={() => {
+                                        setAuthMode('login');
+                                        setError('');
+                                        setFormData(prev => ({ ...prev, password: '', confirmPassword: '', otp: '' })); 
+                                    }}
+                                    className="font-medium text-blue-600 hover:text-blue-500 hover:underline transition-colors"
+                                >
+                                    Back to sign in
+                                </button>
+                            ) : (
+                                <span className="opacity-0">Placeholder</span>
+                            )}
                         </p>
                     </div>
                 </div>
