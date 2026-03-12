@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useDashboardData } from '../../../hooks/useDashboardData';
-import DashboardHeader from './DashboardHeader';
 import HeroCards from './HeroCards';
 import MetricsGrid from './MetricsGrid';
 import ConversationVolumeChart from './ConversationVolumeChart';
@@ -43,9 +42,6 @@ export default function DashboardPage() {
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-gray-50/30">
-            {/* Top Header Bar */}
-            <DashboardHeader onScrollToSection={handleScrollToSection} />
-
             {/* Dashboard Content */}
             <div className="flex-1 p-4 md:p-8 overflow-y-auto">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
@@ -74,6 +70,7 @@ export default function DashboardPage() {
                         activeUsers={data.activeUsers}
                         costPerConversation={data.costPerConversation}
                         avgResponseTime={data.avgResponseTime}
+                        responseRate={data.responseRate}
                         deliveryStats={data.deliveryStats}
                         humanHandledConversations={data.humanHandledConversations}
                     />

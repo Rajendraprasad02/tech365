@@ -2,7 +2,7 @@
 // Auth/RBAC APIs go to NestJS backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 // Business data APIs go to Python backend
-const DATA_API_BASE_URL = import.meta.env.VITE_DATA_API_URL;
+const DATA_API_BASE_URL = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
 
 // Helper to get headers with token
 const getHeaders = (customHeaders = {}) => {
@@ -23,7 +23,10 @@ const handleResponse = async (response, isNestJS = false) => {
     if (!response.ok) {
         if (response.status === 401) {
             localStorage.removeItem('token');
-            if (!window.location.pathname.includes('/login')) {
+            localStorage.removeItem('refreshToken');
+            // Support both path-based and hash-based routing
+            const isAtLogin = window.location.pathname.includes('/login') || window.location.hash.includes('/login');
+            if (!isAtLogin) {
                 window.location.href = '/#/login';
             }
             throw new Error('Unauthorized - logging out');
@@ -74,6 +77,9 @@ async function fetchApi(endpoint, options = {}) {
             ...getHeaders(),
             ...(options.headers || {}),
         };
+        if (options.body instanceof FormData && mergedHeaders['Content-Type'] === 'application/json') {
+            delete mergedHeaders['Content-Type'];
+        }
 
         // Debug log for troubleshooting auth issues
         console.log(`[fetchApi] ${options.method || 'GET'} ${API_BASE_URL}${endpoint}`, {
@@ -102,11 +108,16 @@ async function fetchDataApi(endpoint, options = {}) {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     try {
+        const headers = getHeaders(options.headers);
+        if (options.body instanceof FormData && headers['Content-Type'] === 'application/json') {
+            delete headers['Content-Type'];
+        }
+        
         // console.log(`Calling Python API: ${baseUrl}${cleanEndpoint}`);
         const response = await fetch(`${baseUrl}${cleanEndpoint}`, {
-            headers: getHeaders(options.headers),
-            signal: controller.signal,
             ...options,
+            headers,
+            signal: controller.signal,
         });
         clearTimeout(id);
 
@@ -128,22 +139,22 @@ async function fetchDataApi(endpoint, options = {}) {
 
 // Get all chat sessions with conversation history
 export async function getSessions() {
-    return fetchDataApi('/sessions');
+    return fetchDataApi('/conversations');
 }
 
 // Get a specific chat session by ID
 export async function getSessionById(sessionId) {
-    return fetchDataApi(`/session/${sessionId}`);
+    return fetchDataApi(`/chats/session/${sessionId}`);
 }
 
 // Get pending sessions awaiting agent assignment (unassigned)
 export async function getPendingSessions() {
-    return fetchDataApi('/sessions?pending=true');
+    return fetchDataApi('/conversations/pending');
 }
 
 // Assign session to agent
 export async function assignSessionToAgent(sessionId, agentId) {
-    return fetchDataApi(`/session/${sessionId}/assign`, {
+    return fetchDataApi(`/conversations/${sessionId}/assign`, {
         method: 'POST',
         body: JSON.stringify({ agent_id: agentId })
     });
@@ -159,7 +170,7 @@ export async function sendSessionMessage(sessionId, message) {
 
 // End a session (Old)
 export async function endSession(sessionId, userId) {
-    return fetchDataApi(`/session/${sessionId}/end`, {
+    return fetchDataApi(`/chats/session/${sessionId}/end`, {
         method: 'POST',
         body: JSON.stringify({ closed_by: userId })
     });
@@ -201,9 +212,9 @@ export async function getWhatsAppConversation(waId) {
     return fetchDataApi(`/whatsapp/conversation/${waId}`);
 }
 
-// Get conversations assigned to a specific agent
+// Get conversations assigned to a specific agent (securely via JWT)
 export async function getAgentSessions(agentId) {
-    return fetchDataApi(`/whatsapp/agent-sessions/${agentId}`);
+    return fetchDataApi('/conversations/my');
 }
 
 // Get WhatsApp conversation costs with optional date filters
@@ -615,6 +626,49 @@ export async function deleteRole(roleId) {
     });
 }
 
+// ============ Audit Logs APIs ============
+
+// Get all audit logs with filters (Unified Logs from Python)
+export async function getAuditLogs(params = {}) {
+    const query = new URLSearchParams();
+    if (params.userId) query.append('userId', params.userId);
+    if (params.user_name) query.append('user_name', params.user_name);
+    if (params.module) query.append('module', params.module);
+    if (params.status) query.append('status', params.status);
+    if (params.logType) query.append('log_type', params.logType);
+    if (params.startDate) query.append('start_date', params.startDate);
+    if (params.endDate) query.append('end_date', params.endDate);
+    if (params.search) query.append('search', params.search);
+    if (params.sortBy) query.append('sort_by', params.sortBy);
+    if (params.sortOrder) query.append('sort_order', params.sortOrder);
+    if (params.page) query.append('skip', (params.page - 1) * (params.limit || 20));
+    if (params.limit) query.append('limit', params.limit);
+
+    return fetchDataApi(`/system/logs?${query.toString()}`);
+}
+
+// Get audit log details
+export async function getAuditLogDetails(id) {
+    return fetchDataApi(`/system/logs/${id}`);
+}
+
+// ============ Notifications APIs ============
+
+// Get user notifications (Super Admin Unified Center)
+export async function getNotifications() {
+    return fetchDataApi('/system/notifications');
+}
+
+// Mark single notification as read
+export async function markNotificationAsRead(id) {
+    return fetchDataApi(`/system/notifications/${id}/read`, { method: 'PATCH' });
+}
+
+// Mark all as read
+export async function markAllNotificationsAsRead() {
+    return fetchDataApi('/system/notifications/mark-all-read', { method: 'POST' });
+}
+
 // ============ User Management APIs ============
 
 // Get all users (NestJS Backend - 3066)
@@ -681,9 +735,31 @@ export async function getMenuCreator() {
     let menus = [];
     // Backend returns { menus: [...] } due to formatSuccessResponse
     if (result && result.menus && Array.isArray(result.menus)) {
-        menus = result.menus;
+        menus = result.menus
+            .filter(mod => {
+                const name = (mod.moduleName || mod.name || '').toLowerCase();
+                return !['metrics', 'leads', 'sessions', 'notifications'].includes(name);
+            })
+            .map(mod => ({
+                ...mod,
+                screens: (mod.screens || []).filter(scr => {
+                    const name = (scr.screenName || scr.name || '').toLowerCase();
+                    return !['metrics', 'leads', 'sessions', 'notifications'].includes(name);
+                })
+            }));
     } else if (Array.isArray(result)) {
-        menus = result;
+        menus = result
+            .filter(mod => {
+                const name = (mod.moduleName || mod.name || '').toLowerCase();
+                return !['metrics', 'leads', 'sessions', 'notifications'].includes(name);
+            })
+            .map(mod => ({
+                ...mod,
+                screens: (mod.screens || []).filter(scr => {
+                    const name = (scr.screenName || scr.name || '').toLowerCase();
+                    return !['metrics', 'leads', 'sessions', 'notifications'].includes(name);
+                })
+            }));
     }
 
     // Map Backend Keys to Frontend Keys
@@ -714,20 +790,47 @@ export async function seedDatabase() {
     return fetchApi('/roles/seed', { method: 'POST' });
 }
 
-// Get Lead by Phone (Public)
+// Get RBAC Actions
+export async function getActions() {
+    return fetchApi('/actions');
+}
+
+// Create a new action
+export async function createAction(data) {
+    return fetchApi('/actions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// Update an existing action
+export async function updateAction(actionId, data) {
+    // Note: Backend uses /actions/update:id which is a bit non-standard but following controller
+    return fetchApi(`/actions/update${actionId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// Delete an action
+export async function deleteAction(actionId) {
+    return fetchApi(`/actions/${actionId}`, {
+        method: 'DELETE',
+    });
+}
+// Leads
 export async function getLeadByPhone(phone) {
     let formattedPhone = phone?.toString() || '';
     if (formattedPhone && !formattedPhone.startsWith('+')) {
         formattedPhone = '+' + formattedPhone;
     }
 
-    // Explicitly public call (no default headers with token)
     const baseUrl = (DATA_API_BASE_URL || '').replace(/\/+$/, '');
     const response = await fetch(`${baseUrl}/leads/phone/${encodeURIComponent(formattedPhone)}`, {
         method: 'GET',
-        headers: {
+        headers: getHeaders({
             'Content-Type': 'application/json',
-        }
+        })
     });
     return handleResponse(response, false);
 }
@@ -831,12 +934,18 @@ export default {
     clearImportHistory,
     getInvalidContacts,
     getRoles,
+    getActions,
     getRoleById,
     createRole,
     updateRole,
     deleteRole,
     getMenuCreator,
     updateMenuCreator,
+    getAuditLogs,
+    getAuditLogDetails,
+    getNotifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
     // User APIs
     getUsers,
     createUser,
@@ -913,61 +1022,27 @@ export default {
         return fetchApi('/roles/seed', { method: 'POST' });
     },
 
-    getSidebarMenu: async (roleIdParam) => {
-        const roleId = roleIdParam || localStorage.getItem('roleId');
-
-        // CRITICAL: Do NOT fallback to '1' (Super Admin) if roleId is missing.
-        // This was causing Agents to see Super Admin menus.
-        if (!roleId) {
-            console.warn('[getSidebarMenu] No roleId found in localStorage or param. Cannot fetch menu.');
-            return [];
-        }
-
+    getSidebarMenu: async () => {
         try {
-            // Use fetchApi for NestJS backend (GET /menu-creator/:roleId is @Public())
-            const result = await fetchApi(`/menu-creator/${roleId}`);
+            // SECURE: Backend extracts role from JWT token — no roleId needed
+            // Use fetchApi (NestJS) instead of fetchDataApi (Python)
+            const result = await fetchApi('/menu-creator/my-menu');
 
             if (Array.isArray(result)) {
-                let menu = result.map((module, index) => ({
-                    id: module.id || module.moduleId || `module-${index}`,
-                    label: module.name || module.moduleName || 'Unnamed Module',
-                    screens: (module.screens || []).map((screen, sIndex) => ({
-                        id: screen.id || screen.screenId || `screen-${index}-${sIndex}`,
-                        label: screen.name || screen.screenName,
-                        path: screen.route || screen.screenRoute,
-                        icon: screen.icon || 'LayoutDashboard',
-                    }))
-                }));
-
-                // Ensure 'Forms' is in the menu for the current role if it's not already there
-                let formsModule = menu.find(m => m.label.toLowerCase() === 'forms');
-                const formsScreenExists = menu.some(m => m.screens.some(s => s.id === 'forms' || s.label.toLowerCase() === 'forms'));
-
-                if (!formsScreenExists) {
-                    if (formsModule) {
-                        // Add to existing module
-                        formsModule.screens.push({
-                            id: 'forms',
-                            label: 'Manage Forms',
-                            path: 'forms',
-                            icon: 'FileText'
-                        });
-                    } else {
-                        // Create new module
-                        menu.push({
-                            id: 'forms-module',
-                            label: 'Forms',
-                            screens: [
-                                {
-                                    id: 'forms',
-                                    label: 'Manage Forms',
-                                    path: 'forms',
-                                    icon: 'FileText'
-                                }
-                            ]
-                        });
-                    }
-                }
+                let menu = result
+                    .map((module, index) => ({
+                        id: module.id || module.moduleId || `module-${index}`,
+                        label: module.name || module.moduleName || 'Unnamed Module',
+                        screens: (module.screens || [])
+                            .map((screen, sIndex) => ({
+                                id: screen.id || screen.screenId || `screen-${index}-${sIndex}`,
+                                label: screen.name || screen.screenName,
+                                path: screen.route || screen.screenRoute,
+                                key: screen.key,
+                                icon: screen.icon,
+                                actions: screen.actions || [] // PASS through actions for the layout to use
+                            }))
+                    }));
 
                 return menu;
             }
@@ -976,5 +1051,19 @@ export default {
             console.error("Error fetching sidebar menu:", error);
             return [];
         }
+    },
+
+    forgotPassword: async (email) => {
+        return fetchApi('/otp/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
+    },
+
+    resetPassword: async (email, otp, newPassword) => {
+        return fetchApi('/auth/user-data/password', {
+            method: 'PATCH',
+            body: JSON.stringify({ email, otp, password: newPassword }),
+        });
     },
 };

@@ -241,7 +241,7 @@ export function useDashboardData() {
             let sessions = [];
             if (sessionsRes.status === 'fulfilled') {
                 const sessionsData = sessionsRes.value;
-                sessions = Array.isArray(sessionsData) ? sessionsData : (sessionsData?.sessions || []);
+                sessions = Array.isArray(sessionsData) ? sessionsData : (sessionsData?.conversations || sessionsData?.sessions || []);
             }
 
             // Handle users and calculate stats
@@ -251,7 +251,7 @@ export function useDashboardData() {
             }
 
             // Calculate Agent Performance
-            const agents = users.filter(u => u.role?.name === 'Agent' || u.role_id === 3 || (u.role && typeof u.role === 'string' && u.role.toLowerCase().includes('agent')));
+            const agents = users.filter(u => u.role?.name?.toLowerCase() === 'agent' || (u.role && typeof u.role === 'string' && u.role.toLowerCase() === 'agent'));
             const agentCount = agents.length;
 
             // Stats for ALL agents combined
@@ -279,24 +279,13 @@ export function useDashboardData() {
                 });
             }
 
-            // Handle contacts count and breakdown
+            // Handle contacts count
             let totalContactsCount = 0;
-            let leadsCount = 0;
-            let manualCount = 0;
+            let importedContactsCount = 0;
             if (contactsRes.status === 'fulfilled' && contactsRes.value) {
                 totalContactsCount = contactsRes.value.total || (Array.isArray(contactsRes.value.contacts) ? contactsRes.value.contacts.length : 0);
-
-                const contactsList = contactsRes.value.contacts || [];
-                contactsList.forEach(c => {
-                    if (c.source && (c.source.toLowerCase().includes('lead'))) {
-                        leadsCount++;
-                    } else {
-                        manualCount++;
-                    }
-                });
-
-                // If we didn't fetch all contacts, adjust counts proportionally or just show what we have
-                // For simplicity, we'll use the counts from the fetched batch
+                const contactsList = Array.isArray(contactsRes.value.contacts) ? contactsRes.value.contacts : [];
+                importedContactsCount = contactsList.filter(c => c.source && (c.source.toLowerCase().includes('csv') || c.source.toLowerCase().includes('excel') || c.source.toLowerCase().includes('import'))).length;
             }
 
             // Handle conversations - API returns { conversations: { phone: [...] }, total_users: n }
@@ -369,13 +358,21 @@ export function useDashboardData() {
             let apiWhatsappCostInr = whatsappCostInr;
             let aiResRateVal = 0;
 
+            let responseRateValue = '0.0%';
+
             if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
                 const apiData = dashboardStatsRes.value;
 
-                // Parse delivery status from API response
                 if (apiData.delivery_status) {
-                    const counts = apiData.delivery_status.counts || {};
-                    const percentages = apiData.delivery_status.percentages || {};
+                    const { counts, percentages } = apiData.delivery_status;
+                    const resRate = percentages.response || 0;
+                    responseRateValue = `${resRate.toFixed(1)}%`;
+                }
+
+                if (apiData.broadcast_status || apiData.delivery_status) {
+                    const statsSource = apiData.broadcast_status || apiData.delivery_status;
+                    const counts = statsSource.counts || {};
+                    const percentages = statsSource.percentages || {};
 
                     deliveryStats = {
                         sent: {
@@ -395,8 +392,8 @@ export function useDashboardData() {
                             rate: `${percentages.failed?.toFixed(1) || '0'}%`
                         },
                         response: {
-                            value: '0',
-                            rate: '0%'
+                            value: (counts.responded || counts.response || 0).toLocaleString(),
+                            rate: `${percentages.response?.toFixed(1) || '0'}%`
                         }
                     };
                 }
@@ -441,12 +438,12 @@ export function useDashboardData() {
                 },
                 activeUsers: {
                     value: totalContactsCount.toString(),
-                    comparison: `Leads: ${leadsCount} • Imported: ${manualCount}`,
+                    comparison: `Total contacts available`,
                     trend: '+14.8%',
                     trendUp: true,
                     breakdown: {
-                        leads: leadsCount,
-                        manual: manualCount
+                        total: totalContactsCount,
+                        manual: importedContactsCount
                     }
                 },
                 humanHandledConversations: {
@@ -463,6 +460,12 @@ export function useDashboardData() {
                 avgResponseTime: {
                     value: avgResponseTime.value,
                     trend: '↓8.2%',
+                    trendUp: true,
+                },
+                responseRate: {
+                    value: responseRateValue,
+                    comparison: 'Based on total delivered',
+                    trend: responseRateValue !== '0.0%' ? '+2.4%' : '0%',
                     trendUp: true,
                 },
                 conversationVolumeData,

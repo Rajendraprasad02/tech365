@@ -1,10 +1,10 @@
-import { Users, DollarSign, CheckCircle, Bot, Clock, Headphones, IndianRupee } from 'lucide-react';
+import { Users, DollarSign, CheckCircle, Bot, Clock, Headphones, IndianRupee, MessageCircle } from 'lucide-react';
 import MetricCard from './MetricCard';
 import { useNavigate } from 'react-router-dom';
 
 const DollarSymbol = () => <span className="text-xl font-bold font-sans">$</span>;
 
-export default function MetricsGrid({ activeUsers, costPerConversation, avgResponseTime, deliveryStats, humanHandledConversations }) {
+export default function MetricsGrid({ activeUsers, costPerConversation, avgResponseTime, responseRate, deliveryStats, humanHandledConversations }) {
     const navigate = useNavigate();
 
     // Define structure but initialize with NRTD or API data
@@ -33,9 +33,19 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
             sparkline: null
         },
         {
-            label: 'Human-Handled Conversations',
+            label: 'Campaign Response Rate',
+            value: responseRate?.value || '0%',
+            comparison: responseRate?.comparison || '',
+            trend: responseRate?.trend || '0%',
+            trendUp: responseRate?.trendUp ?? true,
+            icon: MessageCircle,
+            iconBg: 'orange',
+            sparkline: null
+        },
+        {
+            label: 'Human-Handled',
             value: humanHandledConversations?.value || '0',
-            comparison: '',
+            comparison: humanHandledConversations?.comparison || '',
             trend: humanHandledConversations?.trend || '+0%',
             trendUp: humanHandledConversations?.trendUp ?? true,
             icon: Headphones,
@@ -43,9 +53,9 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
             sparkline: null
         },
         {
-            label: 'Avg Conversation Time',
+            label: 'Avg Conv. Time',
             value: avgResponseTime?.value || '0s',
-            comparison: '',
+            comparison: avgResponseTime?.comparison || '',
             trend: avgResponseTime?.trend || '+0%',
             trendUp: avgResponseTime?.trendUp ?? true,
             icon: Clock,
@@ -55,7 +65,7 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
     ];
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {metrics.map((metric, index) => (
                 <MetricCard key={index} metric={metric} />
             ))}

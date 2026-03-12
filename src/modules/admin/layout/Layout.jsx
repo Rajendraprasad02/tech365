@@ -23,29 +23,65 @@ export default function Layout() {
                 // Data format expected: { modules: [{ name, path, icon, ... }] } or similar
                 // Adjust mapping based on actual API response structure
                 // For now, assuming API returns list of modules
-                let items = [];
-                if (Array.isArray(data)) {
-                    items = data;
-                } else if (data.modules) {
-                    items = data.modules;
-                }
+                const items = Array.isArray(data) ? data : (data.modules || []);
 
-                setMenuItems(items);
+                // Filter menu items based on explicit permissions for infrastructure
+                const filteredItems = items.map(module => ({
+                    ...module,
+                    screens: (module.screens || []).filter(screen => {
+                        const path = (screen.path || screen.route || '').toLowerCase();
+                        const actions = screen.actions || [];
+
+                        // Action check helpers
+                        const hasManage = actions.some(a => String(a).toLowerCase() === 'manage');
+                        const hasConfigure = actions.some(a => String(a).toLowerCase() === 'configure');
+
+                        // 1. Hide My Conversations (Agent-specific logic handled in ConversationsPage)
+                        if (path.includes('agent/conversations/my')) return false;
+
+                        // 2. Hide Infrastructure Menus without explicit Manage/Configure permissions
+                        const isMenuBuilder = path.includes('menu-builder') || screen.key === 'menu-builder';
+                        const isRoles = path.includes('role-permissions') || screen.key === 'role-permissions' || path.includes('roles');
+                        const isActions = path.includes('actions') || screen.key === 'actions';
+                        const isNotifications = path.includes('notifications') || screen.key === 'notifications';
+                        const isUsers = path.includes('users') || screen.key === 'users';
+
+                        if (isMenuBuilder && !hasManage) return false;
+                        if (isRoles && !hasManage) return false;
+                        if (isActions && !hasManage) return false;
+                        if (isNotifications && !hasConfigure) return false;
+                        if (isUsers && !hasManage) return false;
+
+                        return true;
+                    })
+                })).filter(module => module.screens.length > 0);
+
+                console.log('[Layout] Raw Menu Items:', items);
+                console.log('[Layout] Filtered Menu Items:', filteredItems);
+
+                setMenuItems(filteredItems);
 
                 // Derive permissions from menu
                 const derivedPermissions = {};
                 items.forEach(module => {
                     (module.screens || []).forEach(screen => {
-                        const routeKey = screen.path?.replace(/^\//, '') || screen.id;
+                        // Use key as primary identifier, then path/route, then name
+                        const routeKey = screen.key || (screen.path || screen.route)?.replace(/^\//, '') || screen.label?.toLowerCase() || screen.id;
+
+                        // Map actions to true/false for UI check consistency
+                        const actions = (screen.actions || []).map(a => String(a).toLowerCase());
                         derivedPermissions[routeKey] = {
-                            read: true,
-                            create: true,
-                            update: true,
-                            delete: true
+                            view: actions.some(a => ['view', 'read', 'viewing'].includes(a)),
+                            create: actions.some(a => ['create', 'add'].includes(a)),
+                            edit: actions.some(a => ['edit', 'update', 'modify'].includes(a)),
+                            delete: actions.some(a => ['delete', 'remove'].includes(a)),
+                            manage: actions.some(a => ['manage', 'admin', 'configure'].includes(a)),
+                            configure: actions.some(a => ['configure', 'settings', 'manage'].includes(a))
                         };
                     });
                 });
 
+                console.log('[Layout] Derived Permissions:', derivedPermissions);
                 dispatch(updatePermissions(derivedPermissions));
             } catch (error) {
                 console.error("Failed to fetch sidebar menu:", error);
@@ -82,14 +118,12 @@ export default function Layout() {
             />
 
             <main className="flex-1 flex flex-col overflow-hidden w-full relative pt-16 md:pt-0">
-                {/* Desktop Header */}
-                {/* Desktop Header - Hidden as per user request to remove duplicate navbar
+                {/* Global Desktop Header */}
                 <div className="hidden md:block">
                     <Header />
                 </div>
-                */}
 
-                <div className="flex-1 overflow-auto p-0">
+                <div className="flex-1 flex flex-col overflow-auto p-0">
                     {loading ? (
                         <div className="loader-wrapper">
                             <span className="loader"></span>

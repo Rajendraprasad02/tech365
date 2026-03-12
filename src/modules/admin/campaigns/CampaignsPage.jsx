@@ -1338,27 +1338,41 @@ const CampaignDetailModal = ({ campaign, isOpen, onClose, onSend, onRefresh }) =
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
                             {/* Stats Dashboard */}
                             <div className="p-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                                     <div className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-xl flex items-center justify-center mb-3">
-                                            <Users size={20} />
+                                        <div className="w-10 h-10 bg-gray-100 text-gray-600 rounded-xl flex items-center justify-center mb-3">
+                                            <Users size={18} />
                                         </div>
-                                        <p className="text-2xl font-black text-gray-900 leading-none mb-1">{details?.stats?.total || details?.recipients_count || 0}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</p>
+                                        <p className="text-xl font-black text-gray-900 leading-none mb-1">{details?.stats?.total || details?.recipients_count || 0}</p>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Total</p>
                                     </div>
                                     <div className="bg-blue-50/30 rounded-2xl p-4 border border-blue-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
                                         <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-3">
                                             <Send size={18} />
                                         </div>
-                                        <p className="text-2xl font-black text-blue-700 leading-none mb-1">{details?.stats?.sent || details?.sent_count || 0}</p>
-                                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Sent</p>
+                                        <p className="text-xl font-black text-blue-700 leading-none mb-1">{details?.stats?.sent || details?.sent_count || 0}</p>
+                                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Sent</p>
+                                    </div>
+                                    <div className="bg-green-50/30 rounded-2xl p-4 border border-green-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-3">
+                                            <CheckCircle size={18} />
+                                        </div>
+                                        <p className="text-xl font-black text-green-700 leading-none mb-1">{details?.stats?.delivered || details?.delivered_count || 0}</p>
+                                        <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Deliv</p>
+                                    </div>
+                                    <div className="bg-purple-50/30 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-3">
+                                            <Eye size={18} />
+                                        </div>
+                                        <p className="text-xl font-black text-purple-700 leading-none mb-1">{details?.stats?.read || details?.read_count || 0}</p>
+                                        <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Read</p>
                                     </div>
                                     <div className="bg-red-50/30 rounded-2xl p-4 border border-red-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow sm:col-span-1">
                                         <div className="w-10 h-10 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-3">
-                                            <AlertCircle size={20} />
+                                            <AlertCircle size={18} />
                                         </div>
-                                        <p className="text-2xl font-black text-red-700 leading-none mb-1">{details?.stats?.failed || details?.failed_count || 0}</p>
-                                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Failed</p>
+                                        <p className="text-xl font-black text-red-700 leading-none mb-1">{details?.stats?.failed || details?.failed_count || 0}</p>
+                                        <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Failed</p>
                                     </div>
                                 </div>
                             </div>
@@ -1786,7 +1800,6 @@ export default function CampaignsPage() {
                                             <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
                                             <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                             <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recip.</th>
-                                            {/* <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th> */}
                                             <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
@@ -1816,11 +1829,7 @@ export default function CampaignsPage() {
                                                 <td className="px-6 py-3 text-center text-gray-600">
                                                     {campaign.recipients_count || campaign.recipient_count || campaign.total_recipients || 0}
                                                 </td>
-                                                {/* <td className="px-6 py-3 text-center">
-                                                <span className="text-green-600 font-medium">{campaign.delivered_count || campaign.delivered || 0}</span>
-                                                <span className="text-gray-300 mx-1">/</span>
-                                                <span className="text-gray-600">{campaign.sent_count || campaign.sent || campaign.total_sent || campaign.recipients_count || campaign.recipient_count || 0}</span>
-                                            </td> */}
+
                                                 <td className="px-6 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button

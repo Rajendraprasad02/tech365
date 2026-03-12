@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 // Dashboard sections that can be searched
 const dashboardSections = [
     { id: 'hero-cards', name: 'Wallet & Costs', description: 'Wallet balance, LLM and WhatsApp costs', icon: CreditCard },
-    { id: 'metrics-grid', name: 'Metrics Overview', description: 'Conversations, users, delivery success', icon: TrendingUp },
     { id: 'conversation-volume', name: 'Conversation Volume', description: 'Weekly bar chart comparison', icon: BarChart3 },
     { id: 'resolution-breakdown', name: 'Resolution Breakdown', description: 'AI resolved, human handled, escalated', icon: PieChart },
     { id: 'delivery-overview', name: 'Message Delivery', description: 'Sent, delivered, read, failed stats', icon: Send },

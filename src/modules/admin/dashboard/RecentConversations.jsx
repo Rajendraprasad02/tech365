@@ -25,8 +25,8 @@ export default function RecentConversations({ conversations }) {
                     </div>
                 </div>
                 <div className="flex flex-col items-center justify-center flex-1 text-gray-400">
-                    <div className="text-2xl font-bold text-gray-300">NRTD</div>
-                    <div className="text-xs">Not Real-Time Data</div>
+                    <div className="text-2xl font-bold text-gray-300">No Data</div>
+                    <div className="text-xs mt-1">No recent conversations found</div>
                 </div>
             </div>
         );
@@ -44,7 +44,7 @@ export default function RecentConversations({ conversations }) {
                         <div className="text-xs text-gray-500">Latest chat interactions</div>
                     </div>
                 </div>
-                <button 
+                <button
                     onClick={() => navigate('/conversations')}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-all duration-200"
                 >
@@ -63,7 +63,7 @@ export default function RecentConversations({ conversations }) {
                             <div
                                 className="w-10 h-10 rounded-full flex items-center justify-center bg-violet-500 text-white font-semibold text-sm"
                             >
-                                {conv.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                {(conv.name?.startsWith('+') ? conv.name.substring(1) : conv.name).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                             </div>
                             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center border-2 border-white">
                                 <Bot size={8} className="text-white" />

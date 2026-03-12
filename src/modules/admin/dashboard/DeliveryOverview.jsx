@@ -28,16 +28,22 @@ export default function DeliveryOverview({ deliveryStats = defaultStats }) {
                 Broadcast Messages
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {deliveryCards.map(({ key, label, icon: Icon, iconBg, rateColor }) => (
-                    <div key={key} className="bg-white rounded-xl p-4 border border-gray-100 hover:border-violet-300 hover:shadow-md transition-all duration-300">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${iconBg}`}>
-                            <Icon size={16} />
+                {deliveryCards.map(({ key, label, icon: Icon, iconBg, rateColor }) => {
+                    const isResponse = key === 'response';
+                    const primaryValue = isResponse ? (deliveryStats[key]?.rate || '0.0%') : (deliveryStats[key]?.value || '0');
+                    const secondaryValue = isResponse ? `${deliveryStats[key]?.value || '0'} responses` : (deliveryStats[key]?.rate || '0%');
+                    
+                    return (
+                        <div key={key} className="bg-white rounded-xl p-4 border border-gray-100 hover:border-violet-300 hover:shadow-md transition-all duration-300">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${iconBg}`}>
+                                <Icon size={16} />
+                            </div>
+                            <div className="text-2xl font-bold text-gray-900 mb-0.5">{primaryValue}</div>
+                            <div className="text-xs text-gray-500 mb-1">{label}</div>
+                            <div className={`text-xs font-medium ${rateColor}`}>{secondaryValue}</div>
                         </div>
-                        <div className="text-2xl font-bold text-gray-900 mb-0.5">{deliveryStats[key]?.value || '0'}</div>
-                        <div className="text-xs text-gray-500 mb-1">{label}</div>
-                        <div className={`text-xs font-medium ${rateColor}`}>{deliveryStats[key]?.rate || '0%'}</div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

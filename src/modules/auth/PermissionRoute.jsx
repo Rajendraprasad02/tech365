@@ -13,19 +13,22 @@ export default function PermissionRoute({ requiredScreen, children }) {
         return children ? children : <Outlet />;
     }
 
-    // Special bypass for Agent routes if user is an Agent
-    // This relies on the convention that agent routes start with 'agent/'
-    if (isAgent && requiredScreen.startsWith('agent/')) {
-        return children ? children : <Outlet />;
-    }
+    // Role-based bypass removed for strict RBAC
 
     // Debug Log
 
 
-    const hasAccess = permissions[requiredScreen]?.read;
+    // During initial load or rehydration, permissions might be empty.
+    // If we're authenticated, we should wait for permissions to load instead of bouncing immediately.
+    if (Object.keys(permissions).length === 0) {
+        return null; // Or a minimal loader/spinner
+    }
+
+    const hasAccess = permissions[requiredScreen]?.view;
 
     if (!hasAccess) {
         // Access Denied
+        console.warn(`[PermissionRoute] Access Denied for ${requiredScreen}. Redirecting to /`);
         return <Navigate to="/" replace />;
     }
 

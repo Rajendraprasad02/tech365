@@ -43,11 +43,8 @@ function App() {
                 <Route element={<PermissionRoute requiredScreen="conversations" />}>
                   <Route path="conversations" element={<ConversationsPage />} />
                 </Route>
-                <Route element={<PermissionRoute requiredScreen="agent/conversations/pending" />}>
+                <Route element={<PermissionRoute requiredScreen="pending-conversations" />}>
                   <Route path="agent/conversations/pending" element={<PendingConversationsPage />} />
-                </Route>
-                <Route element={<PermissionRoute requiredScreen="agent/conversations/my" />}>
-                  <Route path="agent/conversations/my" element={<ConversationsPage />} />
                 </Route>
 
                 <Route element={<PermissionRoute requiredScreen="campaigns" />}>
@@ -70,9 +67,10 @@ function App() {
 
 
                 {/* RBAC Protected Routes */}
-                <Route element={<PermissionRoute requiredScreen="roles" />}>
-                  <Route path="roles" element={<RoleManagementPage />} />
+                <Route element={<PermissionRoute requiredScreen="role-permissions" />}>
+                  <Route path="role-permissions" element={<RoleManagementPage />} />
                 </Route>
+                <Route path="roles" element={<Navigate to="/role-permissions" replace />} />
                 <Route element={<PermissionRoute requiredScreen="menu-builder" />}>
                   <Route path="menu-builder" element={<MenuBuilderPage />} />
                 </Route>

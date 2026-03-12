@@ -26,12 +26,12 @@ export default function MetricCard({ metric }) {
             </div>
             <div className="text-sm text-gray-500 mb-1">{metric.label}</div>
             <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
-            
+
             {metric.breakdown ? (
                 <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50">
                     <div>
-                        <div className="text-lg font-bold text-gray-800">{metric.breakdown.leads || 0}</div>
-                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Leads</div>
+                        <div className="text-lg font-bold text-gray-800">{metric.breakdown.total || metric.breakdown.leads || 0}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Contacts</div>
                     </div>
                     <div>
                         <div className="text-lg font-bold text-gray-800">{metric.breakdown.manual || 0}</div>

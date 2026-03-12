@@ -47,7 +47,7 @@ export default function ProfilePage() {
                     fullName: data.username || user?.username || '',
                     email: data.email || user?.email || '',
                     mobile: data.mobile || '',
-                    role: role?.name || user?.role?.name || 'User'
+                    role: 'Authorized User'
                 });
             } catch (error) {
                 console.error("[ProfilePage] Failed to fetch user data:", error);
@@ -61,7 +61,7 @@ export default function ProfilePage() {
                     ...prev,
                     fullName: user?.username || '',
                     email: user?.email || '',
-                    role: role?.name || 'User'
+                    role: 'Authorized User'
                 }));
             } finally {
                 setLoading(false);
@@ -133,7 +133,7 @@ export default function ProfilePage() {
         );
     }
 
-    const initials = (formData.fullName || 'U').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    const initials = (formData.fullName?.startsWith('+') ? formData.fullName.substring(1) : (formData.fullName || 'U')).split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
     return (
         <div className="flex flex-col h-full bg-gray-50/50">

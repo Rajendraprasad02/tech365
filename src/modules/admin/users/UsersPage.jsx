@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, User, Mail, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, User, Mail, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
 import { getUsers, createUser, updateUser, getUserRoles, deleteUser } from '@/services/api';
 import CreateUserModal from './CreateUserModal';
 import { useToast } from '@/context/ToastContext';
@@ -14,7 +14,8 @@ const UsersPage = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { toast } = useToast();
-    const { role: currentRole } = useSelector(selectAuth);
+    const { user: currentUserProfile, role: currentRole } = useSelector(selectAuth);
+    const currentUserId = currentUserProfile?.id;
 
     // Editing State
     const [editingUser, setEditingUser] = useState(null);
@@ -23,11 +24,27 @@ const UsersPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
-    // Filtered & Paginated Users
+    // Search & Filter State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+
+    // Filtered Users Logic
+    const filteredUsers = users.filter(user => {
+        const matchesSearch = (user.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesRole = roleFilter === 'all' ||
+            (user.roleId?.toString() === roleFilter) ||
+            (user.role?.id?.toString() === roleFilter);
+        const matchesStatus = statusFilter === 'all' ||
+            (statusFilter === 'active' ? user.isActive : !user.isActive);
+        return matchesSearch && matchesRole && matchesStatus;
+    });
+
     const indexOfLastItem = currentPage * pageSize;
     const indexOfFirstItem = indexOfLastItem - pageSize;
-    const currentUsers = users.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(users.length / pageSize);
+    const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredUsers.length / pageSize);
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -45,30 +62,8 @@ const UsersPage = () => {
 
             setAllRoles(rolesData);
 
-            // Filter Users: Exclude 'Super Admin' users
-            if (Array.isArray(usersData) && Array.isArray(rolesData)) {
-                const superAdminRole = rolesData.find(r => String(r.name).trim().toLowerCase() === 'super admin');
-                const superAdminRoleId = superAdminRole ? superAdminRole.id : null;
-
-                const filteredUsers = usersData.filter(user => {
-                    // Soft delete filter
-                    if (user.is_deleted) return false;
-
-                    const userRoleId = user.roleId || (user.role && user.role.id) || user.role;
-                    // If we found the ID, compare it. If not, rely on string check if populated
-                    if (superAdminRoleId) {
-                        return parseInt(userRoleId) !== parseInt(superAdminRoleId);
-                    }
-                    // Fallback if role is populated object
-                    if (user.role && user.role.name) {
-                        return String(user.role.name).trim().toLowerCase() !== 'super admin';
-                    }
-                    return true;
-                });
-                setUsers(filteredUsers);
-            } else {
-                // Ensure soft deleted users are filtered even if not role-filtering
-                const activeUsers = Array.isArray(usersData) ? usersData.filter(u => !u.is_deleted) : [];
+            if (Array.isArray(usersData)) {
+                const activeUsers = usersData.filter(u => !u.is_deleted);
                 setUsers(activeUsers);
             }
 
@@ -84,9 +79,9 @@ const UsersPage = () => {
                 const normalizedCurrentRole = currentRoleName ? normalize(currentRoleName) : '';
 
                 const filtered = rolesData.filter(r => {
-                    const normalizedName = normalize(r.name);
-                    // Exclude 'Super Admin' explicitly AND the current user's role
-                    return normalizedName !== 'super admin' && normalizedName !== normalizedCurrentRole;
+                    // System-managed filtering should happen on backend
+                    // Frontend just shows available roles
+                    return true;
                 });
                 setRoles(filtered);
             } else {
@@ -129,6 +124,7 @@ const UsersPage = () => {
 
     const handleUpdateUser = async (userId, userData) => {
         try {
+            // Ensure we handle both single-field updates and full object updates
             await updateUser(userId, userData);
             toast({
                 title: 'Success',
@@ -158,9 +154,12 @@ const UsersPage = () => {
     };
 
     const handleDeleteUser = async (userId) => {
+        if (userId === currentUserId) {
+            toast({ title: 'Error', description: 'You cannot delete your own account.', variant: 'destructive' });
+            return;
+        }
         try {
-            // Soft delete: Update is_deleted flag instead of hard DELETE
-            await updateUser(userId, { is_deleted: true });
+            await deleteUser(userId);
             toast({ title: 'Success', description: 'User deleted successfully', variant: 'success' });
             fetchData();
         } catch (error) {
@@ -207,6 +206,41 @@ const UsersPage = () => {
                 </button>
             </div>
 
+            {/* Filters Bar */}
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-center">
+                <div className="flex-1 min-w-[240px] relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search users by name or email..."
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    />
+                </div>
+                <div className="flex gap-4">
+                    <select
+                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        value={roleFilter}
+                        onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value="all">All Roles</option>
+                        {allRoles.map(r => (
+                            <option key={r.id} value={r.id.toString()}>{r.name}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Content */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* Optional: Add search/filters here later */}
@@ -223,6 +257,9 @@ const UsersPage = () => {
                                 </th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     Role
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Status
                                 </th>
                                 <th scope="col" className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     Actions
@@ -263,8 +300,13 @@ const UsersPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                    {getRoleName(user.roleId || user.role?.id || user.role)}
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.role?.name?.toLowerCase().includes('agent') ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                                                    {user.role?.name || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                    {user.isActive ? 'Active' : 'Inactive'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
@@ -290,16 +332,35 @@ const UsersPage = () => {
                                                                 Edit User
                                                             </button>
                                                             <button
+                                                                disabled={user.id === currentUserId}
                                                                 onClick={() => {
-                                                                    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                                                                        handleDeleteUser(user.id);
-                                                                    }
+                                                                    handleDeleteUser(user.id);
                                                                     setActiveActionId(null);
                                                                 }}
-                                                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                                className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${user.id === currentUserId ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
                                                             >
                                                                 <Trash2 size={14} className="mr-2" />
-                                                                Delete User
+                                                                Delete User (Soft)
+                                                            </button>
+                                                            <button
+                                                                disabled={user.id === currentUserId}
+                                                                onClick={() => {
+                                                                    handleUpdateUser(user.id, { isActive: !user.isActive });
+                                                                    setActiveActionId(null);
+                                                                }}
+                                                                className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${user.id === currentUserId ? 'text-gray-300 cursor-not-allowed' : user.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
+                                                            >
+                                                                {user.isActive ? (
+                                                                    <>
+                                                                        <XCircle size={14} className="mr-2" />
+                                                                        Deactivate Account
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <CheckCircle size={14} className="mr-2" />
+                                                                        Activate Account
+                                                                    </>
+                                                                )}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -326,7 +387,7 @@ const UsersPage = () => {
                     <Pagination
                         page={currentPage - 1}
                         pageSize={pageSize}
-                        total={users.length}
+                        total={filteredUsers.length}
                         onPageChange={(p) => setCurrentPage(p + 1)}
                         onPageSizeChange={(s) => {
                             setPageSize(s);

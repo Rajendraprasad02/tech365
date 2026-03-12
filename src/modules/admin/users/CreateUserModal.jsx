@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from 'react-international-phone';
@@ -12,7 +12,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
         email: '',
         mobile: '',
         password: '',
-        roleId: ''
+        roleId: '',
+        isActive: true
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -24,7 +25,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                 email: user.email || '',
                 mobile: user.mobile || '',
                 password: '', // Password empty on edit means "don't change"
-                roleId: user.roleId || (user.role && user.role.id) || ''
+                roleId: user.roleId || (user.role && user.role.id) || '',
+                isActive: user.isActive ?? true
             });
         } else {
             setFormData({
@@ -32,7 +34,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                 email: '',
                 mobile: '',
                 password: '',
-                roleId: ''
+                roleId: '',
+                isActive: true
             });
         }
     }, [user, isOpen]);
@@ -69,7 +72,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                 username: formData.username,
                 email: formData.email,
                 mobile: formData.mobile,
-                roleId: parseInt(formData.roleId, 10)
+                roleId: parseInt(formData.roleId, 10),
+                isActive: formData.isActive
             };
 
             // Only send password if provided (always required for create, optional for update)
@@ -89,7 +93,8 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                 email: '',
                 mobile: '',
                 password: '',
-                roleId: ''
+                roleId: '',
+                isActive: true
             });
             onClose();
         } catch (err) {
@@ -189,6 +194,21 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                                 </option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="isActive"
+                            name="isActive"
+                            checked={formData.isActive}
+                            onChange={handleChange}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            disabled={loading}
+                        />
+                        <label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
+                            Active Account
+                        </label>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, logout as logoutAction, selectAuth } from '../store/slices/authSlice';
 import api from '../services/api';
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
@@ -11,24 +12,51 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [refreshMenuTrigger, setRefreshMenuTrigger] = useState(0);
 
-    // Helper: Deriving permissions moved to Layout/Sidebar
-
-
     // Initial Load - Rehydrate from localStorage
     useEffect(() => {
         const initAuth = async () => {
             const storedToken = localStorage.getItem('token');
-            const storedRoleId = localStorage.getItem('roleId');
+            const storedRefreshToken = localStorage.getItem('refreshToken');
 
-            if (storedToken && storedRoleId) {
+            if (storedToken) {
                 try {
-                    // 1. Get user profile
-                    const userProfile = await api.getUserProfile();
+                    // 1. Decode token to get baseline role info
+                    const decoded = jwtDecode(storedToken);
+                    console.log('[AuthContext] Rehydrating from token:', decoded);
+
+                    // 2. Get user profile
+                    let userProfile;
+                    try {
+                        userProfile = await api.getUserProfile();
+                    } catch (error) {
+                        // If profile fetch fails with 401, try refreshing token before giving up
+                        if (error.message.includes("Unauthorized") && storedRefreshToken) {
+                            console.log('[AuthContext] Token expired, attempting refresh...');
+                            try {
+                                const refreshRes = await api.refreshToken(storedRefreshToken);
+                                if (refreshRes && refreshRes.accessToken) {
+                                    localStorage.setItem('token', refreshRes.accessToken);
+                                    // Retry getting profile with new token
+                                    userProfile = await api.getUserProfile();
+                                } else {
+                                    throw new Error("Refresh failed");
+                                }
+                            } catch (refreshErr) {
+                                console.error("[AuthContext] Refresh attempt failed:", refreshErr);
+                                throw error; // Re-throw original unauthorized error
+                            }
+                        } else {
+                            throw error;
+                        }
+                    }
 
                     dispatch(setCredentials({
                         user: userProfile,
-                        token: storedToken,
-                        role: { id: storedRoleId, name: userProfile.role?.name || userProfile.role },
+                        token: localStorage.getItem('token'), // Use latest token
+                        role: {
+                            id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
+                            name: decoded.role || userProfile.role?.name || userProfile.role
+                        },
                         permissions: {} // Will be populated by Sidebar/Layout
                     }));
                 } catch (error) {
@@ -36,14 +64,6 @@ export const AuthProvider = ({ children }) => {
                     // Only logout if truly unauthorized (401)
                     if (error.message.includes("Unauthorized") || error.message.includes("logging out")) {
                         logout();
-                    } else if (error.message === 'FORBIDDEN') {
-                        // Valid token, but no permissions - keep logged in with empty perms
-                        dispatch(setCredentials({
-                            user: { name: 'Restricted User' },
-                            token: storedToken,
-                            role: null,
-                            permissions: {}
-                        }));
                     }
                 }
             }
@@ -57,49 +77,39 @@ export const AuthProvider = ({ children }) => {
         }
     }, [dispatch, user]);
 
-    // Login Flow: Standard 3-step process
+    // Login Flow: Standard process
     const login = async (email, password) => {
         try {
-            // 1. POST /auth/login → { accessToken, roleId }
+            // 1. POST /auth/login-email → { accessToken, refreshToken }
             const loginData = await api.login(email, password);
             const accessToken = loginData.accessToken || loginData.access_token;
-            let roleId = loginData.roleId || loginData.role_id;
+            const refreshToken = loginData.refreshToken || loginData.refresh_token;
 
             if (!accessToken) throw new Error("Login failed: No access token received");
 
-            // Store token immediately
+            // Store tokens immediately
             localStorage.setItem('token', accessToken);
+            if (refreshToken) {
+                localStorage.setItem('refreshToken', refreshToken);
+            }
 
-            // 2. GET /auth/profile
+            // 2. Decode token for immediate state
+            const decoded = jwtDecode(accessToken);
+            console.log('[AuthContext] Login decoded claims:', decoded);
+
+            // 3. GET /auth/profile
             const userProfile = await api.getUserProfile();
 
-            // Fallback: Get roleId from userProfile if not in loginData
-            if (!roleId) {
-                roleId = userProfile.roleId || userProfile.role_id || userProfile.role?.id;
-                console.warn('[AuthContext] roleId not in login response, extracted from profile:', roleId);
-            }
-
-            // Store roleId
-            if (roleId) {
-                localStorage.setItem('roleId', roleId);
-            } else {
-                console.error('[AuthContext] CRITICAL: No roleId found in login or profile. Sidebar will be empty.');
-            }
-
-            // Also store roleName for reference
-            const roleName = userProfile.role?.name || userProfile.role || '';
-            if (roleName) {
-                localStorage.setItem('roleName', roleName);
-            }
-
-            // 3. Dispatch to Redux (Permissions will be populated by Layout/Sidebar later)
-            // Persist user for resilience
+            // Store user for resilience
             localStorage.setItem('user', JSON.stringify(userProfile));
 
             dispatch(setCredentials({
                 user: userProfile,
                 token: accessToken,
-                role: { id: roleId, name: roleName },
+                role: {
+                    id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
+                    name: decoded.role || userProfile.role?.name || userProfile.role || ''
+                },
                 permissions: {}
             }));
 
@@ -122,7 +132,7 @@ export const AuthProvider = ({ children }) => {
             // On 401, clear token
             if (error.message.includes('Unauthorized')) {
                 localStorage.removeItem('token');
-                localStorage.removeItem('roleId');
+                localStorage.removeItem('refreshToken');
                 localStorage.removeItem('user');
             }
             throw error;
@@ -131,8 +141,8 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         localStorage.removeItem('token');
-        localStorage.removeItem('roleId');
-        localStorage.removeItem('user'); // Clear user
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
         dispatch(logoutAction());
         window.location.href = '/#/login';
     };

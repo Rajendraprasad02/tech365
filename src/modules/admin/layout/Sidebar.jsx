@@ -1,45 +1,83 @@
 import {
     LayoutDashboard, MessageSquare, Database, LogOut, Users, Send, X,
-    FileText, Shield, Settings, Circle, Phone, CreditCard, BarChart, FileClock, Inbox
+    FileText, Shield, Settings, Circle, Phone, CreditCard, BarChart, FileClock, Inbox, Contact, User, Activity, Bell
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '@/store/slices/authSlice';
 
+const CustomConversationIcon = ({ size = 24, className = '', ...props }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        className={className}
+        {...props}
+    >
+        <defs>
+            <mask id="chat-pending-mask">
+                <rect width="100%" height="100%" fill="white" />
+                <circle cx="12" cy="11" r="5" fill="black" />
+            </mask>
+        </defs>
+        <path
+            fill="currentColor"
+            mask="url(#chat-pending-mask)"
+            d="M6 3C3.79086 3 2 4.79086 2 7V15C2 17.2091 3.79086 19 6 19H9.5L12 22.5L14.5 19H18C20.2091 19 22 17.2091 22 15V7C22 4.79086 20.2091 3 18 3H6Z"
+        />
+        <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 8.5V11L13.5 12.5"
+        />
+    </svg>
+);
+
 // Map backend icon names to Lucide components
 // Backend may return: LayoutDashboard, MessageSquare, Send, Users, FileText, Database, Shield, Settings, Circle
 const iconMap = {
-    // Exact matches from backend
-    'LayoutDashboard': LayoutDashboard,
-    'MessageSquare': MessageSquare,
-    'Send': Send,
-    'Users': Users,
-    'FileText': FileText,
-    'Database': Database,
-    'Shield': Shield,
-    'Settings': Settings,
-    'Circle': Circle,
-    'Phone': Phone,
-    'CreditCard': CreditCard,
-    'BarChart': BarChart,
-    'FileClock': FileClock,
-    'Inbox': Inbox,
+    // Exact matches and common variants
+    'layoutdashboard': LayoutDashboard,
+    'messagesquare': MessageSquare,
+    'send': Send,
+    'users': Users,
+    'filetext': FileText,
+    'database': Database,
+    'shield': Shield,
+    'settings': Settings,
+    'circle': Circle,
+    'phone': Phone,
+    'creditcard': CreditCard,
+    'barchart': BarChart,
+    'fileclock': FileClock,
+    'inbox': Inbox,
+    'contact': Contact,
+    'contacts': Contact,
 
-    // Lowercase variants
+    // Label-based fallbacks (lowercase)
     'dashboard': LayoutDashboard,
     'conversations': MessageSquare,
+    'pending': CustomConversationIcon,
     'campaigns': Send,
-    'knowledge_base': Database,
     'knowledgebase': Database,
-    'contacts': Users,
+    'knowledge-base': Database,
     'templates': FileText,
     'forms': FileText,
     'roles': Shield,
+    'rolepermissions': Shield,
     'menu': Settings,
     'menubuilder': Settings,
-    'users': Users,
-    'layout': LayoutDashboard,
+    'menu-builder': Settings,
+    'auditlogs': FileClock,
+    'audit-logs': FileClock,
+    'actions': Activity,
+    'notifications': Bell,
+    'profile': User,
 };
 
 export default function Sidebar({ menuItems, isOpen, onClose }) {
@@ -79,37 +117,52 @@ export default function Sidebar({ menuItems, isOpen, onClose }) {
                     <X size={20} />
                 </button>
                 {/* Logo */}
-                <div className="flex items-center gap-3 px-6 py-8 mb-2 border-b border-sidebar-border">
+                <div className="flex items-center gap-3 px-6 py-8 mb-2 border-b border-sidebar-border text-sidebar-logo">
                     <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-900/20">
-                        {role?.name ? role.name.charAt(0).toUpperCase() : 'C'}
+                        {(useSelector(selectAuth)?.user?.username?.startsWith('+') ? useSelector(selectAuth)?.user?.username.substring(1) : (useSelector(selectAuth)?.user?.username || 'C')).charAt(0).toUpperCase()}
                     </div>
                     <div>
-                        <div className="text-gray-900 font-bold text-xl tracking-tight">
-                            {role?.name || 'ChatFlow'}
+                        <div className="text-gray-900 font-bold text-xl tracking-tight leading-none mb-1">
+                            ChatFlow
                         </div>
-                        <div className="text-gray-500 text-xs font-medium">Enterprise CRM</div>
+                        <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider opacity-60">Enterprise CRM</div>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 py-4 px-4 space-y-4">
+                <nav className="flex-1 py-4 px-4 space-y-6 overflow-y-auto">
                     {menuItems.map((module) => {
                         // Skip empty modules
                         if (!module.screens || module.screens.length === 0) return null;
 
                         return (
                             <div key={module.id} className="space-y-1">
-                                <div className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                    {module.label}
+                                <div className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-3 opacity-80">
+                                    {module.label || module.name || 'Module'}
                                 </div>
                                 {module.screens.map((item) => {
-                                    // Backend might return 'icon' string, map it
-                                    // Remove special characters or spaces from icon name for lookup if needed
-                                    const iconName = item.icon ? item.icon.replace(/[^a-zA-Z0-9]/g, '') : '';
-                                    const Icon = iconMap[iconName] || LayoutDashboard;
+                                    // Robust icon lookup
+                                    const labelLower = (item.label || item.name || '').toLowerCase();
+                                    const iconAttr = (item.icon || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                                    const routeAttr = (item.path || item.route || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                                    let Icon = iconMap[iconAttr] || iconMap[routeAttr] || LayoutDashboard;
+
+                                    // Special cases based on label contents
+                                    if (labelLower.includes('pending')) Icon = CustomConversationIcon;
+                                    else if (labelLower.includes('contact')) Icon = Contact;
+                                    else if (labelLower.includes('campaign')) Icon = Send;
+                                    else if (labelLower.includes('template')) Icon = FileText;
+                                    else if (labelLower.includes('form')) Icon = FileText;
+                                    else if (labelLower.includes('knowledge')) Icon = Database;
+                                    else if (labelLower.includes('audit')) Icon = FileClock;
+                                    else if (labelLower.includes('role')) Icon = Shield;
+                                    else if (labelLower.includes('menu')) Icon = Settings;
+                                    else if (labelLower.includes('user')) Icon = Users;
+                                    else if (labelLower.includes('dashboard')) Icon = LayoutDashboard;
+                                    else if (labelLower.includes('conversation')) Icon = MessageSquare;
 
                                     // Robust active state matching
-                                    // Remove leading slashes for comparison
                                     const cleanPath = (p) => p ? p.toString().replace(/^\/+/, '') : '';
                                     if (!item) return null; // Defensive check
                                     const currentPath = cleanPath(location.pathname);
@@ -117,20 +170,19 @@ export default function Sidebar({ menuItems, isOpen, onClose }) {
 
                                     const isActive = currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
 
-
                                     return (
                                         <div
                                             key={item.id}
                                             className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
-                                                ? 'bg-[#14137F] text-white font-semibold shadow-md' // New Active State: Brand Blue Background + White Text
-                                                : 'text-gray-600 hover:bg-sidebar-hover hover:text-gray-900' // New Inactive State
+                                                ? 'bg-[#14137F] text-white font-semibold shadow-md'
+                                                : 'text-gray-600 hover:bg-sidebar-hover hover:text-gray-900'
                                                 }`}
                                             onClick={() => {
                                                 handleNavigation(itemPath ? `/${itemPath}` : `/${item.id}`);
                                             }}
                                         >
                                             <Icon size={18} className={`${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'} transition-colors`} />
-                                            <span className="text-sm">{item.label}</span>
+                                            <span className="text-sm">{item.label || item.name}</span>
                                         </div>
                                     );
                                 })}

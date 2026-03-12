@@ -8,19 +8,21 @@ import {
     updateRole,
     deleteRole,
     seedDatabase,
-    getMenuCreator
+    getMenuCreator,
+    getActions
 } from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/context/ToastContext';
+import { Loader2 } from 'lucide-react';
 
-const ACTIONS = [
-    { key: 'read', label: 'View', color: 'blue' },
-    { key: 'create', label: 'Create', color: 'green' },
-    { key: 'update', label: 'Edit', color: 'amber' },
-    { key: 'delete', label: 'Delete', color: 'red' },
-    { key: 'approve', label: 'Approve', color: 'purple' }
-];
+const ACTION_COLORS = {
+    'view': 'blue',
+    'create': 'green',
+    'edit': 'amber',
+    'delete': 'red',
+    'approve': 'purple'
+};
 
 export default function RoleManagementPage() {
     const { toast } = useToast();
@@ -32,6 +34,8 @@ export default function RoleManagementPage() {
     const [editingRole, setEditingRole] = useState(null);
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [actions, setActions] = useState([]);
+    const [matrixLoading, setMatrixLoading] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -54,11 +58,29 @@ export default function RoleManagementPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [rolesData, menuData] = await Promise.all([
+            const [rolesData, menuData, actionsData] = await Promise.all([
                 getRoles(),
-                getMenuCreator()
+                getMenuCreator(),
+                getActions()
             ]);
             setRoles(rolesData || []);
+
+            // Handle actions from backend and deduplicate by name
+            const seenActions = new Set();
+            const processedActions = (actionsData || [])
+                .filter(a => {
+                    const name = a.name.toLowerCase();
+                    if (seenActions.has(name)) return false;
+                    seenActions.add(name);
+                    return true;
+                })
+                .map(a => ({
+                    id: a.id,
+                    key: a.name.toLowerCase(),
+                    label: a.name,
+                    color: ACTION_COLORS[a.name.toLowerCase()] || 'slate'
+                }));
+            setActions(processedActions);
 
             // Transform menuData into flat screens list for matrix
             const screens = [];
@@ -67,7 +89,7 @@ export default function RoleManagementPage() {
                     if (mod.screens) {
                         mod.screens.forEach(scr => {
                             screens.push({
-                                id: scr.route, // Keep route as key for state if needed, or switch to ID
+                                id: scr.route, // Keep route as key for state mapping
                                 realId: scr.id || scr.screenId,
                                 label: scr.name,
                                 module: mod.name
@@ -106,14 +128,11 @@ export default function RoleManagementPage() {
             // Transform permissions for backend
             // Backend expects: [{ screenId: 1, actionIds: ["1"] }]
 
-            // Map action keys to IDs (assuming standard mapping or fetch from API)
-            // For now, mapping 'read'->1, 'create'->2, etc. based on seed logic
-            const ACTION_MAP = {
-                'read': '1',
-                'create': '2',
-                'update': '3',
-                'delete': '4'
-            };
+            // Map action keys to IDs from dynamic actions list
+            const ACTION_MAP = {};
+            actions.forEach(a => {
+                ACTION_MAP[a.key] = a.id.toString();
+            });
 
             const permissionsPayload = Object.entries(formData.permissions).map(([screenRouteOrId, actions]) => {
                 // We need to resolve screenRouteOrId to actual numerical ID if possible, 
@@ -170,6 +189,11 @@ export default function RoleManagementPage() {
     };
 
     const handleDelete = async (roleId) => {
+        const role = roles.find(r => r.id === roleId);
+        if (role?.id === 1 || role?.isSystem || role?.is_system_role) {
+            toast({ title: "Forbidden", description: "Super Admin or System roles cannot be deleted.", variant: "destructive" });
+            return;
+        }
         if (!confirm("Are you sure you want to delete this role?")) return;
         try {
             await deleteRole(roleId);
@@ -213,6 +237,15 @@ export default function RoleManagementPage() {
                     <p className="text-sm text-gray-500 mt-1">Manage role-based access control and permission assignments</p>
                 </div>
                 <div className="flex gap-3">
+
+                    <Button
+                        onClick={handleSeed}
+                        variant="outline"
+                        className="gap-2 border-gray-200 hover:bg-white hover:border-primary hover:text-primary transition-all shadow-sm"
+                    >
+                        <Database className="w-4 h-4" />
+                        Seed Database
+                    </Button>
 
                     <Button
                         onClick={() => {
@@ -266,9 +299,9 @@ export default function RoleManagementPage() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-semibold text-gray-900">{role.name}</h3>
-                                            {role.isSystem && (
-                                                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium border border-gray-200">
-                                                    System
+                                            {(role.isSystem || role.is_system_role) && (
+                                                <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold uppercase border border-indigo-200 tracking-wider">
+                                                    System Role
                                                 </span>
                                             )}
                                             {role.isAgent && (
@@ -282,18 +315,40 @@ export default function RoleManagementPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     <Button variant="ghost" size="sm" onClick={() => {
+                                        // ... existing transform logic ...
+                                        const permsMap = {};
+                                        if (role.permissions && Array.isArray(role.permissions)) {
+                                            role.permissions.forEach(rp => {
+                                                const screenObj = systemScreens.find(s => s.realId === rp.screenId);
+                                                if (screenObj) {
+                                                    permsMap[screenObj.id] = {};
+                                                    if (rp.actionIds) {
+                                                        rp.actionIds.forEach(aid => {
+                                                            const act = actions.find(a => a.id.toString() === aid.toString());
+                                                            if (act) {
+                                                                permsMap[screenObj.id][act.key] = true;
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                            });
+                                        }
+
                                         setEditingRole(role);
+                                        setMatrixLoading(true);
                                         setFormData({
                                             name: role.name,
                                             description: role.description || '',
                                             isAgent: role.isAgent || false,
-                                            permissions: role.permissions || {}
+                                            permissions: permsMap
                                         });
                                         setModalOpen(true);
+                                        // Fake short lag for matrix clarity
+                                        setTimeout(() => setMatrixLoading(false), 200);
                                     }}>
                                         <Edit2 size={16} />
                                     </Button>
-                                    {!role.isSystem && (
+                                    {(!role.isSystem && !role.is_system_role) && (
                                         <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(role.id)}>
                                             <Trash2 size={16} />
                                         </Button>
@@ -344,8 +399,11 @@ export default function RoleManagementPage() {
                                             value={formData.name}
                                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="e.g., Support Lead"
-                                            disabled={editingRole?.isSystem}
+                                            disabled={editingRole?.isSystem || editingRole?.is_system_role}
                                         />
+                                        {editingRole?.isSystem && (
+                                            <p className="text-[10px] text-indigo-500 font-bold mt-1 uppercase">System role names cannot be modified</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -377,20 +435,25 @@ export default function RoleManagementPage() {
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                             <tr>
                                                 <th className="px-6 py-4 font-medium text-gray-900">Menu Screen</th>
-                                                {ACTIONS.map(action => (
+                                                {actions.map(action => (
                                                     <th key={action.key} className="px-6 py-4 font-medium text-gray-900 text-center w-24">
                                                         {action.label}
                                                     </th>
                                                 ))}
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
+                                        <tbody className="divide-y divide-gray-100 relative">
+                                            {matrixLoading && (
+                                                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                                                    <Loader2 className="animate-spin text-primary" size={32} />
+                                                </div>
+                                            )}
                                             {systemScreens.map(screen => (
                                                 <tr key={screen.id} className="hover:bg-gray-50/50">
                                                     <td className="px-6 py-4 font-medium text-gray-700">
                                                         {screen.label}
                                                     </td>
-                                                    {ACTIONS.map(action => {
+                                                    {actions.map(action => {
                                                         const isChecked = formData.permissions[screen.id]?.[action.key];
                                                         return (
                                                             <td key={`${screen.id}-${action.key}`} className="px-6 py-4 text-center">
@@ -398,10 +461,8 @@ export default function RoleManagementPage() {
                                                                     type="checkbox"
                                                                     checked={isChecked || false}
                                                                     onChange={() => togglePermission(screen.id, action.key)}
-                                                                    className={`
-                                                                    w-5 h-5 rounded border-gray-300 transition-colors cursor-pointer
-                                                                    text-${action.color}-600 focus:ring-${action.color}-500
-                                                                `}
+                                                                    style={{ accentColor: 'var(--primary)' }}
+                                                                    className="w-5 h-5 rounded border-gray-300 transition-colors cursor-pointer"
                                                                 />
                                                             </td>
                                                         );

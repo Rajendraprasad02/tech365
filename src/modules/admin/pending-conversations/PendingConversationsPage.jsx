@@ -19,18 +19,12 @@ export default function PendingConversationsPage() {
     const [conversationToApprove, setConversationToApprove] = useState(null);
     const [confirmMessage, setConfirmMessage] = useState(''); // Custom confirmation message
 
-    const { user } = useSelector(selectAuth);
-    const currentUser = user || JSON.parse(localStorage.getItem('user'));
-    const userRole = currentUser?.role?.name || currentUser?.role || '';
-    const isAdmin = userRole.toLowerCase().includes('admin');
-    const isAgent = userRole.toLowerCase() === 'agent';
+    const { user, isAgent: authIsAgent } = useSelector(selectAuth);
+    const isAgent = authIsAgent;
     const [products, setProducts] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState('all');
 
-    // Lead Details Modal State
-    const [showLeadModal, setShowLeadModal] = useState(false);
-    const [selectedLead, setSelectedLead] = useState(null);
-
+    // Lead details logic
     const handleShowLeadDetails = async (e, phone) => {
         e.stopPropagation();
         try {
@@ -48,6 +42,9 @@ export default function PendingConversationsPage() {
         }
     };
 
+    const [showLeadModal, setShowLeadModal] = useState(false);
+    const [selectedLead, setSelectedLead] = useState(null);
+
     // Auth context for current user ID is handled above
 
     useEffect(() => {
@@ -58,8 +55,8 @@ export default function PendingConversationsPage() {
 
     const fetchPendingConversations = async () => {
         try {
-            const sessions = await getPendingSessions();
-            const sessionList = Array.isArray(sessions) ? sessions : [];
+            const response = await getPendingSessions();
+            const sessionList = response?.conversations || (Array.isArray(response) ? response : []);
 
             // Fetch leads for filtering and naming (Shared Logic)
             let leadsMap = {};
@@ -81,20 +78,13 @@ export default function PendingConversationsPage() {
                 console.error("Error fetching leads for pending filter:", e);
             }
 
-            // Filter sessions: Only show if phone number exists in leads
-            const filteredSessions = sessionList.filter(s => {
-                if (!s.whatsapp && !s.wa_id) return false;
-                const waId = (s.whatsapp || s.wa_id).replace(/\D/g, '');
-                return leadsMap[waId] !== undefined;
-            });
-
-            const convos = filteredSessions.map((session, index) => {
+            const convos = sessionList.map((session, index) => {
                 const messageCount = session.conversation_count || session.conversation?.length || 0;
                 const lastMessage = session.conversation?.[session.conversation?.length - 1];
                 const waId = session.whatsapp || session.wa_id;
 
                 // Resolve Name: Lead Name > Session Name > WA ID
-                const cleanWaId = waId ? waId.replace(/\D/g, '') : '';
+                const cleanWaId = waId ? String(waId).replace(/\D/g, '') : '';
                 const lead = leadsMap[cleanWaId];
                 let displayName = lead?.name || session.name || (waId ? '+' + String(waId).replace(/^\+/, '') : '') || session.email || `Contact #${index + 1}`;
                 if (/^\d{10,15}$/.test(displayName)) {
@@ -111,7 +101,6 @@ export default function PendingConversationsPage() {
                     rawValue: session.updated_at || session.created_at,
                     unread: messageCount,
                     contactId: waId ? `+${waId}` : `#${session.id}`,
-                    // Mocking 'online' status based on recency (e.g. < 5 mins)
                     isOnline: isRecentlyActive(session.updated_at || session.created_at),
                     status: lead?.status || session.status, // Prioritize Lead status
                     productInterest: lead?.product_interest, // Store for filtering
@@ -183,8 +172,8 @@ export default function PendingConversationsPage() {
     };
 
     const filteredConversations = conversations.filter(conv => {
-        const matchesSearch = conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            conv.preview.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = String(conv.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            String(conv.preview || '').toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesProduct = selectedProduct === 'all' || conv.productInterest === selectedProduct;
 
@@ -194,12 +183,8 @@ export default function PendingConversationsPage() {
     const handleApproveClick = (conv) => {
         setConversationToApprove(conv);
 
+        // Zero Trust: Simple confirmation message
         let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
-
-        // Admin warning for premature acceptance
-        if (isAdmin && conv.status !== 'transfer_to_agent') {
-            message = "The user has not filled the basic details so accepting this chat leads to not capturing the information. Are you sure you want to accept this chat?";
-        }
 
         setConfirmMessage(message);
         setShowConfirmModal(true);
@@ -209,11 +194,10 @@ export default function PendingConversationsPage() {
         if (!conversationToApprove) return;
 
         const conv = conversationToApprove;
-        const currentUser = user || JSON.parse(localStorage.getItem('user'));
-        const userId = currentUser?.id || currentUser?.userId;
+        const userId = user?.id || user?.userId;
 
         if (!userId) {
-            console.error('No user ID found - cannot assign conversation. User state:', currentUser);
+            console.error('No user ID found - cannot assign conversation. User state:', user);
             toast({ title: "User Error", description: "User identification failed. Please refresh the page or login again.", variant: "destructive" });
             return;
         }
@@ -243,7 +227,8 @@ export default function PendingConversationsPage() {
 
     const getInitials = (name) => {
         if (!name) return '?';
-        return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+        const cleanName = String(name).startsWith('+') ? String(name).substring(1) : String(name);
+        return cleanName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     };
 
     if (loading) {
@@ -332,8 +317,8 @@ export default function PendingConversationsPage() {
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
-                                    {/* Accept Button Logic: Admin always sees it; Agents only if status is transfer_to_agent */}
-                                    {(isAdmin || conv.status === 'transfer_to_agent') && (
+                                    {/* Accept Button Logic: Show Accept for all pending chats if user has view access to this page */}
+                                    {(true) && (
                                         <button
                                             onClick={() => handleApproveClick(conv)}
                                             disabled={approvingId === conv.id || (!user && !localStorage.getItem('user'))}
@@ -477,7 +462,7 @@ export default function PendingConversationsPage() {
 
                         {/* Modal Footer */}
                         <div className="p-6 pt-4 flex gap-3">
-                            {(isAdmin || selectedConversation.status === 'transfer_to_agent') && (
+                            {(true) && (
                                 <button
                                     onClick={() => handleApproveClick(selectedConversation)}
                                     disabled={approvingId === selectedConversation.id || (!user && !localStorage.getItem('user'))}
@@ -509,7 +494,7 @@ export default function PendingConversationsPage() {
                 onConfirm={handleConfirmApprove}
                 title="Accept Conversation"
                 message={confirmMessage}
-                confirmText={isAdmin && conversationToApprove?.status !== 'transfer_to_agent' ? "Yes, Accept Anyway" : "Accept"}
+                confirmText="Accept"
                 type="info"
                 loading={approvingId === conversationToApprove?.id}
             />
