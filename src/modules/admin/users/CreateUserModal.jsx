@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from 'react-international-phone';
@@ -17,6 +17,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -118,7 +119,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4" autoComplete="off">
                     {error && (
                         <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm flex items-center gap-2">
                             <AlertCircle size={16} />
@@ -135,6 +136,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                             onChange={handleChange}
                             placeholder="johndoe"
                             disabled={loading}
+                            autoComplete="off"
                         />
                     </div>
 
@@ -147,6 +149,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                             onChange={handleChange}
                             placeholder="john@example.com"
                             disabled={loading}
+                            autoComplete="off"
                         />
                     </div>
 
@@ -168,14 +171,26 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated, onUserUpdated, roles 
                         <label className="text-sm font-medium text-gray-700">
                             {user ? 'Password (leave blank to keep current)' : 'Password'}
                         </label>
-                        <Input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            placeholder="••••••••"
-                            disabled={loading}
-                        />
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                placeholder="••••••••"
+                                disabled={loading}
+                                autoComplete="new-password"
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                                tabIndex="-1"
+                            >
+                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="space-y-2">

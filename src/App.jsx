@@ -7,7 +7,9 @@ import Layout from '@/modules/admin/layout/Layout';
 
 // Pages sdvsdv sddvs
 import DashboardPage from '@/modules/admin/dashboard/DashboardPage';
+import SuperAdminDashboard from '@/modules/superadmin/SuperAdminDashboard';
 import ConversationsPage from '@/modules/admin/conversations/ConversationsPage';
+import { useSelector } from 'react-redux';
 import PendingConversationsPage from '@/modules/admin/pending-conversations/PendingConversationsPage';
 
 import CampaignsPage from '@/modules/admin/campaigns/CampaignsPage';
@@ -19,6 +21,7 @@ import ProfilePage from '@/modules/admin/profile/ProfilePage';
 
 import RoleManagementPage from '@/modules/superadmin/RoleManagementPage';
 import MenuBuilderPage from '@/modules/superadmin/MenuBuilderPage';
+import AuditLogsPage from '@/modules/superadmin/AuditLogsPage';
 import PermissionRoute from '@/modules/auth/PermissionRoute';
 import SmartRedirect from '@/modules/auth/SmartRedirect';
 
@@ -39,6 +42,9 @@ function App() {
                 <Route index element={<SmartRedirect />} />
                 <Route element={<PermissionRoute requiredScreen="dashboard" />}>
                   <Route path="dashboard" element={<DashboardPage />} />
+                </Route>
+                <Route element={<PermissionRoute requiredScreen="system-monitor" />}>
+                  <Route path="system-monitor" element={<SuperAdminDashboard />} />
                 </Route>
                 <Route element={<PermissionRoute requiredScreen="conversations" />}>
                   <Route path="conversations" element={<ConversationsPage />} />
@@ -76,6 +82,9 @@ function App() {
                 </Route>
                 <Route element={<PermissionRoute requiredScreen="users" />}>
                   <Route path="users" element={<UsersPage />} />
+                </Route>
+                <Route element={<PermissionRoute requiredScreen="audit-logs" />}>
+                  <Route path="audit-logs" element={<AuditLogsPage />} />
                 </Route>
                 <Route path="profile" element={<ProfilePage />} />
               </Route>

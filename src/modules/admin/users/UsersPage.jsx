@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, User, Mail, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, User, Mail, MoreVertical, Edit, Trash2, Search, XCircle, CheckCircle } from 'lucide-react';
 import { getUsers, createUser, updateUser, getUserRoles, deleteUser } from '@/services/api';
 import CreateUserModal from './CreateUserModal';
 import { useToast } from '@/context/ToastContext';
@@ -340,7 +340,7 @@ const UsersPage = () => {
                                                                 className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${user.id === currentUserId ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
                                                             >
                                                                 <Trash2 size={14} className="mr-2" />
-                                                                Delete User (Soft)
+                                                                Delete User
                                                             </button>
                                                             <button
                                                                 disabled={user.id === currentUserId}
@@ -398,6 +398,7 @@ const UsersPage = () => {
             </div>
 
             <CreateUserModal
+                key={editingUser ? `edit-${editingUser.id}` : 'create-new'}
                 isOpen={isModalOpen}
                 onClose={() => {
                     setIsModalOpen(false);

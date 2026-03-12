@@ -595,6 +595,13 @@ export async function getWhatsAppDashboardStats() {
 
 // ============ RBAC & Menu APIs ============
 
+// ============ Super Admin APIs ============
+
+// Get system-wide metrics for Super Admin Dashboard
+export async function getSystemMetrics() {
+    return fetchDataApi('/admin/system-metrics');
+}
+
 export async function getRoles() {
     return fetchApi('/roles');
 }

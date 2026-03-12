@@ -7,6 +7,9 @@ export default function SmartRedirect() {
 
     console.log('[SmartRedirect] Permissions:', permissions);
     // Order of preference for default landing
+    if (permissions['system-monitor']?.view) {
+        return <Navigate to="/system-monitor" replace />;
+    }
     if (permissions['dashboard']?.view) {
         return <Navigate to="/dashboard" replace />;
     }

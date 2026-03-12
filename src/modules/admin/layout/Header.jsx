@@ -25,7 +25,6 @@ export default function Header() {
     const { user, logout, role } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
-    const env = import.meta.env.MODE === 'development' ? 'DEV' : 'PROD';
 
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -287,24 +286,10 @@ export default function Header() {
                     )}
                 </div>
 
-                {/* Search Bar */}
-                <div className="relative hidden md:block">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="pl-9 pr-4 py-2 bg-gray-50 border-none rounded-lg text-sm focus:outline-none focus:ring-0 w-64 transition-all placeholder:text-gray-400"
-                    />
-                </div>
             </div>
 
             {/* Right: Actions & Profile */}
             <div className="flex items-center gap-4">
-                {/* Environment Indicator */}
-                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold tracking-wider ${env === 'PROD' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                    {env}
-                </span>
 
                 {/* Notifications Dropdown */}
                 <div className="relative" ref={dropdownRef}>

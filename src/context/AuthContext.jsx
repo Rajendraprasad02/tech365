@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
                         token: localStorage.getItem('token'), // Use latest token
                         role: {
                             id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
-                            name: decoded.role || userProfile.role?.name || userProfile.role
+                            name: decoded.role || decoded.roleName || userProfile.role?.name || userProfile.role
                         },
                         permissions: {} // Will be populated by Sidebar/Layout
                     }));
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
                 token: accessToken,
                 role: {
                     id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
-                    name: decoded.role || userProfile.role?.name || userProfile.role || ''
+                    name: decoded.role || decoded.roleName || userProfile.role?.name || userProfile.role || ''
                 },
                 permissions: {}
             }));

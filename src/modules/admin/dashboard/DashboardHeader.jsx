@@ -4,15 +4,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 // Dashboard sections that can be searched
-const dashboardSections = [
-    { id: 'hero-cards', name: 'Wallet & Costs', description: 'Wallet balance, LLM and WhatsApp costs', icon: CreditCard },
-    { id: 'conversation-volume', name: 'Conversation Volume', description: 'Weekly bar chart comparison', icon: BarChart3 },
-    { id: 'resolution-breakdown', name: 'Resolution Breakdown', description: 'AI resolved, human handled, escalated', icon: PieChart },
-    { id: 'delivery-overview', name: 'Message Delivery', description: 'Sent, delivered, read, failed stats', icon: Send },
-    { id: 'recent-conversations', name: 'Recent Conversations', description: 'Latest chat interactions', icon: MessageCircle },
-    { id: 'hourly-activity', name: 'Hourly Activity', description: 'Messages per hour chart', icon: Clock },
-    { id: 'template-performance', name: 'Template Performance', description: 'Template analytics and rates', icon: BarChart3 },
-];
 
 export default function DashboardHeader({ onNavigate, onScrollToSection }) {
     const { user, logout, role } = useAuth();
@@ -38,10 +29,6 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
     };
     const [showUserMenu, setShowUserMenu] = useState(false);
 
-    // Search state
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [showSearchResults, setShowSearchResults] = useState(false);
 
     // Refs
     const workspaceRef = useRef(null);
@@ -91,29 +78,6 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Search functionality - searches dashboard sections
-    const handleSearch = useCallback((query) => {
-        setSearchQuery(query);
-        if (query.trim().length >= 1) {
-            const queryLower = query.toLowerCase();
-            const results = dashboardSections.filter(section =>
-                section.name.toLowerCase().includes(queryLower) ||
-                section.description.toLowerCase().includes(queryLower)
-            );
-            setSearchResults(results);
-            setShowSearchResults(true);
-        } else {
-            setSearchResults([]);
-            setShowSearchResults(false);
-        }
-    }, []);
-
-    // Handle section click - scroll and highlight
-    const handleSectionClick = (sectionId) => {
-        setShowSearchResults(false);
-        setSearchQuery('');
-        onScrollToSection?.(sectionId);
-    };
 
     // Notification actions
     const markAllRead = () => {
@@ -216,54 +180,6 @@ export default function DashboardHeader({ onNavigate, onScrollToSection }) {
                     )}
                 </div>
 
-                {/* Search Box */}
-                <div className="relative flex-1 md:flex-none md:w-72" ref={searchRef}>
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg w-full">
-                        <Search size={16} className="text-gray-400 flex-shrink-0" />
-                        <input
-                            ref={searchInputRef}
-                            type="text"
-                            placeholder="Search..."
-                            value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            onFocus={() => { if (searchQuery) setShowSearchResults(true); else { setSearchResults(dashboardSections); setShowSearchResults(true); } }}
-                            className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400 min-w-0"
-                        />
-                        {searchQuery ? (
-                            <button onClick={() => { setSearchQuery(''); setSearchResults([]); setShowSearchResults(false); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-                        ) : (
-                            <span className="hidden md:block text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">⌘K</span>
-                        )}
-                    </div>
-
-                    {showSearchResults && (
-                        <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 max-h-80 overflow-y-auto">
-                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Dashboard Sections</div>
-                            {searchResults.length > 0 ? (
-                                searchResults.map((section) => {
-                                    const Icon = section.icon;
-                                    return (
-                                        <div
-                                            key={section.id}
-                                            className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-violet-50 transition-colors"
-                                            onClick={() => handleSectionClick(section.id)}
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                <Icon size={16} className="text-violet-600" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-gray-900">{section.name}</div>
-                                                <div className="text-xs text-gray-500 truncate">{section.description}</div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="px-4 py-6 text-center text-sm text-gray-500">No sections found</div>
-                            )}
-                        </div>
-                    )}
-                </div>
             </div>
 
             <div className="flex items-center gap-4">

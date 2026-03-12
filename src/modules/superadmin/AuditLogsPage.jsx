@@ -165,7 +165,11 @@ export default function AuditLogsPage() {
 
     // Extract unique modules for filter dropdown
     const modulesList = useMemo(() => {
-        const mods = new Set(logs.map(l => l.module).filter(Boolean));
+        const staticModules = [
+            'AUTH', 'USERS', 'ROLES', 'CONTACTS', 'CONVERSATIONS', 
+            'CAMPAIGNS', 'TEMPLATES', 'FORMS', 'SYSTEM', 'SIDEBAR'
+        ];
+        const mods = new Set([...staticModules, ...logs.map(l => l.module).filter(Boolean)]);
         return Array.from(mods).sort();
     }, [logs]);
 
@@ -216,17 +220,6 @@ export default function AuditLogsPage() {
                     </SelectContent>
                 </Select>
 
-                <Select value={filters.module} onValueChange={(val) => handleFilterChange('module', val)}>
-                    <SelectTrigger className="w-[150px] h-10 border-gray-200">
-                        <SelectValue placeholder="All Modules" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Modules</SelectItem>
-                        {modulesList.map(mod => (
-                            <SelectItem key={mod} value={mod}>{mod}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
 
                 <Select value={filters.userId} onValueChange={(val) => handleFilterChange('userId', val)}>
                     <SelectTrigger className="w-[160px] h-10 border-gray-200">
@@ -272,6 +265,26 @@ export default function AuditLogsPage() {
 
                 <Button onClick={handleApplyFilters} className="bg-primary hover:bg-primary-600 h-10 px-6">
                     Apply
+                </Button>
+
+                <Button 
+                    variant="ghost" 
+                    onClick={() => {
+                        setFilters({
+                            logType: 'all',
+                            module: 'all',
+                            userId: 'all',
+                            status: 'all',
+                            startDate: '',
+                            endDate: '',
+                            search: ''
+                        });
+                        setPagination(prev => ({ ...prev, page: 1 }));
+                        fetchLogs();
+                    }}
+                    className="h-10 text-gray-500 hover:text-gray-700"
+                >
+                    Clear
                 </Button>
             </div>
 

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/context/ToastContext';
 import { Loader2 } from 'lucide-react';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 const ACTION_COLORS = {
     'view': 'blue',
@@ -36,6 +37,11 @@ export default function RoleManagementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [actions, setActions] = useState([]);
     const [matrixLoading, setMatrixLoading] = useState(false);
+    
+    // Deletion Modal State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [roleToDelete, setRoleToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -188,20 +194,29 @@ export default function RoleManagementPage() {
         }
     };
 
-    const handleDelete = async (roleId) => {
-        const role = roles.find(r => r.id === roleId);
-        if (role?.id === 1 || role?.isSystem || role?.is_system_role) {
+    const handleDelete = (role) => {
+        if (role.id === 1 || role.isSystem || role.is_system_role) {
             toast({ title: "Forbidden", description: "Super Admin or System roles cannot be deleted.", variant: "destructive" });
             return;
         }
-        if (!confirm("Are you sure you want to delete this role?")) return;
+        setRoleToDelete(role);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!roleToDelete) return;
+        setDeleting(true);
         try {
-            await deleteRole(roleId);
+            await deleteRole(roleToDelete.id);
             toast({ title: "Success", description: "Role deleted successfully", variant: "success" });
+            setIsDeleteModalOpen(false);
+            setRoleToDelete(null);
             fetchData();
         } catch (error) {
             console.error("Error deleting role:", error);
             toast({ title: "Error", description: "Failed to delete role", variant: "destructive" });
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -349,7 +364,7 @@ export default function RoleManagementPage() {
                                         <Edit2 size={16} />
                                     </Button>
                                     {(!role.isSystem && !role.is_system_role) && (
-                                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(role.id)}>
+                                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(role)}>
                                             <Trash2 size={16} />
                                         </Button>
                                     )}
@@ -488,6 +503,22 @@ export default function RoleManagementPage() {
                     </div>
                 )
             }
+
+            {/* Deletion Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setRoleToDelete(null);
+                }}
+                onConfirm={confirmDelete}
+                title="Delete Role"
+                message={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone and may affect users assigned to this role.`}
+                confirmText="Delete Role"
+                cancelText="Keep Role"
+                type="danger"
+                loading={deleting}
+            />
         </div >
     );
 }

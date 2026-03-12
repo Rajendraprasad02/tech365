@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { updatePermissions } from '@/store/slices/authSlice';
 import { Menu } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
@@ -15,6 +15,10 @@ export default function Layout() {
 
     const { refreshMenuTrigger } = useAuth();
     const dispatch = useDispatch();
+    const role = useSelector(state => state.auth.role);
+    const isSuperAdmin = role?.name?.toLowerCase() === 'super admin' || role?.name?.toLowerCase() === 'superadmin';
+
+    console.log('[Layout] Role Check:', { roleName: role?.name, isSuperAdmin });
 
     useEffect(() => {
         const fetchMenu = async () => {
@@ -23,7 +27,49 @@ export default function Layout() {
                 // Data format expected: { modules: [{ name, path, icon, ... }] } or similar
                 // Adjust mapping based on actual API response structure
                 // For now, assuming API returns list of modules
-                const items = Array.isArray(data) ? data : (data.modules || []);
+                let items = Array.isArray(data) ? [...data] : [...(data.modules || [])];
+
+                // For Super Admin, inject System Monitor and distinguish from Business Dashboard
+                if (isSuperAdmin) {
+                    const systemMonitorScreen = {
+                        id: 'system-monitor',
+                        label: 'System Monitor',
+                        path: 'system-monitor',
+                        key: 'system-monitor',
+                        icon: 'Activity',
+                        actions: ['view']
+                    };
+
+                    // Find "System Configuration" or "Setup" module to put it in
+                    let sysConfigModule = items.find(m => 
+                        (m.label || m.name || '').toLowerCase().includes('system') || 
+                        (m.label || m.name || '').toLowerCase().includes('config')
+                    );
+
+                    if (sysConfigModule) {
+                        // Prepend to System Config
+                        if (!sysConfigModule.screens.some(s => s.id === 'system-monitor')) {
+                            sysConfigModule.screens = [systemMonitorScreen, ...sysConfigModule.screens];
+                        }
+                    } else {
+                        // Create new module
+                        items.unshift({
+                            id: 'sys-oversight',
+                            label: 'System Oversight',
+                            screens: [systemMonitorScreen]
+                        });
+                    }
+
+                    // Rename existing "Dashboard" to "Business Dashboard" if it exists
+                    items.forEach(m => {
+                        m.screens?.forEach(s => {
+                            const label = (s.label || s.name || '').toLowerCase();
+                            if (label === 'dashboard') {
+                                s.label = 'Business Dashboard';
+                            }
+                        });
+                    });
+                }
 
                 // Filter menu items based on explicit permissions for infrastructure
                 const filteredItems = items.map(module => ({
@@ -52,9 +98,48 @@ export default function Layout() {
                         if (isNotifications && !hasConfigure) return false;
                         if (isUsers && !hasManage) return false;
 
+                        // Force show infrastructure for Super Admin
+                        if (isSuperAdmin) return true;
+
                         return true;
                     })
                 })).filter(module => module.screens.length > 0);
+
+                // Rename existing "Dashboard" to "Business Dashboard" for transparency
+                filteredItems.forEach(m => {
+                    m.screens?.forEach(s => {
+                        const label = (s.label || s.name || '').toLowerCase();
+                        if (label === 'dashboard') s.label = 'Business Dashboard';
+                    });
+                });
+
+                // Inject Super Admin specific oversight screens if they are missing
+                if (isSuperAdmin) {
+                    const oversightScreens = [
+                        { id: 'system-monitor', label: 'System Monitor', path: 'system-monitor', key: 'system-monitor', icon: 'Activity', actions: ['view'] },
+                        { id: 'audit-logs', label: 'Audit Logs', path: 'audit-logs', key: 'audit-logs', icon: 'FileClock', actions: ['view'] }
+                    ];
+
+                    oversightScreens.forEach(screen => {
+                        const exists = filteredItems.some(m => m.screens.some(s => s.id === screen.id || s.key === screen.key));
+                        if (!exists) {
+                            let sysConfigModule = filteredItems.find(m => 
+                                (m.label || m.name || '').toLowerCase().includes('system') || 
+                                (m.label || m.name || '').toLowerCase().includes('config')
+                            );
+
+                            if (sysConfigModule) {
+                                sysConfigModule.screens.unshift(screen);
+                            } else {
+                                filteredItems.unshift({
+                                    id: `sys-oversight-${screen.id}`,
+                                    label: 'System Oversight',
+                                    screens: [screen]
+                                });
+                            }
+                        }
+                    });
+                }
 
                 console.log('[Layout] Raw Menu Items:', items);
                 console.log('[Layout] Filtered Menu Items:', filteredItems);
@@ -81,6 +166,16 @@ export default function Layout() {
                     });
                 });
 
+                // Force permissions for oversight screens
+                if (isSuperAdmin) {
+                    ['system-monitor', 'audit-logs'].forEach(key => {
+                        derivedPermissions[key] = {
+                            view: true, create: false, edit: false, delete: false, manage: false, configure: false
+                        };
+                    });
+                    if (derivedPermissions['dashboard']) derivedPermissions['dashboard'].view = true;
+                }
+
                 console.log('[Layout] Derived Permissions:', derivedPermissions);
                 dispatch(updatePermissions(derivedPermissions));
             } catch (error) {
@@ -91,7 +186,7 @@ export default function Layout() {
         };
 
         fetchMenu();
-    }, [refreshMenuTrigger]);
+    }, [refreshMenuTrigger, role]);
 
     // Compute allowed routes for context consumption by child pages
     const allowedRoutes = useMemo(() => menuItems.flatMap(module =>
