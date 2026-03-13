@@ -40,9 +40,9 @@ export default function ContactsPage() {
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
             {/* Page Header */}
-            <div className="px-8 py-6 bg-white border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Contacts</h1>
-                <p className="text-gray-500 text-sm">Manage your contacts, upload files, and organize lists</p>
+            <div className="px-8 py-4 bg-white border-b border-gray-100">
+                <h1 className="text-xl font-bold text-gray-900 mb-0.5">Contacts</h1>
+                <p className="text-gray-500 text-xs">Manage your contacts, upload files, and organize lists</p>
             </div>
 
             {/* Tabs */}
@@ -69,7 +69,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-hidden p-6">
+            <div className="flex-1 overflow-hidden p-4">
                 {activeTab === 'all-contacts' && <AllContactsTab key="all-contacts" />}
                 {activeTab === 'leads' && <AllContactsTab key="leads" sourceFilterProp="lead" />}
                 {activeTab === 'upload' && <UploadTab />}
@@ -585,8 +585,8 @@ function UploadTab() {
     };
 
     return (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex justify-between items-start mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex justify-between items-start mb-4">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900 mb-1">Upload Contacts</h2>
                     <p className="text-gray-500">Bulk upload phone numbers via CSV or Excel files</p>
@@ -610,7 +610,7 @@ function UploadTab() {
             </div>
 
             {/* Steps Indicator */}
-            <div className="flex items-start mb-8 px-4 max-w-2xl mx-auto">
+            <div className="flex items-start mb-6 px-4 max-w-2xl mx-auto text-center justify-center">
                 {steps.map((step, idx) => (
                     <div key={step.num} className="flex-1 flex flex-col">
                         <div className="flex items-center">
@@ -639,12 +639,12 @@ function UploadTab() {
 
             {currentStep === 1 && (
                 <div
-                    className="bg-white rounded-2xl p-10 mx-auto"
-                    style={{ border: '1px solid #f1f3f5', maxWidth: '600px', boxShadow: '0 10px 30px -15px rgba(0,0,0,0.05)' }}
+                    className="bg-white rounded-2xl p-6 mx-auto"
+                    style={{ border: '1px solid #f1f3f5', maxWidth: '520px', boxShadow: '0 10px 30px -15px rgba(0,0,0,0.05)' }}
                 >
-                    <div className="text-center mb-8">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-2">Upload Your File</h3>
-                        <p className="text-gray-400 text-sm italic">Please use our system template for successful import</p>
+                    <div className="text-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-800 mb-1">Upload Your File</h3>
+                        <p className="text-gray-400 text-xs italic">Please use our system template for successful import</p>
                     </div>
 
                     <div
@@ -652,16 +652,16 @@ function UploadTab() {
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onClick={() => document.getElementById('file-upload').click()}
-                        className={`rounded-2xl transition-all cursor-pointer group flex flex-col items-center justify-center text-center p-12 ${isDragging ? 'bg-violet-50 border-violet-400 scale-[0.99]' : 'bg-gray-50/50 border-gray-200 hover:bg-gray-50 hover:border-violet-300'
+                        className={`rounded-2xl transition-all cursor-pointer group flex flex-col items-center justify-center text-center p-8 ${isDragging ? 'bg-violet-50 border-violet-400 scale-[0.99]' : 'bg-gray-50/50 border-gray-200 hover:bg-gray-50 hover:border-violet-300'
                             }`}
                         style={{ border: '2px dashed #e2e8f0' }}
                     >
                         <input id="file-upload" type="file" accept=".csv,.xlsx" onChange={handleFileSelect} className="hidden" />
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-colors ${isDragging ? 'bg-violet-200 text-violet-700' : 'bg-white text-gray-400 group-hover:text-violet-500 shadow-sm'}`}>
-                            <Upload size={32} strokeWidth={1.5} />
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-colors ${isDragging ? 'bg-violet-200 text-violet-700' : 'bg-white text-gray-400 group-hover:text-violet-500 shadow-sm'}`}>
+                            <Upload size={28} strokeWidth={1.5} />
                         </div>
-                        <p className="text-lg font-bold text-gray-700 mb-1">Click to browse or drop file here</p>
-                        <p className="text-gray-400 text-sm mb-6 max-w-[240px]">Support CSV and XLSX files. Max file size 5MB.</p>
+                        <p className="text-base font-bold text-gray-700 mb-1">Click to browse or drop file here</p>
+                        <p className="text-gray-400 text-xs mb-4 max-w-[240px]">Support CSV and XLSX files. Max file size 5MB.</p>
 
                         <div className="flex items-center gap-8 py-3 px-6 bg-white rounded-full shadow-sm border border-gray-100">
                             <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
@@ -683,8 +683,8 @@ function UploadTab() {
             )}
 
             {currentStep === 2 && (
-                <div className="max-w-2xl mx-auto space-y-6">
-                    <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
+                <div className="max-w-2xl mx-auto space-y-4">
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm text-violet-500">
                                 <FileText size={24} />
@@ -697,7 +697,7 @@ function UploadTab() {
                         <button onClick={resetUpload} className="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors">Discard</button>
                     </div>
 
-                    <div className="bg-white p-8 rounded-2xl border border-gray-100 space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 space-y-4">
                         <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                             <Settings size={20} className="text-violet-500" /> Import Settings
                         </h4>
@@ -770,7 +770,7 @@ function UploadTab() {
             {currentStep === 3 && (
                 <div className="max-w-2xl mx-auto space-y-6">
                     {error ? (
-                        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl text-center space-y-4 animate-in zoom-in duration-300">
+                        <div className="p-6 bg-red-50 border border-red-200 rounded-3xl text-center space-y-3 animate-in zoom-in duration-300">
                             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2">
                                 <AlertCircle size={32} />
                             </div>
@@ -795,7 +795,7 @@ function UploadTab() {
                             </div>
                         </div>
                     ) : (
-                        <div className="p-8 bg-green-50 border border-green-200 rounded-3xl text-center space-y-4 animate-in zoom-in duration-300">
+                        <div className="p-6 bg-green-50 border border-green-200 rounded-3xl text-center space-y-3 animate-in zoom-in duration-300">
                             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
                                 <CheckCircle size={32} />
                             </div>
