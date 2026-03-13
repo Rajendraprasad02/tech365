@@ -7,12 +7,24 @@ export default function SmartRedirect() {
 
     console.log('[SmartRedirect] Permissions:', permissions);
     // Order of preference for default landing
+    // 1. Absolute Priority: Dashboard
     if (permissions['dashboard']?.view) {
         return <Navigate to="/dashboard" replace />;
     }
+
+    // 2. Fuzzy priority: Anything named dashboard
+    const readableRoutes = Object.keys(permissions).filter(key => permissions[key]?.view);
+    const dashKey = readableRoutes.find(k => k.toLowerCase().includes('dashboard'));
+    if (dashKey) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    // 3. System Monitor (Super Admin override)
     if (permissions['system-monitor']?.view) {
         return <Navigate to="/system-monitor" replace />;
     }
+
+    // 4. Everything else
     if (permissions['conversations']?.view) {
         return <Navigate to="/conversations" replace />;
     }
@@ -27,7 +39,6 @@ export default function SmartRedirect() {
     }
 
     // Fallback: finding first readable route
-    const readableRoutes = Object.keys(permissions).filter(key => permissions[key]?.view);
     const firstRoute = readableRoutes.find(key => key !== '/' && key !== '');
 
     if (firstRoute) {

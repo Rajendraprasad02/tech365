@@ -71,16 +71,40 @@ export default function Layout() {
                     });
                 }
 
+                // Ensure Dashboard always exists in the items (fallback if backend doesn't provide)
+                const dashboardExists = items.some(m => m.screens?.some(s => 
+                    (s.label || s.name || s.path || '').toLowerCase().includes('dashboard')
+                ));
+
+                if (!dashboardExists) {
+                    items.unshift({
+                        id: 'auto-dashboard-module',
+                        label: 'Overview',
+                        screens: [{
+                            id: 'dashboard',
+                            label: 'Dashboard',
+                            path: 'dashboard',
+                            key: 'dashboard',
+                            icon: 'LayoutDashboard',
+                            actions: ['view', '1']
+                        }]
+                    });
+                }
+
                 // Filter menu items based on explicit permissions for infrastructure
                 const filteredItems = items.map(module => ({
                     ...module,
                     screens: (module.screens || []).filter(screen => {
                         const path = (screen.path || screen.route || '').toLowerCase();
+                        const label = (screen.label || screen.name || '').toLowerCase();
                         const actions = screen.actions || [];
 
                         // Action check helpers
                         const hasManage = actions.some(a => String(a).toLowerCase() === 'manage');
                         const hasConfigure = actions.some(a => String(a).toLowerCase() === 'configure');
+
+                        // 0. Priority: Always show Dashboard regardless of actions
+                        if (path.includes('dashboard') || label.includes('dashboard')) return true;
 
                         // 1. Hide My Conversations (Agent-specific logic handled in ConversationsPage)
                         if (path.includes('agent/conversations/my')) return false;
@@ -97,9 +121,6 @@ export default function Layout() {
                         if (isActions && !hasManage) return false;
                         if (isNotifications && !hasConfigure) return false;
                         if (isUsers && !hasManage) return false;
-
-                        // Force show infrastructure for Super Admin
-                        if (isSuperAdmin) return true;
 
                         return true;
                     })
@@ -141,23 +162,39 @@ export default function Layout() {
                     });
                 }
 
+                // Sort so Dashboard is ALWAYS at the top
+                const sortedItems = [...filteredItems].sort((a, b) => {
+                    const aHasDash = a.screens?.some(s => (s.label || s.name || '').toLowerCase().includes('dashboard'));
+                    const bHasDash = b.screens?.some(s => (s.label || s.name || '').toLowerCase().includes('dashboard'));
+                    if (aHasDash && !bHasDash) return -1;
+                    if (!aHasDash && bHasDash) return 1;
+                    return 0;
+                });
+
                 console.log('[Layout] Raw Menu Items:', items);
                 console.log('[Layout] Filtered Menu Items:', filteredItems);
 
-                setMenuItems(filteredItems);
+                setMenuItems(sortedItems);
 
                 // Derive permissions from menu
                 const derivedPermissions = {};
                 items.forEach(module => {
                     (module.screens || []).forEach(screen => {
-                        // Use key as primary identifier, then path/route, then name
-                        const routeKey = screen.key || (screen.path || screen.route)?.replace(/^\//, '') || screen.label?.toLowerCase() || screen.id;
+                        const label = (screen.label || screen.name || '').toLowerCase();
+                        const path = (screen.path || screen.route || '').toLowerCase();
+
+                        // Use key as primary identifier, then normalize path/label
+                        let routeKey = screen.key || path.replace(/^\//, '') || label || screen.id.toString();
+                        
+                        // Force normalization for Dashboard for reliable redirection
+                        if (label.includes('dashboard') || path.includes('dashboard')) {
+                            routeKey = 'dashboard';
+                        }
 
                         // Map actions to true/false for UI check consistency
-                        // Action IDs: 1=view, 2=create, 3=edit, 4=delete, 13=approve/manage
                         const actions = (screen.actions || []).map(a => String(a).toLowerCase());
                         derivedPermissions[routeKey] = {
-                            view: actions.some(a => ['view', 'read', 'viewing', '1'].includes(a)),
+                            view: actions.some(a => ['view', 'read', 'viewing', '1', 'manage'].includes(a)) || routeKey === 'dashboard',
                             create: actions.some(a => ['create', 'add', '2'].includes(a)),
                             edit: actions.some(a => ['edit', 'update', 'modify', '3'].includes(a)),
                             delete: actions.some(a => ['delete', 'remove', '4'].includes(a)),
@@ -167,14 +204,33 @@ export default function Layout() {
                     });
                 });
 
-                // Force permissions for oversight screens
+                // Force permissions for oversight screens and Dashboard
                 if (isSuperAdmin) {
                     ['system-monitor', 'audit-logs'].forEach(key => {
                         derivedPermissions[key] = {
                             view: true, create: false, edit: false, delete: false, manage: false, configure: false
                         };
                     });
-                    if (derivedPermissions['dashboard']) derivedPermissions['dashboard'].view = true;
+                }
+
+                // Global override: Dashboard is ALWAYS viewable if it's in the system
+                if (derivedPermissions['dashboard']) {
+                    derivedPermissions['dashboard'].view = true;
+                } else {
+                    // Safety fallback for redirection
+                    derivedPermissions['dashboard'] = { view: true };
+                }
+                
+                // CRITICAL: Force Dashboard view permission if it exists in the menu
+                // This prevents SmartRedirect from falling back to Conversations
+                if (derivedPermissions['dashboard']) {
+                    derivedPermissions['dashboard'].view = true;
+                } else {
+                    // Fallback: search for any dashboard-like key and alias it
+                    const altDashKey = Object.keys(derivedPermissions).find(k => k.toLowerCase().includes('dashboard'));
+                    if (altDashKey) {
+                        derivedPermissions['dashboard'] = { ...derivedPermissions[altDashKey], view: true };
+                    }
                 }
 
                 console.log('[Layout] Derived Permissions:', derivedPermissions);

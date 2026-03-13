@@ -16,8 +16,8 @@ import { useToast } from '@/context/ToastContext';
 export default function LoginPage() {
     const { login } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
-    const from = location.state?.from?.pathname || '/';
+    // Force dashboard as default landing after login
+    const from = '/dashboard';
 
     // State
     const [showPassword, setShowPassword] = useState(false);

@@ -488,6 +488,7 @@ export default function ConversationsPage() {
                     unreadCount: 0,
                     cost: totalCost.toFixed(2),
                     isReported,
+                    contact_info: session.contact_info || {}, // Preserve full contact info for agent notes
                     assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
                     closed_by: session.closed_by || null,
@@ -1221,19 +1222,19 @@ export default function ConversationsPage() {
                                     </div>
                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                                         <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="font-bold text-gray-900 text-[13px] truncate leading-tight">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className="font-bold text-gray-900 text-sm truncate leading-tight">
                                                     {conv.title}
                                                 </span>
                                                 <button
                                                     onClick={(e) => handleShowLeadDetails(e, conv.wa_id || conv.title)}
-                                                    className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded-full hover:bg-blue-50"
+                                                    className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded-full hover:bg-blue-50 flex-shrink-0"
                                                     title="View Lead Details"
                                                 >
                                                     <FileText size={12} />
                                                 </button>
                                             </div>
-                                            <span className="text-[10px] text-gray-400 whitespace-nowrap font-medium ml-auto">
+                                            <span className="text-[10px] text-gray-400 whitespace-nowrap font-semibold ml-auto flex-shrink-0">
                                                 {conv.time}
                                             </span>
                                         </div>
@@ -1263,7 +1264,7 @@ export default function ConversationsPage() {
                                                 </span>
                                             )}
 
-                                        {/* Status Tags and Accept Button removed to match design */}
+                                            {/* Status Tags and Accept Button removed to match design */}
                                         </div>
                                     </div>
 
@@ -1309,15 +1310,12 @@ export default function ConversationsPage() {
                                                         className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all flex items-center gap-1.5"
                                                         title="View Agent Notes"
                                                     >
-                                                        <MessageSquare size={16} />
-                                                        {selectedConversation?.contact_info?.agent_notes?.length > 0 && (
-                                                            <div className="flex flex-col items-start">
-                                                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tight leading-none">Agent Notes</span>
-                                                                <span className="text-[11px] text-gray-500 font-medium truncate max-w-[150px]">
-                                                                    {selectedConversation.contact_info.agent_notes[selectedConversation.contact_info.agent_notes.length - 1].note}
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                        <div className="relative">
+                                                            <MessageSquare size={16} />
+                                                            {selectedConversation?.contact_info?.agent_notes?.length > 0 && (
+                                                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border border-white"></span>
+                                                            )}
+                                                        </div>
                                                     </button>
                                                 </div>
                                             </div>
@@ -1360,7 +1358,7 @@ export default function ConversationsPage() {
                                                 className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                                             >
                                                 <X size={14} />
-                                                Close
+                                                Close Chat
                                             </button>
                                         )}
 
@@ -1386,7 +1384,7 @@ export default function ConversationsPage() {
 
                                         {/* Cost Badge - Last */}
                                         <div className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
-                                            <span className="text-sm font-bold leading-none">{selectedConversation.cost}</span>
+                                            <span className="text-sm font-bold leading-none">₹{selectedConversation.cost}</span>
                                         </div>
                                     </div>
                                 </div>

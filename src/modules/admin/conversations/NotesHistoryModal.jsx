@@ -2,16 +2,19 @@ import React from 'react';
 import { X, FileText, Clock, User } from 'lucide-react';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 
-const NotesHistoryModal = ({ isOpen, onClose, notes = [], users = [] }) => {
+const NotesHistoryModal = ({ isOpen, onClose, notes: rawNotes = [], users = [] }) => {
     if (!isOpen) return null;
+
+    // Helper to safely parse notes if they come as a string
+    const notes = Array.isArray(rawNotes) ? rawNotes : (typeof rawNotes === 'string' ? JSON.parse(rawNotes) : []);
 
     // Helper to resolve agent name safely
     const resolveAgentName = (note) => {
         const id = note.agent_id;
-        const fallbackName = note.agent_name;
+        const fallbackName = note.agent_name || note.agentName;
         
-        if (!id) return fallbackName || 'Agent';
-        const user = users.find(u => u.id === id || u.id === parseInt(id));
+        if (!id) return fallbackName || 'System';
+        const user = users.find(u => String(u.id) === String(id));
         return user ? (user.full_name || user.username) : (fallbackName || 'Agent');
     };
 
@@ -58,7 +61,11 @@ const NotesHistoryModal = ({ isOpen, onClose, notes = [], users = [] }) => {
                                             <div className="flex items-center gap-1 text-xs text-gray-400">
                                                 <Clock size={12} />
                                                 <span>
-                                                    {new Date(note.timestamp).toLocaleDateString()} {new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {note.timestamp ? (
+                                                        <>
+                                                            {new Date(note.timestamp).toLocaleDateString()} {new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </>
+                                                    ) : 'Recent'}
                                                 </span>
                                             </div>
                                         </div>
