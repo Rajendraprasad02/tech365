@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { X, User, Phone, Mail, Building, Package, Activity, Info, Calendar } from 'lucide-react';
+import { X, User, Phone, Mail, Building, Package, Activity, Info, Calendar, Tag, CheckCircle2 } from 'lucide-react';
 
 export default function LeadDetailsModal({ lead, onClose }) {
     if (!lead) return null;
@@ -8,11 +7,7 @@ export default function LeadDetailsModal({ lead, onClose }) {
     // Helper to safely parse JSON if it's a string, otherwise return as is
     const safeParse = (data) => {
         if (typeof data === 'string') {
-            try {
-                return JSON.parse(data);
-            } catch (e) {
-                return {};
-            }
+            try { return JSON.parse(data); } catch (e) { return {}; }
         }
         return data || {};
     };
@@ -32,75 +27,77 @@ export default function LeadDetailsModal({ lead, onClose }) {
         });
     };
 
+    // Extract interests as badges
+    const interests = lead.product_interest ? lead.product_interest.split(',').map(s => s.trim()) : [];
+
     return (
-        <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] border border-white/20">
 
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-600">
-                            <User size={20} />
+                <div className="px-8 py-7 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                            <User size={28} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900 leading-tight">{lead.name || 'Unknown Candidate'}</h3>
-                            <p className="text-xs text-gray-500 font-medium">Lead Details</p>
+                            <h3 className="text-xl font-black text-gray-900 leading-tight">{lead.name || 'Anonymous Lead'}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Lead Identification</span>
+                                <div className="w-1 h-1 bg-gray-200 rounded-full" />
+                                <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest bg-violet-50 px-2 py-0.5 rounded-full">Active</span>
+                            </div>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+                        className="w-10 h-10 rounded-xl bg-gray-100/50 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-gray-400 transition-all active:scale-90"
                     >
-                        <X size={18} />
+                        <X size={20} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
 
-                    {/* Primary Info Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <InfoCard icon={Mail} label="Email" value={lead.email} />
-                        <InfoCard icon={Phone} label="Phone" value={lead.phone_number ? '+' + String(lead.phone_number).replace(/^\+/, '') : ''} />
-                        <InfoCard icon={Building} label="Company" value={lead.company_name} />
-                        <InfoCard icon={Activity} label="Status" value={lead.status} badge />
+                    {/* Interaction Summary */}
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <InfoCard icon={Mail} label="Contact Email" value={lead.email} />
+                        <InfoCard icon={Phone} label="Mobile Number" value={lead.phone_number} />
+                        <InfoCard icon={Building} label="Organization" value={lead.company_name} />
+                        <InfoCard icon={Activity} label="Journey Status" value={lead.status} badge />
                     </div>
 
-                    {/* Product Interest Section */}
-                    {lead.product_interest && (
-                        <div className="mb-6 bg-blue-50/50 rounded-xl p-4 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Package size={18} className="text-blue-600" />
-                                <h4 className="font-semibold text-gray-900">Product Interest</h4>
+                    {/* Product Portfolio */}
+                    {interests.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-2 h-6 bg-violet-600 rounded-full" />
+                                <h4 className="font-black text-gray-900 uppercase tracking-tight">Basket Overview</h4>
                             </div>
-                            <div className="text-lg font-medium text-blue-800">
-                                {lead.product_interest}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Detailed Product Specs */}
-                    {Object.keys(productDetails).length > 0 && (
-                        <div className="mb-6">
-                            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Product Specifications</h4>
-                            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 grid grid-cols-2 gap-4">
-                                {Object.entries(productDetails).map(([key, value]) => {
-                                    if (key === 'flow_token') return null; // Skip internal fields
-                                    // Clean up key name (e.g., "screen_0_Make_0" -> "Make")
-                                    const label = key.replace(/screen_\d+_/, '').replace(/_\d+$/, '').replace(/_/g, ' ');
-                                    return (
-                                        <div key={key}>
-                                            <span className="text-xs text-gray-500 block mb-1">{label}</span>
-                                            <span className="font-medium text-gray-900">{value}</span>
+                            <div className="flex flex-wrap gap-2.5">
+                                {interests.map((item, i) => (
+                                    <div key={i} className="group flex items-center gap-2 pl-2 pr-4 py-2 bg-gray-50 rounded-2xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50 transition-all">
+                                        <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-violet-500 group-hover:scale-110 transition-transform">
+                                            <Package size={16} />
                                         </div>
-                                    );
-                                })}
+                                        <span className="text-sm font-bold text-gray-700 group-hover:text-violet-700">{item}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
 
 
 
+                    {/* Timeline */}
+                    <div className="mt-10 pt-8 border-t border-gray-100 flex justify-between items-center text-gray-400">
+                        <div className="flex items-center gap-2">
+                            <Calendar size={14} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Lead Captured: {formatDate(lead.created_at)}</span>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -111,18 +108,18 @@ function InfoCard({ icon: Icon, label, value, badge }) {
     if (!value) return null;
 
     return (
-        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-                <Icon size={16} />
+        <div className="group bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-lg transition-all border-b-2 hover:border-b-violet-500">
+            <div className="w-11 h-11 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-violet-50 group-hover:text-violet-500 transition-all">
+                <Icon size={20} />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">{label}</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">{label}</p>
                 {badge ? (
-                    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 mt-0.5">
+                    <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 mt-1 border border-emerald-100">
                         {value}
                     </span>
                 ) : (
-                    <p className="text-sm font-medium text-gray-900 truncate" title={value}>{value}</p>
+                    <p className="text-sm font-bold text-gray-900 truncate mt-0.5" title={value}>{value}</p>
                 )}
             </div>
         </div>

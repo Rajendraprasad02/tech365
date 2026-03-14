@@ -19,12 +19,18 @@
     }
 
     /* Strict inheritance for all elements to ensure font family persists */
-    *, ::before, ::after {
+    *,
+    ::before,
+    ::after {
         font-family: 'Inter', sans-serif !important;
     }
 
     /* Force for form elements as browsers often override them */
-    input, button, textarea, select, optgroup {
+    input,
+    button,
+    textarea,
+    select,
+    optgroup {
         font-family: 'Inter', sans-serif !important;
         font-size: inherit;
         line-height: inherit;

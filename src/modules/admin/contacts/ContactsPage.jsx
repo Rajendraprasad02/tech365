@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Users, Upload, FolderOpen, Clock, AlertCircle, Search,
     Phone, Globe, Calendar, MoreHorizontal, Trash2, Plus,
     FileText, CheckCircle, XCircle, Download, Edit3, X,
     ChevronDown, Filter, Tag, ArrowUpDown, Settings, Check,
-    ChevronLeft, ChevronRight
+    ChevronLeft, ChevronRight, ShoppingBasket
 } from 'lucide-react';
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
@@ -85,12 +86,13 @@ export default function ContactsPage() {
 // ============ All Contacts Tab ============
 // Uses: api.getContacts, api.createContact, api.deleteContact, api.updateContactStatus
 function AllContactsTab({ sourceFilterProp = 'all' }) {
+    const navigate = useNavigate();
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [productFilter, setProductFilter] = useState('all');
-    const [productOptions, setProductOptions] = useState([{ value: 'all', label: 'All Products' }]);
+    const [productOptions, setProductOptions] = useState([{ value: 'all', label: 'All Basket Items' }]);
     const [sortBy, setSortBy] = useState('desc'); // 'desc' | 'asc' | 'name_asc' | 'name_desc'
 
     // Fetch unique products for filter
@@ -99,11 +101,16 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             try {
                 // Fetch a batch of contacts to extract available products
                 // Using a larger limit to ensure we get a good representation of products
-                const data = await api.getContacts(0, 100, '', 'all', 'desc', 'all', 'all');
+                const data = await api.getContacts(0, 500, '', 'all', 'desc', 'all', 'all');
                 if (data && data.contacts) {
-                    const uniqueProducts = [...new Set(data.contacts.map(c => c.product).filter(p => p))];
+                    // Split comma-separated products and get unique ones
+                    const allProducts = data.contacts.flatMap(c => 
+                        c.product ? c.product.split(',').map(s => s.trim()) : []
+                    );
+                    const uniqueProducts = [...new Set(allProducts)].sort();
+                    
                     const options = [
-                        { value: 'all', label: 'All Products' },
+                        { value: 'all', label: 'All Basket Items' },
                         ...uniqueProducts.map(p => ({ value: p, label: p }))
                     ];
                     setProductOptions(options);
@@ -311,7 +318,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                             <th className="px-6 py-3 text-left">Name</th>
                             <th className="px-6 py-3 text-center">Status</th>
                             <th className="px-6 py-3 text-center">Source</th>
-                            <th className="px-6 py-3 text-center">Product</th>
+                            <th className="px-6 py-3 text-center">Basket Items</th>
                             <th className="px-6 py-3 text-center">Created</th>
                             <th className="px-6 py-3 text-center">Actions</th>
                         </tr>
@@ -328,7 +335,18 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                             };
                             const countryIso = getCountryCode(contact.phone_number);
                             return (
-                                <tr key={contact.id} className="hover:bg-gray-50">
+                                <tr 
+                                    key={contact.id} 
+                                    onClick={() => {
+                                        if (contact.lead_id) {
+                                            navigate(`/contacts/leads/${contact.lead_id}`);
+                                        } else {
+                                            // Optional: Handle contacts that aren't leads yet
+                                            console.warn("This contact does not have a linked lead profile.");
+                                        }
+                                    }}
+                                    className={`hover:bg-gray-50 transition-colors ${contact.lead_id ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
                                     <td className="px-6 py-3">
                                         <div className="flex items-center gap-3">
                                             <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium text-gray-600">
@@ -355,16 +373,31 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                         </div>
                                     </td>
                                     <td className="px-6 py-3 text-center">
-                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${(contact.source && contact.source.toLowerCase().includes('lead'))
+                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${(contact.source && (contact.source.toLowerCase().includes('lead') || contact.source.toLowerCase() === 'api'))
                                             ? 'bg-blue-100 text-blue-700'
                                             : 'text-gray-500 bg-gray-50'
                                             }`}>
                                             <FileText size={12} />
-                                            {contact.source || 'Manual'}
+                                            {contact.source?.toLowerCase() === 'api' ? 'Lead' : (contact.source || 'Manual')}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-3 text-center text-gray-600 font-medium">
-                                        {contact.product || '-'}
+                                    <td className="px-6 py-3 text-center">
+                                        <div className="flex justify-center">
+                                            {contact.lead_id ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/contacts/leads/${contact.lead_id}?tab=basket`);
+                                                    }}
+                                                    className="p-2 bg-violet-50 text-violet-600 rounded-lg hover:bg-violet-100 transition-all border border-violet-100/50 group"
+                                                    title="View Basket Items"
+                                                >
+                                                    <ShoppingBasket size={18} className="group-hover:scale-110 transition-transform" />
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-300">-</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-3 text-gray-500 text-center">
                                         <div className="flex items-center justify-center gap-1">
@@ -374,7 +407,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                                     </td>
                                     <td className="px-6 py-3 text-center">
                                         <button
-                                            onClick={() => confirmDelete(contact)}
+                                            onClick={(e) => { e.stopPropagation(); confirmDelete(contact); }}
                                             className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
                                             title="Delete Contact"
                                         >

@@ -846,6 +846,11 @@ export async function getLeads(skip = 0, limit = 100) {
     return fetchDataApi(`/leads/?skip=${skip}&limit=${limit}`);
 }
 
+// Get lead by ID
+export async function getLeadById(leadId) {
+    return fetchDataApi(`/leads/${leadId}`);
+}
+
 // ============ Forms APIs ============
 
 // Get all forms
@@ -964,6 +969,7 @@ export default {
     // Lead APIs
     getLeadByPhone,
     getLeads,
+    getLeadById,
 
     // Forms APIs
     getForms,

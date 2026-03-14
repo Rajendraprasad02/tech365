@@ -15,6 +15,7 @@ import PendingConversationsPage from '@/modules/admin/pending-conversations/Pend
 import CampaignsPage from '@/modules/admin/campaigns/CampaignsPage';
 import KnowledgeBasePage from '@/modules/admin/knowledge-base/KnowledgeBasePage';
 import ContactsPage from '@/modules/admin/contacts/ContactsPage';
+import LeadDetailsPage from '@/modules/admin/contacts/lead-details/LeadDetailsPage';
 import TemplatesPage from '@/modules/admin/templates/TemplatesPage';
 import UsersPage from '@/modules/admin/users/UsersPage';
 import ProfilePage from '@/modules/admin/profile/ProfilePage';
@@ -61,6 +62,7 @@ function App() {
                 </Route>
                 <Route element={<PermissionRoute requiredScreen="contacts" />}>
                   <Route path="contacts" element={<ContactsPage />} />
+                  <Route path="contacts/leads/:leadId" element={<LeadDetailsPage />} />
                 </Route>
                 <Route element={<PermissionRoute requiredScreen="templates" />}>
                   <Route path="templates" element={<TemplatesPage />} />
