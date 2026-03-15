@@ -33,7 +33,7 @@ export default function HourlyActivityChart({ data }) {
                 <div className="text-xs text-gray-500">Messages per hour today</div>
             </div>
 
-            <div className="h-44" style={{ minWidth: 0, minHeight: 176 }}>
+            <div className="h-44 w-full flex items-center justify-center relative">
                 <ResponsiveContainer width="100%" height="100%" minHeight={170}>
                     <AreaChart
                         data={data}

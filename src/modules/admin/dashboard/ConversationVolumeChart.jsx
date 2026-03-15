@@ -33,7 +33,7 @@ export default function ConversationVolumeChart({ data }) {
                 <p className="text-xs text-gray-500">This week vs last week</p>
             </div>
 
-            <div className="h-52" style={{ minWidth: 0, minHeight: 208 }}>
+            <div className="h-52 w-full flex items-center justify-center relative">
                 <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                     <BarChart data={data} barGap={barChartConfig.barGap}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.gridLine} />

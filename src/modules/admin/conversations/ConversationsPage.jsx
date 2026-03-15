@@ -166,6 +166,7 @@ export default function ConversationsPage() {
         fetchTemplates();
     }, []);
     useEffect(() => {
+        let isMounted = true;
         // Robust user ID retrieval matching fetchConversations logic
         const currentUser = user || JSON.parse(localStorage.getItem('user'));
         const userId = currentUser?.id || currentUser?.userId;
@@ -177,9 +178,8 @@ export default function ConversationsPage() {
         const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
         console.log("🔍 [DEBUG] Resolved WebSocket API URL:", apiUrl);
 
-        const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
-        const wsHost = apiUrl.replace(/^https?:\/\//, '');
-        const wsUrl = `${wsProtocol}://${wsHost}/ws/${clientId}`;
+        const wsBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+        const wsUrl = `${wsBase}/ws/${clientId}`;
 
         console.log("✅ [WS] Connecting to:", wsUrl);
         const ws = new WebSocket(wsUrl);
@@ -219,10 +219,11 @@ export default function ConversationsPage() {
                         return prev.map(conv => {
                             const convWaId = conv.wa_id?.replace(/\D/g, '');
                             if (convWaId === waIdNorm) {
-                                // Deduplicate by checking content and recent timestamp
+                                // Deduplicate by checking content and recent times
                                 const isDuplicate = conv.messages?.some(m =>
                                     m.text === formattedMsg.text &&
-                                    Math.abs(new Date().getTime() - new Date(incomingMsg.timestamp).getTime()) < 5000
+                                    m.direction === formattedMsg.direction &&
+                                    Math.abs(new Date(m.timestamp || m.time).getTime() - new Date(incomingMsg.timestamp).getTime()) < 30000
                                 );
                                 if (isDuplicate) return conv;
 
@@ -249,7 +250,8 @@ export default function ConversationsPage() {
                             // Deduplicate
                             const isDuplicate = prev.messages?.some(m =>
                                 m.text === formattedMsg.text &&
-                                Math.abs(new Date().getTime() - new Date(incomingMsg.timestamp).getTime()) < 5000
+                                m.direction === formattedMsg.direction &&
+                                Math.abs(new Date(m.timestamp || m.time).getTime() - new Date(incomingMsg.timestamp).getTime()) < 30000
                             );
                             if (isDuplicate) return prev;
 
@@ -309,10 +311,27 @@ export default function ConversationsPage() {
             }
         };
 
-        ws.onclose = () => console.log("⚠️ [WS] Disconnected");
-        ws.onerror = (error) => console.log("❌ [WS] Error:", error);
+        ws.onclose = (e) => {
+            if (!isMounted) return;
+            // Only log if it's not a normal cleanup (1000/1001)
+            if (e.code !== 1000 && e.code !== 1001) {
+                console.log("📡 [WS] Disconnected:", e.code);
+            }
+        };
+        ws.onerror = (error) => {
+            // Handshake errors are common due to React StrictMode or initial proxy delay.
+            // We only log if it's truly an active error on an established socket.
+            if (ws.readyState === WebSocket.OPEN) {
+                console.warn("❌ [WS] Active connection error:", error);
+            }
+        };
 
-        return () => ws.close();
+        return () => {
+            isMounted = false;
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
+        };
     }, [user?.id]); // Only reconnect if user changes
 
     // ✅ Fetch Missing User Details (By ID)

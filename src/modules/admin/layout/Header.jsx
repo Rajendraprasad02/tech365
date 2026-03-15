@@ -68,9 +68,8 @@ export default function Header() {
             const userId = user?.id || user?.userId || 'anonymous';
             const clientId = `header_${userId}_${Math.random().toString(36).substring(7)}`;
             const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
-            const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
-            const wsHost = apiUrl.replace(/^https?:\/\//, '');
-            const wsUrl = `${wsProtocol}://${wsHost}/ws/${clientId}`;
+            const wsBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+            const wsUrl = `${wsBase}/ws/${clientId}`;
 
             console.log("🔗 [Header WS] Connecting to:", wsUrl);
             wsInstance = new WebSocket(wsUrl);
@@ -98,16 +97,22 @@ export default function Header() {
                 }
             };
 
-            wsInstance.onclose = () => {
+            wsInstance.onclose = (e) => {
                 if (!isMounted) return;
-                console.warn("⚠️ [Header WS] Disconnected. Reconnecting in 10s...");
-                reconnectTimeout = setTimeout(setupWebSocket, 10000);
+                // Only log if it's not a normal cleanup (1000/1001) or component unmount
+                if (e.code !== 1000 && e.code !== 1001) {
+                    console.log(`📡 [Header WS] Disconnected (${e.code}). Retrying in 5s...`);
+                    reconnectTimeout = setTimeout(setupWebSocket, 5000);
+                }
             };
 
             wsInstance.onerror = (e) => {
                 if (!isMounted) return;
-                console.error("❌ [Header WS] Error:", e);
-                wsInstance.close();
+                // Only log errors on already established connections
+                if (wsInstance.readyState === WebSocket.OPEN) {
+                    console.error("❌ [Header WS] Socket Error:", e);
+                    wsInstance.close();
+                }
             };
         };
 
