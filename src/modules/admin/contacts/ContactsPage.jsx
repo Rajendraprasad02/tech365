@@ -41,13 +41,13 @@ export default function ContactsPage() {
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
             {/* Page Header */}
-            <div className="px-8 py-4 bg-white border-b border-gray-100">
-                <h1 className="text-xl font-bold text-gray-900 mb-0.5">Contacts</h1>
-                <p className="text-gray-500 text-xs">Manage your contacts, upload files, and organize lists</p>
+            <div className="px-6 py-3 bg-white border-b border-gray-100">
+                <h1 className="text-lg font-bold text-gray-900 mb-0.5">Contacts</h1>
+                <p className="text-gray-500 text-[11px]">Manage your contacts, upload files, and organize lists</p>
             </div>
 
             {/* Tabs */}
-            <div className="px-8 pt-4 bg-white border-b border-gray-100">
+            <div className="px-6 pt-2 bg-white border-b border-gray-100">
                 <div className="flex gap-1">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
@@ -104,11 +104,11 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                 const data = await api.getContacts(0, 500, '', 'all', 'desc', 'all', 'all');
                 if (data && data.contacts) {
                     // Split comma-separated products and get unique ones
-                    const allProducts = data.contacts.flatMap(c => 
+                    const allProducts = data.contacts.flatMap(c =>
                         c.product ? c.product.split(',').map(s => s.trim()) : []
                     );
                     const uniqueProducts = [...new Set(allProducts)].sort();
-                    
+
                     const options = [
                         { value: 'all', label: 'All Basket Items' },
                         ...uniqueProducts.map(p => ({ value: p, label: p }))
@@ -302,7 +302,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Stats Bar */}
-            <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex gap-6 text-sm">
+            <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex gap-5 text-[13px]">
                 <span className="text-gray-600">Total: <strong>{stats.total}</strong></span>
                 <span className="text-green-600">Valid: <strong>{stats.valid}</strong></span>
                 <span className="text-red-600">Invalid: <strong>{stats.invalid}</strong></span>
@@ -310,7 +310,7 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-auto min-h-[530px] custom-scrollbar">
+            <div className="flex-1 overflow-auto custom-scrollbar">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 sticky top-0">
                         <tr className="text-left text-xs font-medium text-gray-500 uppercase">
@@ -335,8 +335,8 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                             };
                             const countryIso = getCountryCode(contact.phone_number);
                             return (
-                                <tr 
-                                    key={contact.id} 
+                                <tr
+                                    key={contact.id}
                                     onClick={() => {
                                         if (contact.lead_id) {
                                             navigate(`/contacts/leads/${contact.lead_id}`);
@@ -418,8 +418,13 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                             );
                         }) : (
                             <tr>
-                                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                                    No contacts found
+                                <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                            <Users size={24} className="text-gray-300" />
+                                        </div>
+                                        <p className="font-medium">No contacts found</p>
+                                    </div>
                                 </td>
                             </tr>
                         )}
@@ -861,43 +866,43 @@ function UploadTab() {
             )}
 
             {currentStep === 4 && uploadResult && (
-                <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
-                    <div className="bg-gradient-to-br from-violet-600 to-indigo-700 p-10 rounded-[2rem] text-white shadow-2xl shadow-violet-200 relative overflow-hidden">
+                <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+                    <div className="bg-gradient-to-br from-violet-600 to-indigo-700 p-6 rounded-2xl text-white shadow-xl shadow-violet-200 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
                         <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-400/20 rounded-full -ml-32 -mb-32 blur-3xl"></div>
 
                         <div className="relative z-10 flex flex-col items-center text-center">
-                            <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center mb-6 border border-white/30">
-                                <CheckCircle size={40} className="text-white" />
+                            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-3 border border-white/30">
+                                <CheckCircle size={24} className="text-white" />
                             </div>
-                            <h3 className="text-3xl font-black mb-2">Import Finished!</h3>
-                            <p className="text-violet-100 font-medium mb-8">Summary of your contact bulk import</p>
+                            <h3 className="text-xl font-bold mb-0.5">Import Finished!</h3>
+                            <p className="text-violet-100 text-xs font-medium mb-4">Summary of your contact bulk import</p>
 
-                            <div className="grid grid-cols-4 gap-4 w-full">
+                            <div className="grid grid-cols-4 gap-2 w-full max-w-lg">
                                 {[
                                     { label: 'Total', value: uploadResult.total, color: 'text-white' },
                                     { label: 'Success', value: uploadResult.success_count, color: 'text-green-300' },
                                     { label: 'Duplicates', value: uploadResult.duplicate_count, color: 'text-orange-200' },
                                     { label: 'Failed', value: uploadResult.failed_count, color: 'text-red-300' }
                                 ].map(stat => (
-                                    <div key={stat.label} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-                                        <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
-                                        <div className="text-[10px] uppercase font-bold text-white/60 tracking-widest mt-1">{stat.label}</div>
+                                    <div key={stat.label} className="bg-white/10 backdrop-blur-md p-2 rounded-lg border border-white/10">
+                                        <div className={`text-lg font-black ${stat.color}`}>{stat.value}</div>
+                                        <div className="text-[8px] uppercase font-bold text-white/50 tracking-widest mt-0.5">{stat.label}</div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div className="flex items-center justify-between px-2">
-                            <h4 className="text-lg font-bold text-gray-800">Detailed Report</h4>
+                            <h4 className="text-md font-bold text-gray-800">Detailed Report</h4>
                             {uploadResult.failed_count > 0 && (
                                 <button
                                     onClick={handleDownloadErrorReport}
-                                    className="flex items-center gap-2 text-violet-600 font-bold text-sm hover:underline"
+                                    className="flex items-center gap-2 text-violet-600 font-bold text-xs hover:underline"
                                 >
-                                    <Download size={16} /> Download Full Error Log
+                                    <Download size={14} /> Download Full Error Log
                                 </button>
                             )}
                         </div>
@@ -915,9 +920,9 @@ function UploadTab() {
                                     <tbody className="divide-y divide-gray-50">
                                         {uploadResult.errors.map((err, i) => (
                                             <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="py-4 px-6 text-sm font-bold text-gray-400">#{err.row}</td>
-                                                <td className="py-4 px-6 text-sm font-bold text-gray-700">{err.phone || err.email || 'Data'}</td>
-                                                <td className="py-4 px-6 text-sm font-medium text-red-500">{err.error}</td>
+                                                <td className="py-2.5 px-6 text-xs font-bold text-gray-400">#{err.row}</td>
+                                                <td className="py-2.5 px-6 text-xs font-bold text-gray-700">{err.phone || err.email || 'Data'}</td>
+                                                <td className="py-2.5 px-6 text-xs font-medium text-red-500">{err.error}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -929,20 +934,20 @@ function UploadTab() {
                                 )}
                             </div>
                         ) : (
-                            <div className="p-12 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
-                                <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Check size={24} />
+                            <div className="p-6 text-center bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                <div className="w-10 h-10 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <Check size={20} />
                                 </div>
-                                <p className="font-bold text-gray-700">Perfect Import!</p>
-                                <p className="text-sm text-gray-400 max-w-[200px] mx-auto">No validation errors were found in your file.</p>
+                                <p className="font-bold text-gray-700 text-sm">Perfect Import!</p>
+                                <p className="text-xs text-gray-400 max-w-[200px] mx-auto">No validation errors were found in your file.</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="flex justify-center pt-4">
+                    <div className="flex justify-center pt-2">
                         <button
                             onClick={resetUpload}
-                            className="px-10 py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-black transition-all shadow-xl shadow-gray-200 active:scale-95"
+                            className="px-8 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-lg shadow-gray-200 active:scale-95 text-sm"
                         >
                             Upload Another File
                         </button>
@@ -1061,10 +1066,10 @@ function ListsGroupsTab() {
                         </div>
                     )) : (
                         <div className="col-span-full py-20 text-center text-gray-400">
-                           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                               <FolderOpen size={32} />
-                           </div>
-                           <p>No contact lists found. Create your first list!</p>
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FolderOpen size={32} />
+                            </div>
+                            <p>No contact lists found. Create your first list!</p>
                         </div>
                     )}
                 </div>
@@ -1288,8 +1293,8 @@ function ListDetailsModal({ listId, onClose }) {
                                             onClick={() => isSelected ? setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id)) : setSelectedContactIds([...selectedContactIds, contact.id])}
                                             className={`p-3 rounded-xl border cursor-pointer ${isSelected ? 'bg-violet-50 border-violet-200' : 'bg-white border-gray-100'}`}
                                         >
-                                            <p className="text-sm font-bold text-gray-800">{contact.name || contact.phone_number}</p>
-                                            <p className="text-[11px] text-gray-400 font-mono">+{contact.phone_number}</p>
+                                            <p className="text-sm font-bold text-gray-800">{contact.name || (contact.phone_number?.startsWith('+') ? contact.phone_number : `+${contact.phone_number}`)}</p>
+                                            <p className="text-[11px] text-gray-400 font-mono">{(contact.phone_number?.startsWith('+') ? contact.phone_number : `+${contact.phone_number}`)}</p>
                                         </div>
                                     );
                                 })}

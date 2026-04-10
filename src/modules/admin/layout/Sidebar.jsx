@@ -117,7 +117,7 @@ export default function Sidebar({ menuItems, isOpen, onClose }) {
                     <X size={20} />
                 </button>
                 {/* Logo */}
-                <div className="flex items-center gap-3 px-6 py-8 mb-2 border-b border-sidebar-border text-sidebar-logo">
+                <div className="flex items-center gap-3 px-6 py-6 mb-2 border-b border-sidebar-border text-sidebar-logo">
                     <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-900/20">
                         {(useSelector(selectAuth)?.user?.username?.startsWith('+') ? useSelector(selectAuth)?.user?.username.substring(1) : (useSelector(selectAuth)?.user?.username || 'C')).charAt(0).toUpperCase()}
                     </div>
@@ -173,7 +173,7 @@ export default function Sidebar({ menuItems, isOpen, onClose }) {
                                     return (
                                         <div
                                             key={item.id}
-                                            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
+                                            className={`flex items-center gap-3 px-4 py-2 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
                                                 ? 'bg-[#14137F] text-white font-semibold shadow-md'
                                                 : 'text-gray-600 hover:bg-sidebar-hover hover:text-gray-900'
                                                 }`}

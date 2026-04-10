@@ -275,7 +275,7 @@ export default function Layout() {
                     <Header />
                 </div>
 
-                <div className="flex-1 flex flex-col overflow-auto p-0">
+                <div className="flex-1 flex flex-col overflow-hidden p-0">
                     {loading ? (
                         <div className="loader-wrapper">
                             <span className="loader"></span>

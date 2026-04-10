@@ -43,9 +43,9 @@ export default function DashboardPage() {
     return (
         <div className="flex flex-col h-full overflow-hidden bg-gray-50/30">
             {/* Dashboard Content */}
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
-                <p className="text-gray-500 text-sm mb-6 md:mb-8">Monitor your WhatsApp Business performance</p>
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+                <h1 className="text-xl font-bold text-gray-900 mb-1">Dashboard</h1>
+                <p className="text-gray-500 text-[11px] mb-4 md:mb-6">Monitor your WhatsApp Business performance</p>
 
                 {/* Error State */}
                 {error && (

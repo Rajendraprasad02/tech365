@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 export default function HeroCards({ activeConversations, whatsappCost, agentPerformance }) {
     const navigate = useNavigate();
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
             {/* Active Conversations */}
             <div 
                 onClick={() => navigate('/conversations?filter=all')}
-                className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300"
+                className="bg-violet-500 rounded-2xl p-4 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300"
             >
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
@@ -16,7 +16,7 @@ export default function HeroCards({ activeConversations, whatsappCost, agentPerf
                     <MessageCircle size={18} />
                     <span className="font-medium">Overall Conversations</span>
                 </div>
-                <div className="text-4xl font-bold mb-1">{activeConversations?.value || '0'}</div>
+                <div className="text-3xl font-bold mb-1">{activeConversations?.value || '0'}</div>
                 <div className="flex items-center gap-1.5 text-white/70 text-sm">
                     <TrendingUp size={14} className="text-green-300" />
                     <span>{activeConversations?.trend || '+0%'} since last week</span>
@@ -24,7 +24,7 @@ export default function HeroCards({ activeConversations, whatsappCost, agentPerf
             </div>
 
             {/* WhatsApp Cost */}
-            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
+            <div className="bg-violet-500 rounded-2xl p-4 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                 <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
@@ -39,7 +39,7 @@ export default function HeroCards({ activeConversations, whatsappCost, agentPerf
             </div>
 
             {/* Agent Performance */}
-            <div className="bg-violet-500 rounded-2xl p-6 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
+            <div className="bg-violet-500 rounded-2xl p-4 text-white animate-fade-in relative overflow-hidden shadow-lg shadow-blue-500/20">
                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
 
                  <div className="flex items-center gap-2 text-white/80 text-sm mb-3">

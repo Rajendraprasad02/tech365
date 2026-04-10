@@ -1046,7 +1046,7 @@ export default function ConversationsPage() {
             <div className={`p-4 bg-white border-b border-gray-100 flex-shrink-0 ${selectedConversation ? 'hidden lg:block' : 'block'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900 ">Conversations</h1>
+                        <h1 className="text-lg font-bold text-gray-900 ">Conversations</h1>
                         {/* <p className="text-gray-500 text-sm">
                         {isAgentEffective
                             ? 'Manage your assigned conversations'
@@ -1057,7 +1057,7 @@ export default function ConversationsPage() {
                 </div>
 
                 {/* Status Filter Tabs - For Admin AND Agents */}
-                <div className="flex items-center gap-2 lg:gap-4 mt-4 overflow-x-auto scrollbar-hide whitespace-nowrap pb-2 lg:pb-0">
+                <div className="flex items-center gap-2 lg:gap-3 mt-2 overflow-x-auto scrollbar-hide whitespace-nowrap pb-2 lg:pb-0">
                     <button
                         onClick={() => setStatusFilter('all')}
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${statusFilter === 'all'
@@ -1121,7 +1121,7 @@ export default function ConversationsPage() {
 
                 {/* Agent Filter - Admin Only */}
                 {!isAgentEffective && (
-                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">FILTER BY AGENT:</span>
                         <div className="relative" ref={agentMenuRef}>
                             <button

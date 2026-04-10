@@ -16,7 +16,7 @@ export default function MetricCard({ metric }) {
     return (
         <div
             onClick={metric.onClick}
-            className={`relative overflow-hidden bg-white rounded-2xl p-5 border border-gray-100 hover:border-violet-300 hover:shadow-lg transition-all duration-300 animate-fade-in ${metric.highlight ? 'border-violet-200 bg-violet-50/30' : ''} ${metric.clickable ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
+            className={`relative overflow-hidden bg-white rounded-2xl p-4 border border-gray-100 hover:border-violet-300 hover:shadow-lg transition-all duration-300 animate-fade-in ${metric.highlight ? 'border-violet-200 bg-violet-50/30' : ''} ${metric.clickable ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
         >
             {/* Green dot indicator */}
             <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-emerald-500" />
@@ -25,7 +25,7 @@ export default function MetricCard({ metric }) {
                 <Icon size={20} />
             </div>
             <div className="text-sm text-gray-500 mb-1">{metric.label}</div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+            <div className="text-xl font-bold text-gray-900 mb-1">{metric.value}</div>
 
             {metric.breakdown ? (
                 <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50">

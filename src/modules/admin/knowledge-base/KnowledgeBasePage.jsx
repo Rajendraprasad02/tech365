@@ -311,15 +311,15 @@ export default function KnowledgeBasePage() {
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
-            <div className="px-8 py-6 bg-white border-b border-gray-200">
+            <div className="px-6 py-4 bg-white border-b border-gray-200">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-violet-100 rounded-lg">
-                            <Database size={24} className="text-violet-600" />
+                        <div className="p-1.5 bg-violet-100 rounded-lg">
+                            <Database size={20} className="text-violet-600" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Knowledge Base</h1>
-                            <p className="text-gray-500 text-sm">Manage content chunks</p>
+                            <h1 className="text-lg font-bold text-gray-900">Knowledge Base</h1>
+                            <p className="text-gray-500 text-[11px]">Manage content chunks</p>
                         </div>
                     </div>
                     <button
@@ -333,7 +333,7 @@ export default function KnowledgeBasePage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-hidden p-6">
+            <div className="flex-1 overflow-hidden p-4 md:p-6">
                 <div className="flex flex-col h-full">
                     {/* Filters */}
                     <div className="flex flex-wrap gap-4 mb-6">
@@ -432,7 +432,7 @@ export default function KnowledgeBasePage() {
                                                 className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all flex flex-col h-full cursor-pointer"
                                                 onClick={() => handleCardClick(item)}
                                             >
-                                                <div className="p-5 flex flex-col h-full">
+                                                <div className="p-4 flex flex-col h-full">
                                                     {/* Card Top: Category, Priority, Date, Delete */}
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex items-center gap-2 flex-wrap">
