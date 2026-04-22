@@ -251,7 +251,10 @@ export function useDashboardData() {
             }
 
             // Calculate Agent Performance
-            const agents = users.filter(u => u.role?.name?.toLowerCase() === 'agent' || (u.role && typeof u.role === 'string' && u.role.toLowerCase() === 'agent'));
+            const agents = users.filter(u => {
+                const roleName = String(u.role?.name || u.role || '').toLowerCase();
+                return roleName === 'agent';
+            });
             const agentCount = agents.length;
 
             // Stats for ALL agents combined
@@ -325,20 +328,67 @@ export function useDashboardData() {
             const avgResponseTime = calculateAvgResponseTime(sessions);
 
             // Recent conversations
+            const contactsList = Array.isArray(contactsRes.value?.contacts) ? contactsRes.value.contacts : [];
+            const contactNameMap = {};
+            contactsList.forEach(c => {
+                const phone = c.phone_number || c.phone || c.whatsapp;
+                if (phone) {
+                    contactNameMap[String(phone).replace(/^\+/, '').trim()] = c.name || c.full_name;
+                }
+            });
+
             const recentConversations = sessions
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, 4)
+                .slice(0, 15)
                 .map((session, index) => {
-                    let displayName = session.name || session.whatsapp || session.email || `Unknown`;
-                    if (session.whatsapp && !session.name) {
+                    const phoneKey = String(session.whatsapp || '').replace(/^\+/, '').trim();
+                    let displayName = session.name || contactNameMap[phoneKey] || session.whatsapp || session.email || `Unknown`;
+                    
+                    if (session.whatsapp && !session.name && !contactNameMap[phoneKey]) {
                         displayName = '+' + String(session.whatsapp).replace(/^\+/, '');
-                    } else if (/^\d{10,15}$/.test(displayName)) {
+                    } else if (displayName !== 'Unknown' && /^\d{10,15}$/.test(displayName)) {
                         displayName = '+' + displayName;
                     }
+
+                    const getPreviewText = (conversation) => {
+                        if (!conversation || !Array.isArray(conversation) || conversation.length === 0) return 'No messages';
+                        
+                        for (let i = conversation.length - 1; i >= 0; i--) {
+                            const msg = conversation[i];
+                            const text = msg?.text || msg?.bot || msg?.user || '';
+                            const trimmed = text.trim();
+                            if (!trimmed) continue;
+
+                            if (/^\[.+TEMPLATE SENT\]$/i.test(trimmed)) {
+                                const name = trimmed.replace(/^\[/, '').replace(/\s*TEMPLATE SENT\]$/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${name}`;
+                            }
+                            if (/^Template:\s+/i.test(trimmed)) {
+                                const templateName = trimmed.replace(/^Template:\s+/i, '').split(' (')[0].trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${templateName}`;
+                            }
+                            if (/^\[Template:\s+.+\]$/i.test(trimmed)) {
+                                const name = trimmed.replace(/^\[Template:\s+/i, '').replace(/\]$/, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${name}`;
+                            }
+                            if (trimmed.startsWith('[INTERACTIVE_FORM]')) {
+                                const match = trimmed.match(/Sent template:\s*([^\s|]+)/i);
+                                const namePart = match ? match[1] : trimmed.replace(/\[INTERACTIVE_FORM\]/i, '').split('|')[0].trim();
+                                return `Template: ${namePart.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`;
+                            }
+                            if (trimmed.startsWith('[TEMPLATE]')) {
+                                const name = trimmed.replace(/\[TEMPLATE\]/i, '').replace(/Loop sent\.?/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${name}`;
+                            }
+                            return trimmed.substring(0, 50);
+                        }
+                        return 'No messages';
+                    };
+
                     return {
                         name: displayName,
                         status: session.status || 'active',
-                        message: session.conversation?.[session.conversation.length - 1]?.text || 'No messages',
+                        message: getPreviewText(session.conversation),
                         time: formatTimeAgo(session.created_at),
                         count: `${session.conversation?.length || 0} messages`,
                         color: ['#10b981', '#f59e0b', '#6366f1', '#ec4899'][index % 4],

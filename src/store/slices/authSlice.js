@@ -21,7 +21,8 @@ const authSlice = createSlice({
             state.permissions = permissions || state.permissions;
             state.isAuthenticated = !!token;
             // Determine if user is an Agent based on isAgent flag or role name (fallback)
-            state.isAgent = role?.isAgent === true || role?.name?.toLowerCase() === 'agent';
+            const roleName = String(role?.name || '').toLowerCase();
+            state.isAgent = role?.isAgent === true || roleName === 'agent';
         },
         logout: (state) => {
             state.user = null;

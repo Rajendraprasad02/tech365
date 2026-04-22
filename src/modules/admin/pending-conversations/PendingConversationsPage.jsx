@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Check, Clock, MessageSquare, X, User, FileText, Bot } from 'lucide-react';
+import { Search, Filter, Check, Clock, MessageSquare, X, User, FileText, Bot, Maximize2, Minimize2, AlertCircle } from 'lucide-react';
 import CustomSelect from '../contacts/CustomSelect';
 import { getPendingSessions, assignSessionToAgent, getLeads, getLeadByPhone } from '../../../services/api';
 import LeadDetailsModal from '../conversations/LeadDetailsModal';
@@ -18,6 +18,7 @@ export default function PendingConversationsPage() {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [conversationToApprove, setConversationToApprove] = useState(null);
     const [confirmMessage, setConfirmMessage] = useState(''); // Custom confirmation message
+    const [isModalExpanded, setIsModalExpanded] = useState(false);
 
     const { user, isAgent: authIsAgent } = useSelector(selectAuth);
     const isAgent = authIsAgent;
@@ -80,7 +81,6 @@ export default function PendingConversationsPage() {
 
             const convos = sessionList.map((session, index) => {
                 const messageCount = session.conversation_count || session.conversation?.length || 0;
-                const lastMessage = session.conversation?.[session.conversation?.length - 1];
                 const waId = session.whatsapp || session.wa_id;
 
                 // Resolve Name: Lead Name > Session Name > WA ID
@@ -91,12 +91,68 @@ export default function PendingConversationsPage() {
                     displayName = '+' + displayName;
                 }
 
+                const getPreviewText = (conversation) => {
+                    if (!conversation || !Array.isArray(conversation) || conversation.length === 0) return 'No messages';
+                    
+                    // Search backwards for the last message with content
+                    for (let i = conversation.length - 1; i >= 0; i--) {
+                        const msg = conversation[i];
+                        const text = msg?.text || msg?.bot || msg?.user || '';
+                        const trimmed = text.trim();
+                        if (!trimmed) continue;
+
+                        // 1. WhatsApp Template Sent [DESKTOP TEMPLATE SENT]
+                        if (/^\[.+TEMPLATE SENT\]$/i.test(trimmed)) {
+                            const name = trimmed.replace(/^\[/, '').replace(/\s*TEMPLATE SENT\]$/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+                        
+                        // 2. Template: name (variables)
+                        if (/^Template:\s+/i.test(trimmed)) {
+                            const templatePart = trimmed.replace(/^Template:\s+/i, '').trim();
+                            const parenIdx = templatePart.indexOf(' (');
+                            const templateName = parenIdx > -1 ? templatePart.substring(0, parenIdx) : templatePart;
+                            const name = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 3. [Template: name] - Optimistic UI
+                        if (/^\[Template:\s+.+\]$/i.test(trimmed)) {
+                            const templateName = trimmed.replace(/^\[Template:\s+/i, '').replace(/\]$/, '').trim();
+                            const name = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 4. [INTERACTIVE_FORM]
+                        if (trimmed.startsWith('[INTERACTIVE_FORM]')) {
+                            const match = trimmed.match(/Sent template:\s*([^\s|]+)/i);
+                            if (match && match[1]) {
+                                const name = match[1].replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${name}`;
+                            }
+                            const name = trimmed.replace(/\[INTERACTIVE_FORM\]/i, '').split('|')[0].trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 5. [TEMPLATE]
+                        if (trimmed.startsWith('[TEMPLATE]')) {
+                            const name = trimmed.replace(/\[TEMPLATE\]/i, '').replace(/Loop sent\.?/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        return trimmed.substring(0, 80);
+                    }
+                    return 'No messages';
+                };
+
+                const sessionPreview = getPreviewText(session.conversation);
+
                 return {
                     id: session.id || index,
                     wa_id: waId,
                     name: displayName,
-                    preview: lastMessage?.text?.substring(0, 80) || lastMessage?.user?.substring(0, 80) || 'No messages',
-                    fullMessage: lastMessage?.text || lastMessage?.user || 'No messages available',
+                    preview: sessionPreview,
+                    fullMessage: sessionPreview,
                     time: formatTimeAgo(session.updated_at || session.created_at),
                     rawValue: session.updated_at || session.created_at,
                     unread: messageCount,
@@ -287,12 +343,6 @@ export default function PendingConversationsPage() {
                         {filteredConversations.map((conv) => (
                             <div key={conv.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative">
                                 {/* Unread Badge */}
-                                {conv.unread > 0 && (
-                                    <div className="absolute top-5 right-5 h-6 min-w-[24px] px-1.5 bg-[#1E1B4B] text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                        {conv.unread}
-                                    </div>
-                                )}
-
                                 {/* Profile & Content */}
                                 <div className="mb-4">
                                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold mb-3">
@@ -306,10 +356,15 @@ export default function PendingConversationsPage() {
                                         {conv.time}
                                     </p>
                                 </div>
+                                    {/* <div className="absolute top-5 right-5 h-6 min-w-[24px] px-1.5 bg-[#1E1B4B] text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                        {conv.unread}
+                                    </div> */}
+
+                                
 
                                 <button
                                     onClick={(e) => handleShowLeadDetails(e, conv.wa_id)}
-                                    className="absolute top-5 right-14 text-gray-400 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-blue-50"
+                                    className="absolute top-5 right-5 text-gray-400 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-blue-50"
                                     title="View Lead Details"
                                 >
                                     <FileText size={18} />
@@ -374,8 +429,8 @@ export default function PendingConversationsPage() {
 
             {/* View Modal */}
             {selectedConversation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm ${isModalExpanded ? 'p-0' : 'p-4'}`}>
+                    <div className={`bg-white shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col ${isModalExpanded ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-2xl h-[80vh]'}`}>
                         {/* Modal Header */}
                         <div className="px-6 py-4 flex items-start justify-between">
                             <div className="flex items-center gap-4">
@@ -399,25 +454,29 @@ export default function PendingConversationsPage() {
                                     </p> */}
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setSelectedConversation(null)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsModalExpanded(!isModalExpanded)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                                    title={isModalExpanded ? "Restore" : "Expand"}
+                                >
+                                    {isModalExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setSelectedConversation(null);
+                                        setIsModalExpanded(false);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Modal Unread Tag */}
-                        {selectedConversation.unread > 0 && (
-                            <div className="px-6 pb-2">
-                                <span className="inline-block bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-                                    {selectedConversation.unread} unread messages
-                                </span>
-                            </div>
-                        )}
-
+                        
                         {/* Modal Content */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 max-h-[60vh]">
+                        <div className={`flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 ${isModalExpanded ? 'max-h-none' : 'max-h-[60vh]'}`}>
                             {selectedConversation.messages && selectedConversation.messages.length > 0 ? (
                                 selectedConversation.messages.map((msg, index) => (
                                     <div
@@ -474,7 +533,10 @@ export default function PendingConversationsPage() {
                                 </button>
                             )}
                             <button
-                                onClick={() => setSelectedConversation(null)}
+                                onClick={() => {
+                                    setSelectedConversation(null);
+                                    setIsModalExpanded(false);
+                                }}
                                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
                             >
                                 Close
@@ -539,6 +601,68 @@ function formatTimeAgo(dateString) {
 // Helper to safely parse and format JSON-like strings
 function renderMessageContent(text) {
     if (!text) return '';
+
+    // Error rendering
+    if (typeof text === 'string' && text.includes('Failed to send template')) {
+        return (
+            <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 shadow-sm">
+                <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wider font-bold opacity-70">Message Error</span>
+                    <span className="text-xs font-medium leading-relaxed">{text}</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Check if it's a template message: "Template: name (variables)"
+    if (typeof text === 'string' && /^Template:\s+/i.test(text.trim())) {
+        const templatePart = text.replace(/^Template:\s+/i, '').trim();
+        const parenIdx = templatePart.indexOf(' (');
+        const templateName = parenIdx > -1 ? templatePart.substring(0, parenIdx) : templatePart;
+        const variablesPart = parenIdx > -1 ? templatePart.substring(parenIdx + 1, templatePart.length - 1) : null;
+
+        const displayName = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        let variables = null;
+        if (variablesPart) {
+            try {
+                variables = JSON.parse(variablesPart);
+            } catch (e) {
+                console.warn("Failed to parse template variables:", e);
+            }
+        }
+
+        return (
+            <div className="flex flex-col gap-2 py-1">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">WhatsApp Template</span>
+                        <span className="text-sm font-bold text-gray-100">{displayName}</span>
+                    </div>
+                </div>
+                {variables && (
+                    <div className="mt-1 px-3 py-2 bg-gray-50 rounded-lg space-y-1.5 border border-gray-100">
+                        {Object.entries(variables).map(([k, v]) => (
+                            <div key={k} className="flex flex-col">
+                                <span className="text-[9px] text-gray-400 uppercase tracking-wide font-bold">{k.replace(/_/g, ' ')}</span>
+                                <span className="text-xs font-semibold text-gray-700">{String(v)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     // Check if it's an interactive form or generic template message
     if (typeof text === 'string' && (text.startsWith('[INTERACTIVE_FORM]') || text.startsWith('[TEMPLATE]'))) {

@@ -163,14 +163,11 @@ export default function ConversationsPage() {
 
         // Use environment variable for WebSocket URL
         const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
-        console.log("≡ƒöì [DEBUG] Env VITE_DATA_API_URL:", import.meta.env.VITE_DATA_API_URL);
-        console.log("≡ƒöì [DEBUG] Resolved WebSocket API URL:", apiUrl);
 
         const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
         const wsHost = apiUrl.replace(/^https?:\/\//, '');
         const wsUrl = `${wsProtocol}://${wsHost}/ws/${clientId}`;
 
-        console.log("Γ£à [WS] Connecting to:", wsUrl);
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -181,12 +178,9 @@ export default function ConversationsPage() {
             try {
                 const rawData = event.data;
                 const data = JSON.parse(rawData);
-                console.log("≡ƒô⌐ [WS] Raw Data Received:", rawData);
-                console.log("≡ƒô⌐ [WS] Parsed Data:", data);
 
                 if (data.type === "new_message" && data.message) {
                     const incomingMsg = data.message;
-                    console.log("≡ƒô⌐ [WS] Processing Incoming Message:", incomingMsg);
 
                     // Format message to match UI structure
                     const formattedMsg = {
@@ -201,17 +195,14 @@ export default function ConversationsPage() {
                     };
 
                     setConversations(prev => {
-                        console.log("≡ƒô⌐ [WS] Current Conversations Count:", prev.length);
                         return prev.map(conv => {
                             // Match by WA_ID (Phone Number)
                             // Remove non-digit chars for comparison
                             const convWaId = conv.wa_id ? conv.wa_id.replace(/\D/g, '') : '';
                             const msgWaId = incomingMsg.wa_id ? incomingMsg.wa_id.replace(/\D/g, '') : '';
 
-                            console.log(`≡ƒô⌐ [WS] Comparing: ConvID=${conv.id} WA=${convWaId} vs MsgWA=${msgWaId}`);
 
                             if (convWaId && msgWaId && convWaId === msgWaId) {
-                                console.log("Γ£à [WS] Match Found! Updating conversation:", conv.id);
                                 // 1. Add message to conversation
                                 const updatedMessages = [...(conv.messages || []), formattedMsg];
 
@@ -287,7 +278,6 @@ export default function ConversationsPage() {
 
             if (idsToFetch.length === 0) return;
 
-            console.log("≡ƒöì [Users] Fetching details for missing IDs:", idsToFetch);
 
             // 4. Fetch details for missing IDs
             const newUsers = await Promise.all(idsToFetch.map(async (id) => {
@@ -449,9 +439,6 @@ export default function ConversationsPage() {
                 const reportFeedback = isReported ? (lastNote?.note || 'No additional details.') : null;
 
                 if (index === 0) {
-                    console.log('DEBUG SESSION:', session);
-                    console.log('DEBUG LEAD:', lead);
-                    console.log('Effective Agent ID:', effectiveAgentId);
                 }
 
                 return {

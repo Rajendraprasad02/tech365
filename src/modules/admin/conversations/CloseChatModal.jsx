@@ -7,6 +7,15 @@ const CloseChatModal = ({ isOpen, onClose, onConfirm, loading }) => {
     const [reportUser, setReportUser] = useState(false);
     const [reportReason, setReportReason] = useState('');
 
+    // Reset state whenever modal is opened
+    React.useEffect(() => {
+        if (isOpen) {
+            setFeedback('');
+            setReportUser(false);
+            setReportReason('');
+        }
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const handleSubmit = () => {

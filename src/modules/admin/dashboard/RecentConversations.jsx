@@ -1,13 +1,19 @@
-import { MessageCircle, Bot, Clock, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { MessageCircle, Bot, Clock, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
 const statusColors = {
     active: 'bg-green-100 text-green-600',
     pending: 'bg-amber-100 text-amber-600',
     resolved: 'bg-gray-100 text-gray-500',
 };
 
+const ITEMS_PER_PAGE = 5;
+
 export default function RecentConversations({ conversations }) {
     const navigate = useNavigate();
+    const [currentPage, setCurrentPage] = useState(1);
+    
     const hasData = conversations && conversations.length > 0;
 
     if (!hasData) {
@@ -32,8 +38,20 @@ export default function RecentConversations({ conversations }) {
         );
     }
 
+    const totalPages = Math.ceil(conversations.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const currentConversations = conversations.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    const handleNextPage = () => {
+        if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
+    };
+
+    const handlePrevPage = () => {
+        if (currentPage > 1) setCurrentPage(prev => prev - 1);
+    };
+
     return (
-        <div className="bg-white rounded-xl p-5 border border-gray-200 flex flex-col animate-fade-in">
+        <div className="bg-white rounded-xl p-5 border border-gray-200 flex flex-col animate-fade-in h-full">
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
@@ -52,10 +70,12 @@ export default function RecentConversations({ conversations }) {
                     <ExternalLink size={12} />
                 </button>
             </div>
-            <div className="flex flex-col gap-2 flex-1">
-                {conversations.map((conv, index) => (
+            
+            <div className="flex flex-col gap-2 flex-1 min-h-0">
+                {currentConversations.map((conv, index) => (
                     <div
-                        key={index}
+                        key={startIndex + index}
+                        onClick={() => navigate('/conversations')}
                         className="flex items-center p-3 bg-white rounded-lg border border-gray-100 cursor-pointer transition-all duration-300 hover:border-violet-500 hover:shadow-md hover:shadow-violet-50"
                     >
                         {/* Avatar with bot badge */}
@@ -82,7 +102,7 @@ export default function RecentConversations({ conversations }) {
                         </div>
 
                         {/* Meta */}
-                        <div className="text-right ml-2">
+                        <div className="text-right ml-2 lg:block hidden">
                             <div className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">
                                 <Clock size={10} />
                                 {conv.time}
@@ -95,6 +115,39 @@ export default function RecentConversations({ conversations }) {
                     </div>
                 ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                    <span className="text-[11px] text-gray-400 font-medium tracking-wide">
+                        Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, conversations.length)} of {conversations.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={handlePrevPage}
+                            disabled={currentPage === 1}
+                            className="p-1 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <div className="flex items-center gap-1 px-2">
+                            {Array.from({ length: totalPages }).map((_, i) => (
+                                <div 
+                                    key={i} 
+                                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${currentPage === i + 1 ? 'w-4 bg-violet-600' : 'bg-gray-200'}`}
+                                />
+                            ))}
+                        </div>
+                        <button
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages}
+                            className="p-1 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

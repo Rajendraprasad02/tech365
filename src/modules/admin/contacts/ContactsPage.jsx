@@ -132,7 +132,6 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
         try {
             setLoading(true);
             setLoading(true);
-            console.log("Fetching contacts with params:", { page, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter });
             const data = await api.getContacts(page * pageSize, pageSize, searchQuery, statusFilter, sortBy, sourceFilterProp, productFilter);
             const contactsList = data.contacts || [];
             setContacts(contactsList);
@@ -211,7 +210,6 @@ function AllContactsTab({ sourceFilterProp = 'all' }) {
                 phone_number: newContact.phone_number,
                 name: newContact.name || ''
             };
-            console.log(payload);
 
             await createContact(payload);
             setNewContact({ phone_number: '', name: '' });

@@ -16,9 +16,9 @@ export default function Layout() {
     const { refreshMenuTrigger } = useAuth();
     const dispatch = useDispatch();
     const role = useSelector(state => state.auth.role);
-    const isSuperAdmin = role?.name?.toLowerCase() === 'super admin' || role?.name?.toLowerCase() === 'superadmin';
+    const roleName = String(role?.name || '').toLowerCase();
+    const isSuperAdmin = roleName === 'super admin' || roleName === 'superadmin';
 
-    console.log('[Layout] Role Check:', { roleName: role?.name, isSuperAdmin });
 
     useEffect(() => {
         const fetchMenu = async () => {
@@ -109,6 +109,9 @@ export default function Layout() {
                         // 1. Hide My Conversations (Agent-specific logic handled in ConversationsPage)
                         if (path.includes('agent/conversations/my')) return false;
 
+                        // 1b. Hide Forms (User Request)
+                        if (path.includes('forms') || label.includes('forms')) return false;
+
                         // 2. Hide Infrastructure Menus without explicit Manage/Configure permissions
                         const isMenuBuilder = path.includes('menu-builder') || screen.key === 'menu-builder';
                         const isRoles = path.includes('role-permissions') || screen.key === 'role-permissions' || path.includes('roles');
@@ -171,8 +174,6 @@ export default function Layout() {
                     return 0;
                 });
 
-                console.log('[Layout] Raw Menu Items:', items);
-                console.log('[Layout] Filtered Menu Items:', filteredItems);
 
                 setMenuItems(sortedItems);
 
@@ -233,7 +234,6 @@ export default function Layout() {
                     }
                 }
 
-                console.log('[Layout] Derived Permissions:', derivedPermissions);
                 dispatch(updatePermissions(derivedPermissions));
             } catch (error) {
                 console.error("Failed to fetch sidebar menu:", error);

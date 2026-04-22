@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }) => {
                 try {
                     // 1. Decode token to get baseline role info
                     const decoded = jwtDecode(storedToken);
-                    console.log('[AuthContext] Rehydrating from token:', decoded);
 
                     // 2. Get user profile
                     let userProfile;
@@ -31,7 +30,6 @@ export const AuthProvider = ({ children }) => {
                     } catch (error) {
                         // If profile fetch fails with 401, try refreshing token before giving up
                         if (error.message.includes("Unauthorized") && storedRefreshToken) {
-                            console.log('[AuthContext] Token expired, attempting refresh...');
                             try {
                                 const refreshRes = await api.refreshToken(storedRefreshToken);
                                 if (refreshRes && refreshRes.accessToken) {
@@ -55,7 +53,10 @@ export const AuthProvider = ({ children }) => {
                         token: localStorage.getItem('token'), // Use latest token
                         role: {
                             id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
-                            name: decoded.role || decoded.roleName || userProfile.role?.name || userProfile.role
+                            name: (typeof decoded.role === 'object' ? decoded.role?.name : decoded.role) || 
+                                  decoded.roleName || 
+                                  (typeof userProfile.role === 'object' ? userProfile.role?.name : userProfile.role) || 
+                                  ''
                         },
                         permissions: {} // Will be populated by Sidebar/Layout
                     }));
@@ -95,7 +96,6 @@ export const AuthProvider = ({ children }) => {
 
             // 2. Decode token for immediate state
             const decoded = jwtDecode(accessToken);
-            console.log('[AuthContext] Login decoded claims:', decoded);
 
             // 3. GET /auth/profile
             const userProfile = await api.getUserProfile();
@@ -108,7 +108,10 @@ export const AuthProvider = ({ children }) => {
                 token: accessToken,
                 role: {
                     id: decoded.roleId || userProfile.roleId || userProfile.role?.id,
-                    name: decoded.role || decoded.roleName || userProfile.role?.name || userProfile.role || ''
+                    name: (typeof decoded.role === 'object' ? decoded.role?.name : decoded.role) || 
+                          decoded.roleName || 
+                          (typeof userProfile.role === 'object' ? userProfile.role?.name : userProfile.role) || 
+                          ''
                 },
                 permissions: {}
             }));

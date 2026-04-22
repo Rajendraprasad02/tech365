@@ -247,7 +247,7 @@ const ContactSelectionPanel = ({ selectedIds, onToggle, onDone, onCancel }) => {
             </div>
 
             {/* Contacts Table */}
-            <div className="flex-1 overflow-y-auto p-0">
+            <div className="flex-1 overflow-y-auto p-0 ">
                 {loading ? (
                     <div className="loader-wrapper">
                         <span className="loader"></span>
@@ -660,7 +660,6 @@ const CreateCampaignCard = ({ isOpen, onClose, onCreated }) => {
                 scheduled_at: isScheduled && scheduledAt ? new Date(scheduledAt).toISOString() : null
             };
 
-            console.log('Sending Personalized Payload:', payload);
 
             const result = await quickSendByPhone(payload);
 

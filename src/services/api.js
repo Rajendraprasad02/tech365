@@ -7,7 +7,6 @@ const DATA_API_BASE_URL = import.meta.env.VITE_DATA_API_URL || 'http://localhost
 // Helper to get headers with token
 const getHeaders = (customHeaders = {}) => {
     const token = localStorage.getItem('token');
-    // console.log('[API] Using Token:', token ? `${token.substring(0, 10)}...` : 'None');
     const headers = {
         'Content-Type': 'application/json',
         ...customHeaders,

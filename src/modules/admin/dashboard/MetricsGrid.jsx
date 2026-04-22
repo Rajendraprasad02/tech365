@@ -32,16 +32,16 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
             iconBg: 'green',
             sparkline: null
         },
-        {
-            label: 'Campaign Response Rate',
-            value: responseRate?.value || '0%',
-            comparison: responseRate?.comparison || '',
-            trend: responseRate?.trend || '0%',
-            trendUp: responseRate?.trendUp ?? true,
-            icon: MessageCircle,
-            iconBg: 'orange',
-            sparkline: null
-        },
+        // {
+        //     label: 'Campaign Response Rate',
+        //     value: responseRate?.value || '0%',
+        //     comparison: responseRate?.comparison || '',
+        //     trend: responseRate?.trend || '0%',
+        //     trendUp: responseRate?.trendUp ?? true,
+        //     icon: MessageCircle,
+        //     iconBg: 'orange',
+        //     sparkline: null
+        // },
         {
             label: 'Human-Handled',
             value: humanHandledConversations?.value || '0',
@@ -65,7 +65,7 @@ export default function MetricsGrid({ activeUsers, costPerConversation, avgRespo
     ];
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {metrics.map((metric, index) => (
                 <MetricCard key={index} metric={metric} />
             ))}

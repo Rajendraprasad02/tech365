@@ -1,8 +1,8 @@
 import React from 'react';
-import { X, FileText, Clock, User } from 'lucide-react';
+import { X, FileText, Clock, User, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 
-const NotesHistoryModal = ({ isOpen, onClose, notes: rawNotes = [], users = [] }) => {
+const NotesHistoryModal = ({ isOpen, onClose, notes: rawNotes = [], users = [], isReported, reportReason }) => {
     if (!isOpen) return null;
 
     // Helper to safely parse notes if they come as a string
@@ -38,10 +38,25 @@ const NotesHistoryModal = ({ isOpen, onClose, notes: rawNotes = [], users = [] }
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-hidden bg-gray-50/50">
-                    {notes && notes.length > 0 ? (
-                        <ScrollArea className="h-full p-4">
-                            <div className="space-y-4">
+                <div className="flex-1 overflow-hidden bg-gray-50/50 flex flex-col">
+                    {isReported && (
+                        <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="bg-red-100 p-2 rounded-full text-red-600 flex-shrink-0">
+                                <AlertCircle size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <h4 className="text-sm font-bold text-red-800">User Reported</h4>
+                                <p className="text-xs text-red-600 mt-0.5 font-medium truncate">
+                                    Reason: <span className="underline decoration-red-200 underline-offset-2 capitalize">{reportReason || 'Not specified'}</span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="flex-1 overflow-hidden">
+                        {(notes && notes.length > 0) ? (
+                            <ScrollArea className="h-full p-4">
+                                <div className="space-y-4">
                                 {notes.map((note, index) => {
                                     const displayName = resolveAgentName(note);
                                     return (
@@ -86,6 +101,7 @@ const NotesHistoryModal = ({ isOpen, onClose, notes: rawNotes = [], users = [] }
                 </div>
             </div>
         </div>
+    </div>
     );
 };
 

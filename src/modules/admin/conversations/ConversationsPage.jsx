@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown, CornerUpLeft } from 'lucide-react';
+import { Search, MessageSquare, Clock, ArrowLeft, Send, Bot, User, DollarSign, Plus, X, Headset, CheckCircle, AlertCircle, Info, FileText, ChevronDown, CornerUpLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { getSessions, getAgentSessions, sendWhatsAppMessage, sendSessionMessage, getWhatsAppTemplates, sendWhatsAppTemplate, getUserDetails, endSession, closeConversation, reopenConversation, unspamUser, getUsers, notifyAgentTyping, assignSessionToAgent, getLeadByPhone, getLeads } from '../../../services/api';
 import LeadDetailsModal from './LeadDetailsModal';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
@@ -110,6 +110,7 @@ export default function ConversationsPage() {
     const [reopenReason, setReopenReason] = useState('');
     const [isReopening, setIsReopening] = useState(false);
     const [isUnspamming, setIsUnspamming] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Fetch Users (Agents + Admins) for Resolution & Filtering
     useEffect(() => {
@@ -157,7 +158,7 @@ export default function ConversationsPage() {
         const fetchTemplates = async () => {
             try {
                 const response = await getWhatsAppTemplates();
-                const list = (response?.templates || response || []).filter(t => t.status === 'APPROVED');
+                const list = (response?.templates || response || []).filter(t => t.status === 'APPROVED' && t.name === 'welcome_template');
                 setTemplates(list);
             } catch (error) {
                 console.warn("Failed to fetch templates:", error);
@@ -165,6 +166,14 @@ export default function ConversationsPage() {
         };
         fetchTemplates();
     }, []);
+
+    // Reset reopen reason when modal opens
+    useEffect(() => {
+        if (showReopenModal) {
+            setReopenReason('');
+        }
+    }, [showReopenModal]);
+
     useEffect(() => {
         let isMounted = true;
         // Robust user ID retrieval matching fetchConversations logic
@@ -176,12 +185,10 @@ export default function ConversationsPage() {
 
         // Use environment variable for WebSocket URL
         const apiUrl = import.meta.env.VITE_DATA_API_URL || 'http://localhost:8000';
-        console.log("🔍 [DEBUG] Resolved WebSocket API URL:", apiUrl);
 
         const wsBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
         const wsUrl = `${wsBase}/ws/${clientId}`;
 
-        console.log("✅ [WS] Connecting to:", wsUrl);
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -192,7 +199,6 @@ export default function ConversationsPage() {
             try {
                 const rawData = event.data;
                 const data = JSON.parse(rawData);
-                console.log("📩 [WS] Received:", data);
 
                 // 1. Handle New Message
                 if (data.type === "new_message" && data.message) {
@@ -272,7 +278,6 @@ export default function ConversationsPage() {
 
                 // 3. Handle Assignment/Status Changes
                 if (["conversation_assigned", "conversation_released", "conversation_closed", "conversation_reopened", "user_unspammed"].includes(data.type)) {
-                    console.log(`📩 [WS] State Change detected: ${data.type}. Refreshing list silently.`);
                     fetchConversations(selectedConversation?.id, true);
                 }
 
@@ -363,7 +368,6 @@ export default function ConversationsPage() {
 
             if (idsToFetch.length === 0) return;
 
-            console.log("🔍 [Users] Fetching details for missing IDs:", idsToFetch);
 
             // 4. Fetch details for missing IDs
             const newUsers = await Promise.all(idsToFetch.map(async (id) => {
@@ -488,26 +492,78 @@ export default function ConversationsPage() {
                     displayName = '+' + displayName;
                 }
 
-                const lastMsg = session.conversation?.[session.conversation.length - 1];
-
                 const effectiveAgentId = session.assigned_agent_id;
                 const isClosed = session.status === 'closed' || session.status === 'resolved' || session.status === 'CLOSED' || session.status === 'RESOLVED';
-
-                // Reported Logic (Session native only)
                 const isReported = session.contact_info?.is_reported || false;
+                const reportReason = session.report_reason || session.contact_info?.report_reason || null;
+
+                const getPreviewText = (conversation) => {
+                    if (!conversation || !Array.isArray(conversation) || conversation.length === 0) return 'No messages';
+                    
+                    // Search backwards for the last message with content
+                    for (let i = conversation.length - 1; i >= 0; i--) {
+                        const msg = conversation[i];
+                        const text = msg?.text || msg?.bot || msg?.user || '';
+                        const trimmed = text.trim();
+                        if (!trimmed) continue;
+
+                        // 1. WhatsApp Template Sent [DESKTOP TEMPLATE SENT]
+                        if (/^\[.+TEMPLATE SENT\]$/i.test(trimmed)) {
+                            const name = trimmed.replace(/^\[/, '').replace(/\s*TEMPLATE SENT\]$/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+                        
+                        // 2. Template: name (variables)
+                        if (/^Template:\s+/i.test(trimmed)) {
+                            const templatePart = trimmed.replace(/^Template:\s+/i, '').trim();
+                            const parenIdx = templatePart.indexOf(' (');
+                            const templateName = parenIdx > -1 ? templatePart.substring(0, parenIdx) : templatePart;
+                            const name = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 3. [Template: name] - Optimistic UI
+                        if (/^\[Template:\s+.+\]$/i.test(trimmed)) {
+                            const templateName = trimmed.replace(/^\[Template:\s+/i, '').replace(/\]$/, '').trim();
+                            const name = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 4. [INTERACTIVE_FORM]
+                        if (trimmed.startsWith('[INTERACTIVE_FORM]')) {
+                            const match = trimmed.match(/Sent template:\s*([^\s|]+)/i);
+                            if (match && match[1]) {
+                                const name = match[1].replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return `Template: ${name}`;
+                            }
+                            const name = trimmed.replace(/\[INTERACTIVE_FORM\]/i, '').split('|')[0].trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        // 5. [TEMPLATE]
+                        if (trimmed.startsWith('[TEMPLATE]')) {
+                            const name = trimmed.replace(/\[TEMPLATE\]/i, '').replace(/Loop sent\.?/i, '').trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            return `Template: ${name}`;
+                        }
+
+                        return trimmed.substring(0, 50);
+                    }
+                    return 'No messages';
+                };
 
                 return {
                     id: session.id || index,
                     wa_id: session.whatsapp,
                     title: displayName,
-                    preview: lastMsg?.text?.substring(0, 50) || lastMsg?.user?.substring(0, 50) || 'No messages',
+                    preview: getPreviewText(session.conversation),
                     status: isClosed ? 'resolved' : (session.status !== 'active' ? session.status : 'active'),
                     time: formatTimeAgo(session.updated_at || session.created_at),
                     unread: false,
                     unreadCount: 0,
                     cost: totalCost.toFixed(2),
                     isReported,
-                    contact_info: session.contact_info || {}, // Preserve full contact info for agent notes
+                    reportReason,
+                    contact_info: session.contact_info || {}, 
                     assigned_agent_id: effectiveAgentId,
                     assigned_at: session.assigned_at,
                     closed_by: session.closed_by || null,
@@ -883,7 +939,7 @@ export default function ConversationsPage() {
     const handleApproveClick = (conv) => {
         setConversationToApprove(conv);
 
-        let message = `Are you sure you want to approve the conversation with ${conv.name}? This will assign the session to you.`;
+        let message = `Are you sure you want to approve the conversation with ${conv.title || conv.name || 'this user'}? This will assign the session to you.`;
 
         // Zero Trust: Always show default approval message
 
@@ -1041,7 +1097,7 @@ export default function ConversationsPage() {
     };
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden h-full max-h-[calc(100vh-64px)] min-h-0">
+        <div className={`flex-1 flex flex-col overflow-hidden h-full max-h-[calc(100vh-64px)] min-h-0 ${isExpanded ? 'fixed inset-0 z-[100] max-h-screen bg-gray-50' : ''}`}>
             {/* Page Header */}
             <div className={`p-4 bg-white border-b border-gray-100 flex-shrink-0 ${selectedConversation ? 'hidden lg:block' : 'block'}`}>
                 <div className="flex justify-between items-center mb-4">
@@ -1364,13 +1420,15 @@ export default function ConversationsPage() {
                                     <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
                                         {/* Close / Reopen Button */}
                                         {(selectedConversation.approvalStatus === 'closed' || selectedConversation.status === 'resolved') ? (
-                                            <button
-                                                onClick={() => setShowReopenModal(true)}
-                                                className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-                                            >
-                                                <CornerUpLeft size={14} />
-                                                Reopen
-                                            </button>
+                                            !(selectedConversation.isReported || selectedConversation.contact_info?.is_reported) && (
+                                                <button
+                                                    onClick={() => setShowReopenModal(true)}
+                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                                                >
+                                                    <CornerUpLeft size={14} />
+                                                    Reopen
+                                                </button>
+                                            )
                                         ) : selectedConversation.approvalStatus !== 'pending' && (
                                             <button
                                                 onClick={() => setShowCloseChatModal(true)}
@@ -1405,6 +1463,15 @@ export default function ConversationsPage() {
                                         <div className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
                                             <span className="text-sm font-bold leading-none">₹{selectedConversation.cost}</span>
                                         </div>
+
+                                        {/* Expand Toggle Button */}
+                                        <button
+                                            onClick={() => setIsExpanded(!isExpanded)}
+                                            className="hidden lg:flex p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                                            title={isExpanded ? "Exit Full Screen" : "Full Screen"}
+                                        >
+                                            {isExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1843,6 +1910,8 @@ export default function ConversationsPage() {
                 onClose={() => setShowNotesModal(false)}
                 notes={selectedConversation?.contact_info?.agent_notes || []}
                 users={allUsers}
+                isReported={selectedConversation?.isReported || selectedConversation?.contact_info?.is_reported}
+                reportReason={selectedConversation?.reportReason || selectedConversation?.contact_info?.report_reason}
             />
 
             {/* Assign Chat Confirmation */}
@@ -1867,6 +1936,19 @@ export default function ConversationsPage() {
     // Helper to safely parse and format JSON-like strings
     function renderMessageContent(text) {
         if (!text) return '';
+
+        // Error rendering
+        if (typeof text === 'string' && text.includes('Failed to send template')) {
+            return (
+                <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 shadow-sm">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] uppercase tracking-wider font-bold opacity-70">Message Error</span>
+                        <span className="text-xs font-medium leading-relaxed">{text}</span>
+                    </div>
+                </div>
+            );
+        }
 
         // Check if it's a template sent message: [DESKTOP TEMPLATE SENT] or [DYNAMIC_FORM_INFO TEMPLATE SENT]
         if (typeof text === 'string' && /^\[.+TEMPLATE SENT\]$/i.test(text.trim())) {
@@ -1897,22 +1979,46 @@ export default function ConversationsPage() {
             // Split at optional parentheses for variables
             const parenIdx = templatePart.indexOf(' (');
             const templateName = parenIdx > -1 ? templatePart.substring(0, parenIdx) : templatePart;
+            const variablesPart = parenIdx > -1 ? templatePart.substring(parenIdx + 1, templatePart.length - 1) : null;
+
             const displayName = templateName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+            let variables = null;
+            if (variablesPart) {
+                try {
+                    variables = JSON.parse(variablesPart);
+                } catch (e) {
+                    console.warn("Failed to parse template variables:", e);
+                }
+            }
+
             return (
-                <div className="flex items-center gap-2.5 py-1">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-300">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
+                <div className="flex flex-col gap-2 py-1">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] opacity-70 uppercase tracking-wider font-semibold">WhatsApp Template</span>
+                            <span className="text-sm font-bold">{displayName}</span>
+                        </div>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] opacity-70 uppercase tracking-wider font-semibold">WhatsApp Template</span>
-                        <span className="text-sm font-bold">{displayName}</span>
-                    </div>
+                    {variables && (
+                        <div className="mt-1 px-3 py-2 bg-black/10 rounded-lg space-y-1.5">
+                            {Object.entries(variables).map(([k, v]) => (
+                                <div key={k} className="flex flex-col">
+                                    <span className="text-[9px] opacity-60 uppercase tracking-wide font-bold">{k.replace(/_/g, ' ')}</span>
+                                    <span className="text-xs font-semibold">{String(v)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             );
         }

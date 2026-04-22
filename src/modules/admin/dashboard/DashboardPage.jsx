@@ -39,6 +39,7 @@ export default function DashboardPage() {
             </div>
         );
     }
+    
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-gray-50/30">

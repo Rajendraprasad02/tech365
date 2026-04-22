@@ -5,7 +5,6 @@ import { selectPermissions } from '@/store/slices/authSlice';
 export default function SmartRedirect() {
     const permissions = useSelector(selectPermissions);
 
-    console.log('[SmartRedirect] Permissions:', permissions);
     // Order of preference for default landing
     // 1. Absolute Priority: Dashboard
     if (permissions['dashboard']?.view) {

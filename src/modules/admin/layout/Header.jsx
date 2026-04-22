@@ -71,7 +71,6 @@ export default function Header() {
             const wsBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
             const wsUrl = `${wsBase}/ws/${clientId}`;
 
-            console.log("🔗 [Header WS] Connecting to:", wsUrl);
             wsInstance = new WebSocket(wsUrl);
 
             wsInstance.onmessage = (event) => {
@@ -80,7 +79,6 @@ export default function Header() {
                     const data = JSON.parse(event.data);
                     if (data.type === 'notification' && data.notification) {
                         const newNotif = data.notification;
-                        console.log("🔔 [Header WS] New Notification:", newNotif);
 
                         setNotifications(prev => [newNotif, ...prev].slice(0, 100));
                         setUnreadCount(prev => prev + 1);
@@ -101,7 +99,6 @@ export default function Header() {
                 if (!isMounted) return;
                 // Only log if it's not a normal cleanup (1000/1001) or component unmount
                 if (e.code !== 1000 && e.code !== 1001) {
-                    console.log(`📡 [Header WS] Disconnected (${e.code}). Retrying in 5s...`);
                     reconnectTimeout = setTimeout(setupWebSocket, 5000);
                 }
             };
